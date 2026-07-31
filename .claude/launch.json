@@ -1,0 +1,65 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "oddshot-frontend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "OddShot/frontend", "run", "start", "--", "--port", "4300"],
+      "port": 4300
+    },
+    {
+      "name": "nascor-backend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "Nascor/backend", "run", "start:dev"],
+      "port": 3000
+    },
+    {
+      "name": "nascor-web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "Nascor/web", "run", "dev"],
+      "port": 5173
+    },
+    {
+      "name": "supplenze-backend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "Supplenze/backend", "run", "start:dev"],
+      "port": 3001
+    },
+    {
+      "name": "supplenze-web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "Supplenze/web", "run", "dev", "--", "--port", "5174"],
+      "port": 5174
+    },
+    {
+      "name": "svuota-telefono",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["SvuotaTelefono/server.py"],
+      "port": 8770
+    },
+    {
+      "name": "ftpa-dashboard",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "8877", "--directory", "FTPA-Analisi/webapp"],
+      "port": 8877
+    },
+    {
+      "name": "concorso-backend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "ConcorsoDocenti/backend", "run", "start:dev"],
+      "port": 3002
+    },
+    {
+      "name": "concorso-web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "ConcorsoDocenti/web", "run", "dev", "--", "--port", "5175"],
+      "port": 5175
+    },
+    {
+      "name": "usa-trip-2026",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "usa-trip-2026", "run", "dev", "--", "--port", "3010"],
+      "port": 3010
+    }
+  ]
+}

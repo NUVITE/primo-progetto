@@ -1,0 +1,18 @@
+services:
+  usa-trip-2026:
+    build: .
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: "file:./data/dev.db"
+      SESSION_SECRET: "${SESSION_SECRET}"
+      FAMILY_SHARED_PASSWORD: "${FAMILY_SHARED_PASSWORD}"
+      NODE_ENV: "production"
+    volumes:
+      - usa2026_data:/app/data
+      - usa2026_uploads:/app/private-uploads
+    ports:
+      - "3010:3000"
+
+volumes:
+  usa2026_data:
+  usa2026_uploads:

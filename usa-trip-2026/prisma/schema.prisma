@@ -1,0 +1,130 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// Una famiglia = un account condiviso (nome maiuscolo + password comune a tutte le famiglie)
+model Family {
+  id           String   @id @default(cuid())
+  code         String   @unique // es. "SERINO", "GIANNELLA", "DICUONZO", "CAFAGNA"
+  displayName  String // es. "Famiglia Serino"
+  passwordHash String
+  createdAt    DateTime @default(now())
+
+  documents Document[]
+}
+
+// Un giorno di viaggio, comune a tutte le famiglie
+model TripDay {
+  id        String   @id @default(cuid())
+  date      DateTime // solo la data, es. 2026-08-09
+  dayNumber Int      @unique // 1..15
+  title     String // es. "Bari > Monaco > Los Angeles"
+  location  String // es. "Los Angeles"
+  hotelName String?
+  hotelInfo String? // indirizzo/telefono/note hotel
+  wakeInfo  String? // es. "Sveglia 03:30, colazione a bordo"
+  luggageNote String? // es. "Valigie pronte, si parte per Las Vegas"
+  dressCode String? // "come vestirsi oggi"
+  summary   String? // testo introduttivo del giorno
+
+  activities Activity[]
+  meals      MealSuggestion[]
+
+  @@index([dayNumber])
+}
+
+// Una singola attività/tappa all'interno di un giorno
+model Activity {
+  id          String   @id @default(cuid())
+  tripDayId   String
+  tripDay     TripDay  @relation(fields: [tripDayId], references: [id], onDelete: Cascade)
+  order       Int // ordine di visualizzazione nel giorno
+  time        String? // es. "19:30" oppure "13:30 -->" oppure "da definire"
+  title       String
+  address     String? // per il link Google Maps
+  mapsQuery   String? // query da usare nel link maps (se diversa da address)
+  zone        String? // "midtown" | "lower" | "uptown" | "brooklyn" | ecc (solo NY)
+  transportMode String? // "piedi" | "metro" | "uber" | "incluso" | "a piedi/uber" ecc
+  cost        String? // "incluso" | "free" | "citypass" | "$"
+  notes       String?
+  requiresDocument String? // testo libero, es. "Voucher MoMA (QR)"
+  updatedByFamily String? // ultima famiglia che ha modificato orario/note durante il viaggio
+  updatedAt   DateTime @updatedAt
+
+  @@index([tripDayId])
+}
+
+model MealSuggestion {
+  id        String  @id @default(cuid())
+  tripDayId String
+  tripDay   TripDay @relation(fields: [tripDayId], references: [id], onDelete: Cascade)
+  name      String
+  address   String?
+  priceTier String? // "$" | "$$" | "$$$"
+  note      String?
+
+  @@index([tripDayId])
+}
+
+// Documenti: comuni (familyCode = null) o personali di una famiglia
+model Document {
+  id         String   @id @default(cuid())
+  familyId   String?
+  family     Family?  @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  title      String
+  category   String // "volo" | "hotel" | "assicurazione" | "biglietto" | "transfer" | "altro"
+  filePath   String // percorso relativo dentro la cartella privata uploads/
+  tripDayNumber Int? // giorno di riferimento, se applicabile
+  note       String?
+  createdAt  DateTime @default(now())
+
+  @@index([familyId])
+}
+
+model Medication {
+  id       String  @id @default(cuid())
+  name     String
+  reason   String // perché la porta la famiglia (es. "asma", "cervicale")
+  phraseEn String // frase pronta in inglese per spiegarlo
+  notes    String?
+}
+
+model CustomsPhrase {
+  id        String @id @default(cuid())
+  category  String // "motivo del viaggio" | "farmaci" | "cibo" | "durata soggiorno" | "quanti siete"
+  italian   String
+  english   String
+  order     Int    @default(0)
+}
+
+// Un unico record globale con le informazioni di emergenza
+model EmergencyInfo {
+  id                 String @id @default(cuid())
+  insuranceProvider  String
+  policyNumber       String
+  insurancePhone     String
+  agencyPhone24h     String
+  agencyEmail        String
+  teamAmericaNyPhone String?
+  lostDocumentSteps  String // testo con i passi da seguire
+  lostBaggageSteps   String
+  medicalEmergencySteps String
+}
+
+model OptionalExcursion {
+  id          String @id @default(cuid())
+  day         String // es. "Mar 11 ago"
+  title       String
+  price       String
+  description String?
+  recommendation String?
+  order       Int    @default(0)
+}

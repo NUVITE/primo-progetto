@@ -1,0 +1,12 @@
+node_modules
+.next
+.git
+.claude
+.agents
+.windsurf
+dev.db
+dev.db-journal
+private-uploads
+.env
+.env.local
+npm-debug.log*
