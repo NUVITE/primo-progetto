@@ -15,7 +15,9 @@ export async function login(
   formData: FormData
 ): Promise<LoginState> {
   const familyCode = String(formData.get("familyCode") ?? "").trim().toUpperCase();
-  const password = String(formData.get("password") ?? "");
+  // Spazi iniziali o finali capitano spesso incollando la password o con la
+  // tastiera del telefono: non devono impedire l'accesso.
+  const password = String(formData.get("password") ?? "").trim();
 
   if (!(FAMILY_CODES as readonly string[]).includes(familyCode)) {
     return { error: "Scegli una delle famiglie in elenco." };

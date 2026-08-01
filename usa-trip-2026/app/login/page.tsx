@@ -1,7 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
-import { Plane, TriangleAlert } from "lucide-react";
+import { useActionState, useState } from "react";
+import { Eye, EyeOff, Plane, TriangleAlert } from "lucide-react";
 import { login, type LoginState } from "@/app/actions/auth";
 import { FAMILY_CODES } from "@/lib/families";
 
@@ -9,6 +9,7 @@ const initialState: LoginState = {};
 
 export default function LoginPage() {
   const [state, formAction, pending] = useActionState(login, initialState);
+  const [mostraPassword, setMostraPassword] = useState(false);
 
   return (
     <main className="flex flex-1 items-center justify-center px-5 py-12">
@@ -61,14 +62,36 @@ export default function LoginPage() {
             <label htmlFor="password" className="mb-1.5 block text-[14px] font-bold text-ink-900">
               Password
             </label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              required
-              autoComplete="current-password"
-              className="w-full rounded-xl border-2 border-sand-200 px-3.5 py-3 text-ink-900 focus:border-brand-600 focus:outline-none"
-            />
+            <div className="relative">
+              <input
+                id="password"
+                name="password"
+                type={mostraPassword ? "text" : "password"}
+                required
+                autoComplete="current-password"
+                // Sulle tastiere dei telefoni la maiuscola e la correzione
+                // automatica sono la causa piu' comune di "password errata".
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                className="w-full rounded-xl border-2 border-sand-200 py-3 pl-3.5 pr-12 text-ink-900 focus:border-brand-600 focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => setMostraPassword((v) => !v)}
+                aria-label={mostraPassword ? "Nascondi la password" : "Mostra la password"}
+                className="absolute inset-y-0 right-0 flex w-12 items-center justify-center text-ink-400"
+              >
+                {mostraPassword ? (
+                  <EyeOff size={19} strokeWidth={2.2} />
+                ) : (
+                  <Eye size={19} strokeWidth={2.2} />
+                )}
+              </button>
+            </div>
+            <p className="mt-1.5 text-[13px] text-ink-400">
+              Toccate l&apos;occhio per controllare quello che avete scritto.
+            </p>
           </div>
 
           {state?.error && (
