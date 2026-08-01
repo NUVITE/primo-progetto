@@ -1,39 +1,51 @@
 "use client";
 
-import { useState } from "react";
-import { NYC_DAYS, ZONES, type ZoneId } from "@/lib/nyc";
+import { useEffect, useMemo, useState } from "react";
+import { MapContainer, Marker, Polyline, Popup, TileLayer, useMap } from "react-leaflet";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
+import { NYC_DAYS, type NycDay } from "@/lib/nyc";
 
-const NEUTRAL = "#e5ddd2";
+/** Pallino numerato nel colore della giornata, come i percorsi disegnati a mano. */
+function numberedIcon(n: number, color: string) {
+  return L.divIcon({
+    className: "",
+    html: `<div style="
+      background:${color};
+      width:26px;height:26px;border-radius:50%;
+      display:flex;align-items:center;justify-content:center;
+      color:#fff;font-weight:800;font-size:13px;
+      border:2.5px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);
+      font-family:system-ui,sans-serif;
+    ">${n}</div>`,
+    iconSize: [26, 26],
+    iconAnchor: [13, 13],
+    popupAnchor: [0, -14],
+  });
+}
 
-/** Punti di riferimento disegnati sulla mappa, per orientarsi a colpo d'occhio. */
-const LANDMARKS: { x: number; y: number; label: string; zone: ZoneId; anchor?: "start" | "end" }[] =
-  [
-    { x: 152, y: 272, label: "IL VOSTRO HOTEL", zone: "midtown" },
-    { x: 158, y: 300, label: "Empire State", zone: "midtown" },
-    { x: 133, y: 245, label: "Hudson Yards", zone: "midtown", anchor: "end" },
-    { x: 139, y: 196, label: "Natural History", zone: "uptown", anchor: "end" },
-    { x: 186, y: 212, label: "MET", zone: "uptown" },
-    { x: 168, y: 432, label: "9/11 e Oculus", zone: "lower" },
-    { x: 158, y: 462, label: "Wall Street", zone: "lower" },
-    { x: 128, y: 486, label: "Battello Statua", zone: "lower", anchor: "end" },
-    { x: 262, y: 408, label: "Dumbo", zone: "brooklyn" },
-    { x: 288, y: 448, label: "Brooklyn Heights", zone: "brooklyn" },
-    { x: 268, y: 292, label: "Gantry Plaza", zone: "queens" },
-    { x: 258, y: 246, label: "Roosevelt Isl.", zone: "queens" },
-  ];
+/** Riporta la vista sulle tappe del giorno scelto ogni volta che cambia. */
+function FitToDay({ day }: { day: NycDay }) {
+  const map = useMap();
+  useEffect(() => {
+    const bounds = L.latLngBounds(day.stops.map((s) => [s.lat, s.lng] as [number, number]));
+    map.fitBounds(bounds, { padding: [45, 45], maxZoom: 15 });
+  }, [day, map]);
+  return null;
+}
 
 export function NycMap() {
-  const [selected, setSelected] = useState<number>(NYC_DAYS[0].dayNumber);
-  const day = NYC_DAYS.find((d) => d.dayNumber === selected)!;
-  const active = new Set<ZoneId>(day.zones);
+  const [selected, setSelected] = useState(NYC_DAYS[0].dayNumber);
+  const day = useMemo(
+    () => NYC_DAYS.find((d) => d.dayNumber === selected) ?? NYC_DAYS[0],
+    [selected]
+  );
 
-  const fill = (zone: ZoneId) => (active.has(zone) ? day.colorSoft : NEUTRAL);
-  const stroke = (zone: ZoneId) => (active.has(zone) ? day.color : "#d3c8b8");
-  const labelColor = (zone: ZoneId) => (active.has(zone) ? day.color : "#8a8178");
+  const percorso = day.stops.map((s) => [s.lat, s.lng] as [number, number]);
 
   return (
     <div className="space-y-3">
-      {/* Selettore del giorno: ogni giorno ha il suo colore, come sulla mappa dell'agenzia */}
+      {/* Selettore del giorno: ogni giorno ha il suo colore */}
       <div className="flex gap-2 overflow-x-auto pb-1">
         {NYC_DAYS.map((d) => {
           const on = d.dayNumber === selected;
@@ -58,160 +70,82 @@ export function NycMap() {
         })}
       </div>
 
-      {/* Cosa si fa nella giornata selezionata */}
-      <div
-        className="rounded-2xl px-4 py-3.5 ring-1"
-        style={{ backgroundColor: day.colorSoft, borderColor: day.color, ["--tw-ring-color" as string]: day.color }}
-      >
+      <div className="rounded-2xl px-4 py-3.5" style={{ backgroundColor: day.colorSoft }}>
         <p className="text-[16px] font-extrabold" style={{ color: day.color }}>
           {day.label}
         </p>
         <p className="mt-1 text-[14px] leading-snug text-ink-600">{day.base}</p>
-        <p className="mt-2 flex flex-wrap gap-1.5">
-          {day.zones.map((z) => (
-            <span
-              key={z}
-              className="rounded-full bg-white/70 px-2.5 py-1 text-[12px] font-bold"
-              style={{ color: day.color }}
-            >
-              {ZONES[z].label}
-            </span>
-          ))}
-        </p>
       </div>
 
-      {/* La mappa schematica */}
-      <div className="overflow-hidden rounded-2xl bg-white p-2 shadow-sm ring-1 ring-sand-200">
-        <svg
-          viewBox="0 0 400 560"
-          className="h-auto w-full"
-          role="img"
-          aria-label={`Mappa schematica di New York con evidenziate le zone del ${day.date}: ${day.zones
-            .map((z) => ZONES[z].label)
-            .join(", ")}`}
+      <div className="overflow-hidden rounded-2xl shadow-sm ring-1 ring-sand-200">
+        <MapContainer
+          center={[40.7596, -73.9877]}
+          zoom={13}
+          scrollWheelZoom={false}
+          style={{ height: "60vh", minHeight: 380, width: "100%" }}
         >
-          {/* acqua */}
-          <rect x="0" y="0" width="400" height="560" fill="#eaf2f7" />
-
-          {/* Queens */}
-          <path
-            d="M248 175 L400 168 L400 372 L250 366 Z"
-            fill={fill("queens")}
-            stroke={stroke("queens")}
-            strokeWidth="2"
+          <TileLayer
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+            url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+            maxZoom={19}
           />
-          {/* Brooklyn */}
-          <path
-            d="M238 384 L400 390 L400 552 L232 548 Z"
-            fill={fill("brooklyn")}
-            stroke={stroke("brooklyn")}
-            strokeWidth="2"
+          <FitToDay day={day} />
+
+          <Polyline
+            positions={percorso}
+            pathOptions={{ color: day.color, weight: 4, opacity: 0.75, dashArray: "1 8", lineCap: "round" }}
           />
 
-          {/* Manhattan: Uptown */}
-          <path
-            d="M125 50 L185 50 L215 200 L100 200 Z"
-            fill={fill("uptown")}
-            stroke={stroke("uptown")}
-            strokeWidth="2"
-          />
-          {/* Manhattan: Midtown */}
-          <path
-            d="M100 200 L215 200 L228 330 L105 330 Z"
-            fill={fill("midtown")}
-            stroke={stroke("midtown")}
-            strokeWidth="2"
-          />
-          {/* Manhattan: Lower */}
-          <path
-            d="M105 330 L228 330 L195 485 L150 485 Z"
-            fill={fill("lower")}
-            stroke={stroke("lower")}
-            strokeWidth="2"
-          />
-
-          {/* Central Park */}
-          <rect
-            x="142"
-            y="186"
-            width="42"
-            height="66"
-            rx="4"
-            fill="#bcd9b8"
-            stroke="#8fb389"
-            strokeWidth="1.5"
-          />
-          <text x="163" y="222" textAnchor="middle" fontSize="8.5" fontWeight="700" fill="#3f5c3b">
-            CENTRAL
-          </text>
-          <text x="163" y="232" textAnchor="middle" fontSize="8.5" fontWeight="700" fill="#3f5c3b">
-            PARK
-          </text>
-
-          {/* Ponti */}
-          <line x1="215" y1="418" x2="240" y2="410" stroke="#a8a096" strokeWidth="3" />
-          <line x1="212" y1="398" x2="238" y2="392" stroke="#a8a096" strokeWidth="3" />
-          <line x1="222" y1="268" x2="250" y2="262" stroke="#a8a096" strokeWidth="3" />
-
-          {/* Nomi delle zone */}
-          <text x="157" y="118" textAnchor="middle" fontSize="13" fontWeight="800" fill={labelColor("uptown")}>
-            UPTOWN
-          </text>
-          <text x="150" y="345" textAnchor="middle" fontSize="13" fontWeight="800" fill={labelColor("midtown")}>
-            MIDTOWN
-          </text>
-          <text x="172" y="392" textAnchor="middle" fontSize="13" fontWeight="800" fill={labelColor("lower")}>
-            DOWNTOWN
-          </text>
-          <text x="325" y="270" textAnchor="middle" fontSize="13" fontWeight="800" fill={labelColor("queens")}>
-            QUEENS
-          </text>
-          <text x="320" y="470" textAnchor="middle" fontSize="13" fontWeight="800" fill={labelColor("brooklyn")}>
-            BROOKLYN
-          </text>
-
-          {/* Fiumi */}
-          <text x="62" y="300" fontSize="9.5" fontWeight="600" fill="#7fa3b8" transform="rotate(-90 62 300)">
-            HUDSON RIVER
-          </text>
-          <text x="238" y="150" fontSize="9.5" fontWeight="600" fill="#7fa3b8" transform="rotate(-90 238 150)">
-            EAST RIVER
-          </text>
-
-          {/* Punti di riferimento */}
-          {LANDMARKS.map((lm) => {
-            const on = active.has(lm.zone);
-            const isHotel = lm.label === "IL VOSTRO HOTEL";
-            return (
-              <g key={lm.label} opacity={on || isHotel ? 1 : 0.35}>
-                <circle
-                  cx={lm.x}
-                  cy={lm.y}
-                  r={isHotel ? 5 : 3.2}
-                  fill={isHotel ? "#123b57" : on ? day.color : "#8a8178"}
-                  stroke="#fff"
-                  strokeWidth={isHotel ? 2 : 1.2}
-                />
-                <text
-                  x={lm.anchor === "end" ? lm.x - 7 : lm.x + 7}
-                  y={lm.y + 3.5}
-                  textAnchor={lm.anchor === "end" ? "end" : "start"}
-                  fontSize={isHotel ? "9.5" : "9"}
-                  fontWeight={isHotel ? "800" : "600"}
-                  fill={isHotel ? "#123b57" : "#4d453e"}
+          {day.stops.map((s, i) => (
+            <Marker key={`${s.name}-${i}`} position={[s.lat, s.lng]} icon={numberedIcon(i + 1, day.color)}>
+              <Popup>
+                <span className="block text-[14px] font-extrabold text-ink-900">{s.name}</span>
+                {s.time && (
+                  <span className="block text-[13px] font-bold" style={{ color: day.color }}>
+                    {s.time}
+                  </span>
+                )}
+                {s.note && <span className="block text-[13px] text-ink-500">{s.note}</span>}
+                <a
+                  href={`https://www.google.com/maps/search/?api=1&query=${s.lat},${s.lng}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-1 block text-[13px] font-bold text-brand-700"
                 >
-                  {lm.label}
-                </text>
-              </g>
-            );
-          })}
-        </svg>
+                  Indicazioni su Google Maps →
+                </a>
+              </Popup>
+            </Marker>
+          ))}
+        </MapContainer>
       </div>
+
+      {/* Elenco ordinato delle tappe: si legge anche senza toccare la mappa */}
+      <ol className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-sand-200">
+        {day.stops.map((s, i) => (
+          <li key={`${s.name}-lista-${i}`} className="flex gap-3 border-b border-sand-100 p-3.5 last:border-0">
+            <span
+              className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[12px] font-extrabold text-white"
+              style={{ backgroundColor: day.color }}
+            >
+              {i + 1}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[15px] font-bold leading-snug text-ink-900">{s.name}</span>
+              {s.note && <span className="block text-[13px] leading-snug text-ink-500">{s.note}</span>}
+            </span>
+            {s.time && (
+              <span className="shrink-0 text-[13px] font-extrabold tabular-nums" style={{ color: day.color }}>
+                {s.time}
+              </span>
+            )}
+          </li>
+        ))}
+      </ol>
 
       <p className="px-1 text-[13px] leading-snug text-ink-400">
-        Mappa schematica: le distanze non sono in scala, serve solo a capire in che parte della
-        città vi muovete ogni giorno. Per il percorso reale usate i link a Google Maps
-        nell&apos;itinerario.
+        Aprite questa pagina <strong>mentre siete sotto il wi-fi dell&apos;hotel</strong>: la mappa
+        resta salvata sul telefono e il giorno dopo non consuma dati.
       </p>
     </div>
   );

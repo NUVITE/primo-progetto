@@ -1,5 +1,5 @@
 import { Compass, CreditCard, Footprints, Navigation, ShieldCheck, TrainFront } from "lucide-react";
-import { NycMap } from "@/components/NycMap";
+import { NycMapClient } from "@/components/NycMapClient";
 
 function Card({
   title,
@@ -32,7 +32,7 @@ export default function NewYorkPage() {
         </p>
       </div>
 
-      <NycMap />
+      <NycMapClient />
 
       <Card title="Come si leggono gli indirizzi" Icon={Compass}>
         <p>

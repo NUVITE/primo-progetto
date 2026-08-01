@@ -13,7 +13,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { googleMapsUrl, formatItalianDate } from "@/lib/trip";
-import { parseZone, ZONES, nycDay } from "@/lib/nyc";
+import { nycDay } from "@/lib/nyc";
 import { EditActivityForm } from "@/components/EditActivityForm";
 import type { Activity, MealSuggestion, TripDay } from "@/app/generated/prisma/client";
 
@@ -138,7 +138,6 @@ export function DayView({ day, editable = false }: { day: FullDay; editable?: bo
               aria-hidden="true"
             />
             {day.activities.map((a) => {
-              const zone = parseZone(a.zone);
               const TransportIcon = a.transportMode ? transportIcon(a.transportMode) : null;
               return (
                 <li key={a.id} className="relative pl-6 pb-6 last:pb-0">
@@ -155,11 +154,11 @@ export function DayView({ day, editable = false }: { day: FullDay; editable?: bo
                     {a.title}
                   </p>
 
-                  {(zone || TransportIcon || a.cost) && (
+                  {(a.zone || TransportIcon || a.cost) && (
                     <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                      {zone && (
-                        <span className="rounded-full bg-sand-100 px-2.5 py-1 text-[12px] font-bold text-ink-600">
-                          {ZONES[zone].label}
+                      {a.zone && (
+                        <span className="rounded-full bg-sand-100 px-2.5 py-1 text-[12px] font-bold capitalize text-ink-600">
+                          {a.zone}
                         </span>
                       )}
                       {TransportIcon && a.transportMode && (
