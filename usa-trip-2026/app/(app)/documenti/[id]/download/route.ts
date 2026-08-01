@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
-import { readFile } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { prisma } from "@/lib/db";
 import { getCurrentFamily } from "@/lib/dal";
 
-const PRIVATE_UPLOADS_ROOT = path.join(process.cwd(), "private-uploads");
+// In produzione i documenti stanno fuori dalla cartella dell'app, cosi' non
+// vengono persi quando si ridistribuisce una nuova versione.
+const PRIVATE_UPLOADS_ROOT = path.resolve(
+  process.env.PRIVATE_UPLOADS_DIR ?? path.join(process.cwd(), "private-uploads")
+);
 
 function contentTypeFor(filePath: string) {
   if (filePath.endsWith(".pdf")) return "application/pdf";
@@ -13,7 +17,7 @@ function contentTypeFor(filePath: string) {
   return "application/octet-stream";
 }
 
-export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const family = await getCurrentFamily();
 
@@ -22,7 +26,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     return new NextResponse("Documento non trovato", { status: 404 });
   }
 
-  // Un documento comune (familyId null) è visibile a tutti; uno personale solo alla propria famiglia.
+  // Un documento comune (familyId null) e' visibile a tutti; uno personale solo
+  // alla propria famiglia.
   if (doc.familyId !== null && doc.familyId !== family.id) {
     return new NextResponse("Non autorizzato", { status: 403 });
   }
@@ -33,9 +38,27 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   }
 
   try {
+    const info = await stat(resolvedPath);
+    const etag = `"${info.size}-${Math.floor(info.mtimeMs)}"`;
+
+    // Con i dati limitati negli USA un PDF non va riscaricato ogni volta, ma
+    // "no-cache" impone comunque di ripassare da qui: cosi' il controllo di
+    // autorizzazione viene sempre eseguito, anche su un telefono condiviso dove
+    // prima ha fatto accesso un'altra famiglia. Se il file non e' cambiato
+    // rispondiamo 304, senza rimandare i megabyte.
+    const cacheHeaders = {
+      "Cache-Control": "private, no-cache, must-revalidate",
+      ETag: etag,
+    };
+
+    if (request.headers.get("if-none-match") === etag) {
+      return new NextResponse(null, { status: 304, headers: cacheHeaders });
+    }
+
     const file = await readFile(resolvedPath);
     return new NextResponse(new Uint8Array(file), {
       headers: {
+        ...cacheHeaders,
         "Content-Type": contentTypeFor(resolvedPath),
         "Content-Disposition": `inline; filename="${encodeURIComponent(doc.title)}"`,
       },

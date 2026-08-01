@@ -1,75 +1,120 @@
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+import {
+  ArrowLeftRight,
+  LifeBuoy,
+  MapPin,
+  Pencil,
+  Share,
+  Smartphone,
+  WifiOff,
+} from "lucide-react";
+
+function Card({
+  title,
+  Icon,
+  children,
+}: {
+  title: string;
+  Icon: React.ElementType;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 p-4">
-      <p className="font-semibold text-slate-900 mb-2">{title}</p>
-      <div className="text-sm text-slate-700 space-y-2">{children}</div>
-    </div>
+    <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-sand-200">
+      <h2 className="flex items-center gap-2 text-[17px] font-extrabold text-ink-900">
+        <Icon size={19} strokeWidth={2.2} className="text-brand-600" />
+        {title}
+      </h2>
+      <div className="mt-3 space-y-2.5 text-[15px] leading-relaxed text-ink-600">{children}</div>
+    </section>
   );
 }
 
 export default function GuidaPage() {
   return (
-    <div className="p-4 space-y-4">
-      <div className="bg-sky-50 border border-sky-100 rounded-2xl p-4 text-sm text-sky-900">
-        Questa pagina spiega come usare l&apos;app. Tenetela a mente per i primi giorni di viaggio.
+    <div className="space-y-4 p-4">
+      <div className="rounded-2xl bg-brand-800 px-5 py-4 text-white shadow-sm">
+        <h1 className="text-[20px] font-extrabold leading-tight">Come si usa l&apos;app</h1>
+        <p className="mt-1.5 text-[14px] leading-snug text-brand-100">
+          Cinque minuti di lettura adesso, e durante il viaggio non dovrete più pensarci.
+        </p>
       </div>
 
-      <Section title="📲 Installare l'app sul telefono">
+      <Card title="Installarla sul telefono" Icon={Smartphone}>
         <p>
-          <strong>iPhone (Safari):</strong> aprite il sito, toccate l&apos;icona di condivisione (il quadrato con
-          la freccia in su) e scegliete &quot;Aggiungi alla schermata Home&quot;.
+          <strong className="text-ink-900">iPhone (Safari):</strong> aprite il sito, toccate
+          l&apos;icona di condivisione <Share size={15} className="inline" strokeWidth={2.4} /> in
+          basso, poi &ldquo;Aggiungi alla schermata Home&rdquo;.
         </p>
         <p>
-          <strong>Android (Chrome):</strong> aprite il sito, toccate i tre puntini in alto a destra e scegliete
-          &quot;Aggiungi a schermata Home&quot; o &quot;Installa app&quot;.
+          <strong className="text-ink-900">Android (Chrome):</strong> aprite il sito, toccate i tre
+          puntini in alto a destra, poi &ldquo;Installa app&rdquo; o &ldquo;Aggiungi a schermata
+          Home&rdquo;.
         </p>
-        <p>Da quel momento avrete un&apos;icona come qualsiasi altra app, senza dover ricordare l&apos;indirizzo.</p>
-      </Section>
+        <p className="rounded-xl bg-sand-100 px-3.5 py-3 text-[14px]">
+          Da quel momento avrete un&apos;icona come qualsiasi altra app: niente indirizzi da
+          ricordare, niente browser da aprire.
+        </p>
+      </Card>
 
-      <Section title="🏠 Come è organizzata l'app">
+      <Card title="Muoversi tra i giorni" Icon={ArrowLeftRight}>
         <p>
-          <strong>Oggi</strong> — la prima schermata: cosa fare oggi e un&apos;anteprima di domani, utile la
-          sera per preparare vestiti e documenti.
+          La schermata <strong className="text-ink-900">Oggi</strong> si apre sempre sulla giornata
+          in corso. Con le <strong className="text-ink-900">frecce</strong> ai lati della data
+          potete scorrere avanti e indietro tutti i 15 giorni, quando volete.
         </p>
-        <p><strong>Itinerario</strong> — tutti i 15 giorni, sempre consultabili avanti e indietro.</p>
-        <p><strong>Documenti</strong> — voucher, biglietti e assicurazione: quelli comuni a tutti e quelli della vostra famiglia.</p>
-        <p><strong>Dogana</strong> — frasi pronte in inglese per i controlli e l&apos;elenco farmaci.</p>
-        <p><strong>Emergenze</strong> — numeri utili e cosa fare in caso di problemi medici, documenti o bagagli smarriti.</p>
-        <p><strong>Extra</strong> — le escursioni facoltative del tour Ovest, con prezzi.</p>
-      </Section>
-
-      <Section title="📍 I link a Google Maps">
         <p>
-          Ogni tappa con un indirizzo ha un link &quot;Apri in Google Maps&quot;: toccandolo si apre
-          direttamente l&apos;app Maps con il percorso pronto.
+          Sotto la giornata di oggi trovate sempre l&apos;anteprima di{" "}
+          <strong className="text-ink-900">domani</strong>: leggetela la sera, prima di preparare
+          borse e vestiti.
         </p>
-      </Section>
+      </Card>
 
-      <Section title="✏️ Aggiornare orari durante il viaggio">
+      <Card title="I link a Google Maps" Icon={MapPin}>
         <p>
-          Alcuni orari (soprattutto nel tour dell&apos;Ovest) non sono noti in anticipo. Quando la guida vi
-          comunica un orario preciso, chiunque può aggiornarlo toccando &quot;Aggiorna orario/note&quot; sotto
-          l&apos;attività: lo vedranno tutte e 4 le famiglie.
+          Ogni tappa con un indirizzo ha il pulsante blu{" "}
+          <strong className="text-ink-900">Apri in Maps</strong>. Toccandolo si apre direttamente
+          l&apos;app Maps del telefono con il posto già cercato: da lì premete
+          &ldquo;Indicazioni&rdquo;.
         </p>
-      </Section>
-
-      <Section title="🔒 Login">
         <p>
-          Ogni famiglia entra con il proprio nome (SERINO, GIANNELLA, DICUONZO o CAFAGNA) e la stessa
-          password condivisa. I documenti personali restano visibili solo alla propria famiglia.
+          Prima di partire, scaricate in Google Maps le{" "}
+          <strong className="text-ink-900">mappe offline</strong> di Los Angeles, Las Vegas e New
+          York: funzionano anche senza connessione.
         </p>
-      </Section>
+      </Card>
 
-      <Section title="📶 Senza connessione">
+      <Card title="Aggiornare un orario durante il viaggio" Icon={Pencil}>
         <p>
-          Le pagine già aperte restano disponibili anche senza rete (utile con connessione USA incerta), ma
-          per vedere aggiornamenti serve tornare online almeno un momento.
+          Nel tour dell&apos;Ovest molti orari si sanno solo sul posto. Quando la guida vi dice
+          l&apos;orario preciso, toccate{" "}
+          <strong className="text-ink-900">&ldquo;Aggiorna orario/note&rdquo;</strong> sotto
+          l&apos;attività e scrivetelo.
         </p>
-      </Section>
+        <p>
+          La modifica <strong className="text-ink-900">la vedono tutte e quattro le famiglie</strong>:
+          basta che lo faccia una persona sola.
+        </p>
+      </Card>
 
-      <Section title="🆘 Problemi con l'app">
-        <p>Se qualcosa non funziona, contattate Daniele. Per emergenze reali durante il viaggio, usate sempre i numeri nella sezione Emergenze, non questa app.</p>
-      </Section>
+      <Card title="Senza connessione" Icon={WifiOff}>
+        <p>
+          Le pagine che avete già aperto restano consultabili anche senza rete. Per vedere
+          aggiornamenti (o un orario appena corretto da un&apos;altra famiglia) serve però tornare
+          online un momento.
+        </p>
+        <p className="rounded-xl bg-clay-50 px-3.5 py-3 text-[14px] text-clay-700">
+          Consiglio: la sera, sotto il wi-fi dell&apos;hotel, aprite la giornata di domani. Così
+          ce l&apos;avrete comunque, anche se il giorno dopo restate senza campo in mezzo a un
+          parco.
+        </p>
+      </Card>
+
+      <Card title="In caso di problemi" Icon={LifeBuoy}>
+        <p>
+          Se l&apos;app non funziona, chiamate Daniele. Per{" "}
+          <strong className="text-ink-900">emergenze vere</strong> durante il viaggio usate sempre
+          i numeri nella sezione SOS, mai questa app.
+        </p>
+      </Card>
     </div>
   );
 }

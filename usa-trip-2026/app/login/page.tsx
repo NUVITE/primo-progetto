@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { Plane, TriangleAlert } from "lucide-react";
 import { login, type LoginState } from "@/app/actions/auth";
 import { FAMILY_CODES } from "@/lib/families";
 
@@ -10,34 +11,43 @@ export default function LoginPage() {
   const [state, formAction, pending] = useActionState(login, initialState);
 
   return (
-    <main className="flex-1 flex items-center justify-center px-4 py-12 bg-slate-50">
+    <main className="flex flex-1 items-center justify-center px-5 py-12">
       <div className="w-full max-w-sm">
-        <div className="text-center mb-8">
-          <p className="text-sm font-medium text-sky-600 tracking-wide uppercase">
-            9 – 23 Agosto 2026
+        <div className="mb-8 text-center">
+          <span className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-brand-800 text-white shadow-sm">
+            <Plane size={30} strokeWidth={1.9} />
+          </span>
+          <p className="text-[12px] font-extrabold uppercase tracking-widest text-clay-600">
+            9 – 23 agosto 2026
           </p>
-          <h1 className="mt-1 text-2xl font-bold text-slate-900">
+          <h1 className="mt-1 text-[27px] font-extrabold leading-tight tracking-tight text-ink-900">
             USA Costa a Costa
           </h1>
-          <p className="mt-1 text-sm text-slate-500">
+          <p className="mt-1 text-[15px] text-ink-500">
             La vostra guida di viaggio, sempre con voi
           </p>
         </div>
 
-        <form action={formAction} className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-4">
+        <form
+          action={formAction}
+          className="space-y-4 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-sand-200"
+        >
           <div>
-            <label htmlFor="familyCode" className="block text-sm font-medium text-slate-700 mb-1">
-              Famiglia
+            <label
+              htmlFor="familyCode"
+              className="mb-1.5 block text-[14px] font-bold text-ink-900"
+            >
+              La vostra famiglia
             </label>
             <select
               id="familyCode"
               name="familyCode"
               required
               defaultValue=""
-              className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-sky-500"
+              className="w-full rounded-xl border-2 border-sand-200 bg-white px-3.5 py-3 font-medium text-ink-900 focus:border-brand-600 focus:outline-none"
             >
               <option value="" disabled>
-                Scegli la tua famiglia
+                Scegliete…
               </option>
               {FAMILY_CODES.map((code) => (
                 <option key={code} value={code}>
@@ -48,7 +58,7 @@ export default function LoginPage() {
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-slate-700 mb-1">
+            <label htmlFor="password" className="mb-1.5 block text-[14px] font-bold text-ink-900">
               Password
             </label>
             <input
@@ -56,20 +66,24 @@ export default function LoginPage() {
               name="password"
               type="password"
               required
-              className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-sky-500"
+              autoComplete="current-password"
+              className="w-full rounded-xl border-2 border-sand-200 px-3.5 py-3 text-ink-900 focus:border-brand-600 focus:outline-none"
             />
           </div>
 
           {state?.error && (
-            <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{state.error}</p>
+            <p className="flex items-center gap-2 rounded-xl bg-rose-50 px-3.5 py-3 text-[14px] font-medium text-rose-700">
+              <TriangleAlert size={17} strokeWidth={2.4} className="shrink-0" />
+              {state.error}
+            </p>
           )}
 
           <button
             type="submit"
             disabled={pending}
-            className="w-full rounded-lg bg-sky-600 text-white font-medium py-2.5 hover:bg-sky-700 disabled:opacity-60 transition-colors"
+            className="w-full rounded-xl bg-brand-700 py-3.5 text-[16px] font-extrabold text-white transition-colors active:bg-brand-800 disabled:opacity-60"
           >
-            {pending ? "Accesso in corso..." : "Entra"}
+            {pending ? "Un attimo…" : "Entra"}
           </button>
         </form>
       </div>

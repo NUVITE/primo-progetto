@@ -1,6 +1,7 @@
 import Link from "next/link";
+import { ChevronLeft, ChevronRight, CalendarClock, Pill, Plane, Sunrise } from "lucide-react";
 import { prisma } from "@/lib/db";
-import { currentTripDayNumber, daysUntilTrip } from "@/lib/trip";
+import { currentTripDayNumber, daysUntilTrip, TOTAL_DAYS, formatItalianDate } from "@/lib/trip";
 import { DayView } from "@/components/DayView";
 
 async function getDay(dayNumber: number) {
@@ -10,61 +11,129 @@ async function getDay(dayNumber: number) {
   });
 }
 
-export default async function HomePage() {
+function clampDay(n: number) {
+  return Math.min(TOTAL_DAYS, Math.max(1, n));
+}
+
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ giorno?: string }>;
+}) {
+  const { giorno } = await searchParams;
   const todayNumber = currentTripDayNumber();
+  const remaining = daysUntilTrip();
 
-  if (todayNumber === null) {
-    const remaining = daysUntilTrip();
-    const firstDay = await getDay(1);
-    return (
-      <div className="p-4 space-y-4">
-        <div className="bg-white rounded-2xl border border-slate-200 p-4 text-center">
-          {remaining > 0 ? (
-            <>
-              <p className="text-3xl font-bold text-sky-600">{remaining}</p>
-              <p className="text-slate-600">
-                {remaining === 1 ? "giorno alla partenza!" : "giorni alla partenza!"}
-              </p>
-            </>
-          ) : (
-            <p className="text-slate-600 font-medium">Il viaggio è terminato. Che ricordi! 🎉</p>
-          )}
-        </div>
-        {remaining > 0 && firstDay && (
-          <>
-            <p className="px-1 text-sm font-medium text-slate-500">Il programma del primo giorno:</p>
-            <DayView day={firstDay} />
-          </>
-        )}
-      </div>
-    );
-  }
+  // Giorno mostrato: quello scelto con le frecce, altrimenti oggi, altrimenti il primo.
+  const selected = clampDay(Number(giorno) || todayNumber || 1);
+  const isToday = todayNumber !== null && selected === todayNumber;
 
-  const today = await getDay(todayNumber);
-  const tomorrow = todayNumber < 15 ? await getDay(todayNumber + 1) : null;
+  const day = await getDay(selected);
+  const tomorrow = isToday && selected < TOTAL_DAYS ? await getDay(selected + 1) : null;
 
   return (
-    <div className="p-4 space-y-6">
-      <section>
-        <p className="px-1 mb-2 text-sm font-semibold text-slate-500 uppercase tracking-wide">Oggi</p>
-        {today && <DayView day={today} editable />}
-      </section>
+    <div className="space-y-4 p-4">
+      {/* Conto alla rovescia, solo prima della partenza */}
+      {remaining > 0 && (
+        <div className="flex items-center gap-3 rounded-2xl bg-brand-800 px-5 py-4 text-white shadow-sm">
+          <Plane size={30} strokeWidth={1.8} className="shrink-0 text-brand-200" />
+          <p className="text-[15px] leading-snug">
+            <span className="block text-[26px] font-extrabold leading-none">{remaining}</span>
+            {remaining === 1 ? "giorno alla partenza" : "giorni alla partenza"}
+          </p>
+        </div>
+      )}
 
+      {/* Selettore del giorno con le frecce */}
+      <nav className="flex items-center gap-2" aria-label="Naviga tra i giorni">
+        <ArrowLink to={selected - 1} disabled={selected <= 1} direction="prev" />
+        <div className="flex-1 rounded-xl bg-white px-3 py-2.5 text-center shadow-sm ring-1 ring-sand-200">
+          <p className="text-[12px] font-bold uppercase tracking-wide text-brand-600">
+            {isToday ? "Oggi" : `Giorno ${selected} di ${TOTAL_DAYS}`}
+          </p>
+          {day && (
+            <p className="text-[15px] font-extrabold capitalize text-ink-900">
+              {formatItalianDate(day.date)}
+            </p>
+          )}
+        </div>
+        <ArrowLink to={selected + 1} disabled={selected >= TOTAL_DAYS} direction="next" />
+      </nav>
+
+      {todayNumber !== null && !isToday && (
+        <Link
+          href="/"
+          className="flex items-center justify-center gap-1.5 rounded-xl bg-brand-50 py-2 text-[14px] font-bold text-brand-700"
+        >
+          <Sunrise size={16} strokeWidth={2.4} />
+          Torna alla giornata di oggi
+        </Link>
+      )}
+
+      {day && <DayView day={day} editable />}
+
+      {/* Anteprima della giornata di domani, per prepararsi la sera prima */}
       {tomorrow && (
         <section>
-          <p className="px-1 mb-2 text-sm font-semibold text-slate-500 uppercase tracking-wide">
-            Anteprima di domani — organizzatevi stasera
-          </p>
+          <h2 className="mb-2.5 mt-6 flex items-center gap-2 px-1 text-[15px] font-extrabold text-ink-600">
+            <CalendarClock size={18} strokeWidth={2.2} className="text-clay-600" />
+            Domani — preparatevi stasera
+          </h2>
           <DayView day={tomorrow} />
         </section>
       )}
 
-      <Link
-        href="/itinerario"
-        className="block text-center text-sm font-medium text-sky-600 bg-white border border-slate-200 rounded-xl py-2.5"
-      >
-        Vedi tutto l&apos;itinerario →
-      </Link>
+      {/* Scorciatoie alle schede che servono di rado ma servono subito */}
+      <div className="grid grid-cols-2 gap-3 pt-2">
+        <Link
+          href="/dogana"
+          className="flex items-center gap-2.5 rounded-xl bg-white px-4 py-3.5 text-[15px] font-bold text-ink-900 shadow-sm ring-1 ring-sand-200"
+        >
+          <Pill size={19} strokeWidth={2.1} className="text-clay-600" />
+          Dogana e farmaci
+        </Link>
+        <Link
+          href="/itinerario"
+          className="flex items-center gap-2.5 rounded-xl bg-white px-4 py-3.5 text-[15px] font-bold text-ink-900 shadow-sm ring-1 ring-sand-200"
+        >
+          <CalendarClock size={19} strokeWidth={2.1} className="text-brand-600" />
+          Tutti i 15 giorni
+        </Link>
+      </div>
     </div>
+  );
+}
+
+function ArrowLink({
+  to,
+  disabled,
+  direction,
+}: {
+  to: number;
+  disabled: boolean;
+  direction: "prev" | "next";
+}) {
+  const Icon = direction === "prev" ? ChevronLeft : ChevronRight;
+  const label = direction === "prev" ? "Giorno precedente" : "Giorno successivo";
+
+  if (disabled) {
+    return (
+      <span
+        aria-hidden="true"
+        className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-sand-100 text-sand-300"
+      >
+        <Icon size={24} strokeWidth={2.4} />
+      </span>
+    );
+  }
+
+  return (
+    <Link
+      href={`/?giorno=${to}`}
+      aria-label={label}
+      className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white text-brand-700 shadow-sm ring-1 ring-sand-200 active:bg-brand-50"
+    >
+      <Icon size={24} strokeWidth={2.4} />
+    </Link>
   );
 }
