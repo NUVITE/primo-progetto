@@ -49,10 +49,10 @@ export const SUGGESTIONS: SuggestionInput[] = [
     category: "vedere",
     title: "Il parchetto degli aerei, di fronte all'In-N-Out",
     description:
-      "L'agenzia vi manda all'In-N-Out di Sepulveda Blvd per l'hamburger. Quello che non dice e' che " +
-      "dall'altra parte della strada c'e' un piccolo parco dove gli aerei passano bassissimi in " +
-      "atterraggio, uno ogni tre o quattro minuti nelle ore di punta. Con il jet lag e la necessita' di " +
-      "restare svegli fino alle 21, e' il modo piu' facile di passare il primo pomeriggio americano.",
+      "Proprio davanti all'In-N-Out di Sepulveda Blvd, dall'altra parte della strada, c'e' un piccolo " +
+      "parco dove gli aerei passano bassissimi in atterraggio: uno ogni tre o quattro minuti nelle ore " +
+      "di punta. Si abbina bene all'hamburger gia' in programma, e con il jet lag e la necessita' di " +
+      "restare svegli fino alle 21 e' il modo piu' facile di passare il primo pomeriggio americano.",
     isFree: true,
     address: "Sepulveda Blvd angolo W 92nd St, Los Angeles",
     mapsQuery: "In-N-Out Burger 9149 S Sepulveda Blvd Los Angeles",
@@ -135,9 +135,9 @@ export const SUGGESTIONS: SuggestionInput[] = [
     category: "vedere",
     title: "Griffith Observatory: si entra gratis",
     description:
-      "L'agenzia lo cita come possibile pomeriggio libero, ma non dice la cosa piu' utile: l'ingresso, " +
-      "le sale espositive, le terrazze e i telescopi pubblici non si pagano. Solo lo spettacolo del " +
-      "planetario ha un biglietto. E' anche il punto migliore da cui fotografare la scritta Hollywood.",
+      "Se scegliete il pomeriggio libero a Hollywood, vale la pena sapere che qui l'ingresso, le sale " +
+      "espositive, le terrazze e i telescopi pubblici non si pagano: ha un biglietto solo lo spettacolo " +
+      "del planetario. E' anche il punto migliore da cui fotografare la scritta Hollywood.",
     isFree: true,
     costDetail: "Ingresso gratuito. Planetario a parte: 10 $ adulti",
     address: "2800 E Observatory Rd, Los Angeles",
@@ -161,7 +161,7 @@ export const SUGGESTIONS: SuggestionInput[] = [
     costDetail: "Ingresso 8 $ adulti e 5 $ ragazzi 6-15. Miniera Maggie 3 $, trenino 5 $, ricerca dell'oro 3 $",
     mapsQuery: "Calico Ghost Town Yermo California",
     warning:
-      "L'agenzia elenca Calico tra i parchi con ingresso incluso: chiedete alla guida se l'ingresso e' gia' pagato e cosa resta da pagare a parte.",
+      "Calico risulta tra i parchi con ingresso incluso nel vostro programma: chiedete alla guida cosa e' gia' coperto e cosa resta eventualmente da pagare sul posto.",
     sourceName: "Salty Canary",
     sourceUrl: "https://www.saltycanary.com/ultimate-guide-to-visiting-calico-ghost-town/",
   },
@@ -173,8 +173,8 @@ export const SUGGESTIONS: SuggestionInput[] = [
     title: "I neon di Williams, la sera",
     description:
       "Williams e' uno dei tratti di Route 66 meglio conservati dell'Arizona: non ricostruito, proprio " +
-      "rimasto com'era. Di sera le insegne al neon si accendono e la via principale cambia faccia. " +
-      "L'agenzia consiglia venti minuti di passeggiata: falli col buio, non prima.",
+      "rimasto com'era. Di sera le insegne al neon si accendono e la via principale cambia faccia: " +
+      "per la passeggiata in programma, aspettate che sia buio.",
     isFree: true,
     mapsQuery: "Historic Route 66 Downtown Williams Arizona",
     sourceName: "Experience Williams",
@@ -214,9 +214,9 @@ export const SUGGESTIONS: SuggestionInput[] = [
     category: "vedere",
     title: "Glen Canyon Dam Overlook",
     description:
-      "L'agenzia dice: se avete un'ora di luce, chiedete un passaggio per l'affaccio sulla diga. Eccolo. " +
-      "Parcheggio gratuito, nessun biglietto, e non serve nemmeno entrare nell'area protetta. Il blu del " +
-      "lago contro il rosso della roccia e' il contrasto piu' fotografato di Page.",
+      "E' l'affaccio sulla diga da raggiungere se vi resta un'ora di luce: parcheggio gratuito, nessun " +
+      "biglietto, e non serve nemmeno entrare nell'area protetta. Il blu del lago contro il rosso della " +
+      "roccia e' il contrasto piu' fotografato di Page.",
     isFree: true,
     mapsQuery: "Glen Canyon Dam Overlook Page Arizona",
     sourceName: "Danielle Outdoors",
@@ -316,8 +316,8 @@ export const SUGGESTIONS: SuggestionInput[] = [
     category: "vedere",
     title: "The Sphere, dal marciapiede",
     description:
-      "La sfera gigante con le proiezioni animate sulla superficie esterna: e' recente e l'agenzia non " +
-      "la cita. Guardarla da fuori non costa nulla, si vede bene dai pressi del LINQ.",
+      "La sfera gigante con le proiezioni animate sulla superficie esterna, una delle cose piu' recenti " +
+      "della citta'. Guardarla da fuori non costa nulla, si vede bene dai pressi del LINQ.",
     isFree: true,
     mapsQuery: "Sphere Las Vegas",
     sourceName: "Skysonar",
@@ -379,7 +379,7 @@ export const SUGGESTIONS: SuggestionInput[] = [
     description:
       "Il portone di Monica e Rachel e' al 90 di Bedford Street, nel West Village. E' un palazzo " +
       "residenziale vero: si fotografa dall'esterno. La cosa comoda e' che si trova a pochi minuti a " +
-      "piedi da Olio e Piu', dove l'agenzia vi manda a cena quella stessa sera.",
+      "piedi da Olio e Piu', dove avete la cena in programma quella stessa sera.",
     isFree: true,
     address: "90 Bedford Street, New York",
     mapsQuery: "90 Bedford Street New York Friends building",
@@ -423,8 +423,8 @@ export const SUGGESTIONS: SuggestionInput[] = [
     category: "pratico",
     title: "La funivia di Roosevelt Island e' aumentata",
     description:
-      "L'agenzia scrive 2,90 $ come una corsa di metropolitana. Nel 2026 la tariffa risulta di 3 $. " +
-      "Differenza minima, ma se pagate con OMNY conviene saperlo.",
+      "La corsa costava come una di metropolitana, 2,90 $. Nel 2026 la tariffa risulta salita a 3 $: " +
+      "differenza minima, ma se pagate con OMNY conviene saperlo.",
     isFree: false,
     costDetail: "3 $ a corsa",
     mapsQuery: "Roosevelt Island Tramway Manhattan station",
