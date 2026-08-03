@@ -34,11 +34,37 @@ model TripDay {
   luggageNote String? // es. "Valigie pronte, si parte per Las Vegas"
   dressCode String? // "come vestirsi oggi"
   summary   String? // testo introduttivo del giorno
+  lat       Float? // posizione di riferimento della giornata, per il "cerca qui intorno"
+  lng       Float?
 
-  activities Activity[]
-  meals      MealSuggestion[]
+  activities  Activity[]
+  meals       MealSuggestion[]
+  suggestions Suggestion[]
 
   @@index([dayNumber])
+}
+
+// Proposte trovate da noi sul web, TENUTE SEPARATE da quanto dice l'agenzia.
+// Non vanno mai mescolate con Activity o MealSuggestion: l'utente deve poter
+// distinguere a colpo d'occhio la fonte.
+model Suggestion {
+  id          String   @id @default(cuid())
+  tripDayId   String
+  tripDay     TripDay  @relation(fields: [tripDayId], references: [id], onDelete: Cascade)
+  category    String // "film" | "mangiare" | "pratico" | "vedere" | "ragazzi"
+  title       String
+  description String
+  isFree      Boolean // gratis oppure a pagamento: richiesto esplicitamente
+  costDetail  String? // es. "8 $ adulti, 5 $ ragazzi"
+  address     String?
+  mapsQuery   String? // cosa cercare su Google Maps
+  warning     String? // es. "da verificare sul posto"
+  sourceName  String?
+  sourceUrl   String?
+  verifiedAt  DateTime
+  order       Int      @default(0)
+
+  @@index([tripDayId])
 }
 
 // Una singola attività/tappa all'interno di un giorno

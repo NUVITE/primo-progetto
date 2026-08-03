@@ -15,7 +15,11 @@ export default async function DayDetailPage({
 
   const day = await prisma.tripDay.findUnique({
     where: { dayNumber: n },
-    include: { activities: { orderBy: { order: "asc" } }, meals: true },
+    include: {
+      activities: { orderBy: { order: "asc" } },
+      meals: true,
+      suggestions: { orderBy: { order: "asc" } },
+    },
   });
 
   if (!day) notFound();

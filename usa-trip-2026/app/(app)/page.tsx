@@ -7,7 +7,11 @@ import { DayView } from "@/components/DayView";
 async function getDay(dayNumber: number) {
   return prisma.tripDay.findUnique({
     where: { dayNumber },
-    include: { activities: { orderBy: { order: "asc" } }, meals: true },
+    include: {
+      activities: { orderBy: { order: "asc" } },
+      meals: true,
+      suggestions: { orderBy: { order: "asc" } },
+    },
   });
 }
 

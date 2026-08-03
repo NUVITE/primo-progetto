@@ -1,6 +1,7 @@
 import { PrismaClient } from "../app/generated/prisma/client.ts";
 import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
 import bcrypt from "bcryptjs";
+import { SUGGESTIONS, DAY_COORDS } from "./suggerimenti.ts";
 
 const adapter = new PrismaBetterSqlite3({ url: process.env.DATABASE_URL ?? "file:./dev.db" });
 const prisma = new PrismaClient({ adapter });
@@ -352,14 +353,14 @@ const MEDICATIONS = [
     phraseEn: "This is an asthma inhaler, prescribed medication I use daily.",
   },
   {
-    name: "Antistaminici (es. Zirtec, Aerius)",
+    name: "Antistaminico",
     reason: "Allergie",
     phraseEn: "These are antihistamines for my allergies.",
   },
   {
-    name: "Antivertiginoso (es. Xamamina/Aleve)",
+    name: "Alevertan",
     reason: "Vertigini",
-    phraseEn: "This is an over-the-counter medication for motion sickness / dizziness.",
+    phraseEn: "This is a medication for dizziness and vertigo.",
   },
   {
     name: "Antiacido / gastroprotettore",
@@ -372,7 +373,7 @@ const MEDICATIONS = [
     phraseEn: "This is an over-the-counter nasal spray.",
   },
   {
-    name: "Antinfiammatori (es. Brufen, Moment)",
+    name: "Antinfiammatorio",
     reason: "Precauzione dolori/infiammazioni",
     phraseEn: "These are over-the-counter anti-inflammatory painkillers.",
   },
@@ -511,9 +512,13 @@ async function main() {
   await prisma.emergencyInfo.deleteMany();
   await prisma.emergencyInfo.create({
     data: {
-      insuranceProvider: "Nobis Assicurazioni",
-      policyNumber: "Vedi documento SERINO_assicurazione.pdf / polizza personale di ogni famiglia",
-      insurancePhone: "Vedi numero centrale operativa sulla polizza (attivo 24h)",
+      insuranceProvider: "Nobis Compagnia di Assicurazioni (intermediata I4T / Insurance Travel)",
+      policyNumber:
+        "Polizza n. 204075033 — copertura I4T PLATINO MBA 3.5 (area: Mondo), valida dal " +
+        "09/08/2026 al 23/08/2026. Il numero di certificato è diverso per ogni famiglia " +
+        "(quello della famiglia Serino è NOB2209315): il vostro è sulla polizza nella " +
+        "sezione Documenti. Denuncia sinistri: sinistri.i4t.it oppure sinistri@i4t.it",
+      insurancePhone: "+39 039 989 0702 (dall'estero, centrale operativa attiva 24h) — dall'Italia numero verde 800 894 123",
       agencyPhone24h: "+39 333 676 7604",
       agencyEmail: "info@ccviaggi.it",
       teamAmericaNyPhone: "+1 212 697 7165",
@@ -529,12 +534,40 @@ async function main() {
         "4) La compagnia aerea di solito consegna il bagaglio in hotel entro 24-48h; conservare le ricevute di eventuali acquisti di prima necessità per il rimborso.",
       medicalEmergencySteps:
         "1) Emergenza grave: chiamare il 911 (polizia/ambulanza/vigili del fuoco), come in Italia il 112. " +
-        "2) Contattare subito la centrale operativa dell'assicurazione Nobis indicata sulla propria polizza PRIMA di recarsi in una struttura, se possibile (per l'assistenza diretta o il rimborso). " +
+        "2) Contattare subito la centrale operativa Nobis al +39 039 989 0702, attiva 24h su 24: chiamatela PRIMA di andare in ospedale, se la situazione lo permette, perché è quella che autorizza le cure in pagamento diretto. " +
         "3) Avvisare la guida TeamAmerica (+1 212 697 7165, durante il tour Ovest) o la reception dell'hotel. " +
         "4) Avvisare l'agenzia C&C Viaggi (+39 333 676 7604). " +
         "5) Portare sempre con sé il documento di polizza con numero e telefono dell'assicurazione.",
     },
   });
+
+  console.log("Seeding suggerimenti dal web (fonte: nostra ricerca)...");
+  // Le coordinate servono al pulsante "cerca qui intorno" su Google Maps.
+  for (const [dayNumber, coords] of Object.entries(DAY_COORDS)) {
+    await prisma.tripDay.update({
+      where: { dayNumber: Number(dayNumber) },
+      data: { lat: coords.lat, lng: coords.lng },
+    });
+  }
+
+  await prisma.suggestion.deleteMany();
+  const verifiedAt = new Date("2026-08-03");
+  const perDay = new Map<number, number>();
+  for (const s of SUGGESTIONS) {
+    const day = await prisma.tripDay.findUnique({ where: { dayNumber: s.dayNumber } });
+    if (!day) {
+      console.warn(`  giorno ${s.dayNumber} non trovato, salto "${s.title}"`);
+      continue;
+    }
+    const order = perDay.get(s.dayNumber) ?? 0;
+    perDay.set(s.dayNumber, order + 1);
+
+    const { dayNumber: _ignored, ...rest } = s;
+    await prisma.suggestion.create({
+      data: { ...rest, tripDayId: day.id, order, verifiedAt },
+    });
+  }
+  console.log(`  ${SUGGESTIONS.length} suggerimenti inseriti`);
 
   console.log("Seeding documenti...");
   await prisma.document.deleteMany({ where: { familyId: null } });

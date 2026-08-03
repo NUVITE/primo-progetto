@@ -15,9 +15,19 @@ import {
 import { googleMapsUrl, formatItalianDate } from "@/lib/trip";
 import { nycDay } from "@/lib/nyc";
 import { EditActivityForm } from "@/components/EditActivityForm";
-import type { Activity, MealSuggestion, TripDay } from "@/app/generated/prisma/client";
+import { SuggestionsPanel } from "@/components/SuggestionsPanel";
+import type {
+  Activity,
+  MealSuggestion,
+  Suggestion,
+  TripDay,
+} from "@/app/generated/prisma/client";
 
-type FullDay = TripDay & { activities: Activity[]; meals: MealSuggestion[] };
+type FullDay = TripDay & {
+  activities: Activity[];
+  meals: MealSuggestion[];
+  suggestions?: Suggestion[];
+};
 
 /** Sceglie l'icona giusta in base al mezzo di trasporto descritto a parole. */
 function transportIcon(mode: string) {
@@ -207,12 +217,15 @@ export function DayView({ day, editable = false }: { day: FullDay; editable?: bo
         </section>
       )}
 
-      {/* Dove mangiare */}
+      {/* Dove mangiare — suggerito dall'agenzia */}
       {day.meals.length > 0 && (
         <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-sand-200">
           <h3 className="flex items-center gap-2 text-[16px] font-extrabold text-ink-900">
-            <UtensilsCrossed size={18} strokeWidth={2.2} className="text-clay-600" />
+            <UtensilsCrossed size={18} strokeWidth={2.2} className="text-brand-600" />
             Dove mangiare
+            <span className="ml-auto rounded-full bg-brand-50 px-2.5 py-1 text-[11px] font-extrabold uppercase tracking-wide text-brand-700">
+              Agenzia
+            </span>
           </h3>
           <ul className="mt-3 space-y-3">
             {day.meals.map((m) => (
@@ -231,6 +244,11 @@ export function DayView({ day, editable = false }: { day: FullDay; editable?: bo
             ))}
           </ul>
         </section>
+      )}
+
+      {/* Proposte nostre, sempre in fondo e visivamente diverse da quelle dell'agenzia */}
+      {day.suggestions && day.suggestions.length > 0 && (
+        <SuggestionsPanel suggestions={day.suggestions} lat={day.lat} lng={day.lng} />
       )}
     </div>
   );
