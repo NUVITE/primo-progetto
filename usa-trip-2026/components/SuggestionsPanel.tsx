@@ -114,7 +114,8 @@ export function SuggestionsPanel({
                         <p className="mt-1 text-[13px] font-bold text-ink-500">{s.costDetail}</p>
                       )}
 
-                      <p className="mt-1.5 text-[15px] leading-relaxed text-ink-600">
+                      {/* whitespace-pre-line: alcune voci usano gli a capo per elencare i costi */}
+                      <p className="mt-1.5 whitespace-pre-line text-[15px] leading-relaxed text-ink-600">
                         {s.description}
                       </p>
 

@@ -93,18 +93,21 @@ export const SUGGESTIONS: SuggestionInput[] = [
   {
     dayNumber: 1,
     category: "pratico",
-    title: "Dove cambiare i soldi: NON in aeroporto",
+    title: "Quanto costa procurarsi i dollari",
     description:
-      "Su questo l'agenzia si e' contraddetta: il programma scritto dice di portare i contanti " +
-      "dall'Italia, ma a voce in ufficio vi hanno detto di cambiare all'aeroporto. Ho verificato, e ha " +
-      "ragione il documento scritto. Gli sportelli di cambio negli aeroporti applicano un ricarico tra " +
-      "l'8% e il 15%: su 1.000 $ se ne perdono anche 100. Una banca italiana costa in tutto 20-35 euro " +
-      "per cambiare 1.000 euro, cioe' meno della meta'. Il prelievo al bancomat negli USA usa un cambio " +
-      "vicino a quello reale, ma ci aggiungete la commissione della vostra banca (1-3%) piu' 2-5 $ fissi " +
-      "per operazione: conviene fare pochi prelievi grossi invece di tanti piccoli.",
+      "Ho confrontato le tre strade possibili, cosi' potete scegliere sapendo i numeri.\n\n" +
+      "• BANCOMAT NEGLI USA — cambio vicino a quello reale, piu' la commissione della vostra banca " +
+      "(1-3%) e 2-5 $ fissi per operazione. Essendoci una quota fissa, conviene fare pochi prelievi " +
+      "grossi invece di tanti piccoli.\n\n" +
+      "• BANCA IN ITALIA, PRIMA DI PARTIRE — commissione fissa di 5-15 euro piu' uno spread dell'1,5-3%: " +
+      "in tutto circa 20-35 euro per cambiare 1.000 euro.\n\n" +
+      "• SPORTELLI DI CAMBIO (aeroporti e zone turistiche) — sono la via piu' cara: il ricarico va " +
+      "dall'8% al 15%. Su 1.000 dollari se ne possono lasciare anche un centinaio. Questa e' l'unica " +
+      "opzione che conviene evitare, ovunque si trovi.\n\n" +
+      "Le prime due si equivalgono piu' o meno: dipende da quanto vi costa la carta.",
     isFree: true,
     warning:
-      "Prima di partire chiedete alla vostra banca quanto vi costa un prelievo negli USA: cambia molto da carta a carta. E ricordate che le escursioni facoltative del tour si pagano SOLO in contanti.",
+      "Prima di partire chiedete alla vostra banca quanto costa un prelievo negli USA: cambia molto da carta a carta. Ricordate che le escursioni facoltative del tour si pagano SOLO in contanti.",
     sourceName: "Cambio del Giorno / Idyllic Pursuit",
     sourceUrl: "https://www.cambiodelgiorno.it/confronto-commissioni-cambio/",
   },
