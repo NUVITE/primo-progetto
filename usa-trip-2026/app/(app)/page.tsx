@@ -37,15 +37,21 @@ export default async function HomePage({
 
   return (
     <div className="space-y-4 p-4">
-      {/* Conto alla rovescia, solo prima della partenza */}
+      {/* Conto alla rovescia e cose da preparare: solo prima della partenza */}
       {remaining > 0 && (
-        <div className="flex items-center gap-3 rounded-2xl bg-brand-800 px-5 py-4 text-white shadow-sm">
+        <Link
+          href="/prima-di-partire"
+          className="flex items-center gap-3 rounded-2xl bg-brand-800 px-5 py-4 text-white shadow-sm"
+        >
           <Plane size={30} strokeWidth={1.8} className="shrink-0 text-brand-200" />
-          <p className="text-[15px] leading-snug">
+          <span className="flex-1 text-[15px] leading-snug">
             <span className="block text-[26px] font-extrabold leading-none">{remaining}</span>
             {remaining === 1 ? "giorno alla partenza" : "giorni alla partenza"}
-          </p>
-        </div>
+            <span className="mt-1 block text-[13px] font-bold text-brand-200">
+              Cosa stampare e mettere in valigia →
+            </span>
+          </span>
+        </Link>
       )}
 
       {/* Selettore del giorno con le frecce */}

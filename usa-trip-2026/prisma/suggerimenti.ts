@@ -371,6 +371,24 @@ export const SUGGESTIONS: SuggestionInput[] = [
     sourceUrl: "https://www.timeout.com/newyork/restaurants/cheap-eats-in-hells-kitchen",
   },
 
+  {
+    dayNumber: 10,
+    category: "pratico",
+    title: "La regola della lettera: come si riconosce un banchetto pulito",
+    description:
+      "A New York non serve fidarsi dell'istinto: il Dipartimento della Salute obbliga tutti i locali " +
+      "a esporre una lettera all'ingresso, e dal 2018 vale anche per i carretti e i camioncini di " +
+      "strada, che la portano sull'adesivo del permesso.\n\n" +
+      "A = ispezione superata con 0-13 penalita'\n" +
+      "B = 14-27 penalita'\n" +
+      "C = 28 o piu'\n\n" +
+      "La regola pratica e' semplice: se il carretto espone una A, mangiate tranquilli. Se non trovate " +
+      "nessuna lettera esposta, tirate dritto e cercatene un altro: ce n'e' uno a ogni angolo.",
+    isFree: true,
+    sourceName: "NYC Health — Letter Grading",
+    sourceUrl: "https://portal.311.nyc.gov/article/?kanumber=KA-01057",
+  },
+
   // --------------------------------------------------------------- Giorno 11
   {
     dayNumber: 11,
@@ -387,6 +405,25 @@ export const SUGGESTIONS: SuggestionInput[] = [
     sourceUrl: "https://www.simlocal.com/post/famous-tv-movie-locations-to-visit-in-new-york-city",
   },
 
+  {
+    dayNumber: 11,
+    category: "mangiare",
+    title: "Peter Luger, la bistecca storica di Brooklyn",
+    description:
+      "Aperta nel 1887, e' la piu' famosa steakhouse di New York e una delle tre piu' antiche ancora " +
+      "in attivita'. Il piatto e' la porterhouse per due: carne frollata, tagliata al tavolo e servita " +
+      "su un piatto rovente. Siete a Brooklyn proprio oggi, quindi e' la giornata giusta. A pranzo " +
+      "servono anche il loro hamburger, molto piu' economico della bistecca e altrettanto celebre.",
+    isFree: false,
+    costDetail: "Porterhouse per due 135,95 $ · costata 94,95 $ · filetto 69,95 $",
+    address: "178 Broadway, Brooklyn",
+    mapsQuery: "Peter Luger Steak House Brooklyn",
+    warning:
+      "Si prenota con largo anticipo, spesso settimane. Verificate anche quali metodi di pagamento accettano: qui le regole sono sempre state particolari.",
+    sourceName: "The Menu Prices",
+    sourceUrl: "https://themenuprices.com/peter-luger-steakhouse/",
+  },
+
   // --------------------------------------------------------------- Giorno 12
   {
     dayNumber: 12,
@@ -401,6 +438,24 @@ export const SUGGESTIONS: SuggestionInput[] = [
     mapsQuery: "Staten Island Ferry Whitehall Terminal",
     sourceName: "Free Tours by Foot",
     sourceUrl: "https://freetoursbyfoot.com/staten-island-ferry/",
+  },
+
+  {
+    dayNumber: 12,
+    category: "mangiare",
+    title: "Keens Steakhouse, se volete la bistecca senza uscire dal centro",
+    description:
+      "E' la piu' antica steakhouse di New York insieme all'Old Homestead, aperta nel 1885, con i " +
+      "soffitti coperti da migliaia di pipe di terracotta dei vecchi soci. Si trova in Midtown, a una " +
+      "decina di minuti a piedi dal vostro hotel: e' l'alternativa comoda se una sera volete la carne " +
+      "seria senza attraversare la citta'.",
+    isFree: false,
+    costDetail: "Fascia alta, come tutte le steakhouse storiche",
+    address: "72 West 36th Street, New York",
+    mapsQuery: "Keens Steakhouse New York",
+    warning: "Prenotate: e' un'istituzione e la sera si riempie.",
+    sourceName: "The Menu Prices",
+    sourceUrl: "https://themenuprices.com/peter-luger-steakhouse/",
   },
 
   // --------------------------------------------------------------- Giorno 13
@@ -431,6 +486,26 @@ export const SUGGESTIONS: SuggestionInput[] = [
     warning: "Verificate la tariffa al tornello: e' cambiata di recente.",
     sourceName: "Storyhunt",
     sourceUrl: "https://www.storyhunt.io/en/articles/roosevelt-island-tramway",
+  },
+
+  {
+    dayNumber: 13,
+    category: "mangiare",
+    title: "Gray's Papaya, l'hot dog vero",
+    description:
+      "Se volete l'hot dog newyorkese senza rischiare con un carretto qualsiasi, questo e' il posto: " +
+      "un'istituzione dell'Upper West Side, locale fisso, bancone e via. Costa poco piu' di tre " +
+      "dollari e viene regolarmente indicato tra i migliori della citta'. La combinazione classica e' " +
+      "due hot dog piu' il succo di papaya, che sembra un abbinamento assurdo ed e' invece il motivo " +
+      "per cui il posto esiste dal 1973.\n\n" +
+      "La cosa comoda: e' a una decina di minuti a piedi dal Museo di Storia Naturale, dove siete " +
+      "stamattina.",
+    isFree: false,
+    costDetail: "Circa 3,45 $ a hot dog",
+    address: "2090 Broadway, angolo 72nd Street",
+    mapsQuery: "Gray's Papaya 2090 Broadway New York",
+    sourceName: "Tasting Table",
+    sourceUrl: "https://www.tastingtable.com/1619450/best-hot-dogs-nyc/",
   },
 
   // --------------------------------------------------------------- Giorno 14

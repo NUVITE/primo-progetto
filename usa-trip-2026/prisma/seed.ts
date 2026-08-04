@@ -426,19 +426,44 @@ const OPTIONAL_EXCURSIONS = [
   { day: "Ven 14 ago", title: "Lake Powell Air Tour", price: "225 $ a persona", description: "40-45 minuti su Lake Powell e Horseshoe Bend", recommendation: "Bellissimo, ma se dovete scegliere un solo volo panoramico molti preferiscono il Grand Canyon.", order: 5 },
 ];
 
+// Servizi prenotati per tutto il gruppo: i nominativi sui voucher sono quelli
+// del capo pratica, ma il servizio vale per tutti.
 const COMMON_DOCUMENTS = [
+  { title: "Biglietti aerei — tutte le tratte", category: "volo", filePath: "TUTTI/voli.pdf", note: "Codice prenotazione F2XMF3 · Lufthansa XPUAH4 · United H9ZZBC" },
+  { title: "Universal Studios Hollywood", category: "biglietto", filePath: "TUTTI/universal_studios.pdf", tripDayNumber: 2, note: "DA STAMPARE. Biglietto nominale: serve un documento con foto al tornello" },
+  { title: "New York CityPASS (5 attrazioni)", category: "biglietto", filePath: "TUTTI/citypass_new_york.pdf", tripDayNumber: 10, note: "Rif. 254-7187999 · meglio l'app My CityPASS, ma tenetene una copia" },
+  { title: "MoMA — ingresso 18 agosto", category: "biglietto", filePath: "TUTTI/moma.pdf", tripDayNumber: 10, note: "DA STAMPARE, il voucher lo richiede espressamente. Rif. 254-7188066" },
+  { title: "Tour dei Contrasti (Bronx, Queens, Brooklyn)", category: "biglietto", filePath: "TUTTI/tour_dei_contrasti.pdf", tripDayNumber: 11, note: "QR code · ordine WC-214392 · 19 agosto ore 09:00, 15 adulti" },
+  { title: "City tour di Los Angeles", category: "biglietto", filePath: "TUTTI/city_tour_los_angeles.pdf", tripDayNumber: 3, note: "Partenza 08:15 dalla hall dell'Hilton LAX" },
+  { title: "TeamTour West — 6 giorni", category: "biglietto", filePath: "TUTTI/teamtour_west.pdf", tripDayNumber: 4, note: "Partenza mercoledì 08:15 dall'Hilton LAX · rif. 1447289" },
+  { title: "America the Beautiful Pass (supplemento)", category: "biglietto", filePath: "TUTTI/america_the_beautiful_pass.pdf", note: "Esenta dalla tariffa per non residenti nei parchi nazionali" },
+  { title: "Hotel Hilton Los Angeles — prima notte", category: "hotel", filePath: "TUTTI/hotel_lax_prima_notte.pdf", tripDayNumber: 1, note: "Rif. 256-16886861 · check-in dalle 16:00 · carta di credito obbligatoria in cauzione" },
+  { title: "Hotel Hilton Los Angeles — notti del tour", category: "hotel", filePath: "TUTTI/hotel_lax_tour.pdf", note: "Colazione Grab & Go inclusa" },
+  { title: "Hotel Riu Plaza New York", category: "hotel", filePath: "TUTTI/hotel_new_york.pdf", tripDayNumber: 10, note: "Prenotazione RNT5QHDM · 18-22 agosto" },
+  { title: "Transfer aeroporto Los Angeles → hotel", category: "transfer", filePath: "TUTTI/transfer_arrivo_lax.pdf", tripDayNumber: 1, note: "Navetta gratuita dell'hotel, non un autista privato" },
+  { title: "Transfer Las Vegas → aeroporto", category: "transfer", filePath: "TUTTI/transfer_las_vegas_aeroporto.pdf", tripDayNumber: 9, note: "Ordine 538734646 · 17 agosto ore 19:00 · cartello DANIELE SERINO" },
+  { title: "Transfer Newark → hotel New York", category: "transfer", filePath: "TUTTI/transfer_newark_hotel.pdf", tripDayNumber: 10, note: "Prenotazione T2785671 · attesa massima 1 ora dall'atterraggio" },
+  { title: "Transfer hotel → Newark", category: "transfer", filePath: "TUTTI/transfer_hotel_newark.pdf", tripDayNumber: 14, note: "Prenotazione T2785672 · 22 agosto ore 11:30 · attesa massima 15 minuti" },
+  { title: "Polizza assicurativa", category: "assicurazione", filePath: "TUTTI/polizza_assicurativa.pdf", note: "Nobis / I4T · centrale operativa +39 039 989 0702, attiva 24h" },
+  { title: "Assicurazione — condizioni complete", category: "assicurazione", filePath: "TUTTI/assicurazione_condizioni.pdf" },
   { title: "Programma di viaggio completo (C&C Viaggi)", category: "altro", filePath: "TUTTI/programma_completo.pdf" },
   { title: "Programma dettagliato New York", category: "altro", filePath: "TUTTI/programma_new_york.pdf" },
-  { title: "Escursioni facoltative - dettaglio", category: "altro", filePath: "TUTTI/attivita_opzionali.pdf" },
-  { title: "TeamTour West - programma bus", category: "altro", filePath: "TUTTI/team_tour_west_complete.pdf" },
-  { title: "Le nostre domande e risposte dell'agenzia", category: "altro", filePath: "TUTTI/nostre_note.pdf" },
+  { title: "Escursioni facoltative — dettaglio", category: "altro", filePath: "TUTTI/attivita_opzionali.pdf" },
+  { title: "TeamTour West — programma del bus", category: "altro", filePath: "TUTTI/team_tour_west_complete.pdf" },
+  { title: "Le nostre domande e le risposte dell'agenzia", category: "altro", filePath: "TUTTI/nostre_note.pdf" },
 ];
 
-const FAMILY_DOCUMENTS: Record<string, { title: string; category: string; filePath: string }[]> = {
+// Documenti nominali: visibili solo alla propria famiglia.
+const FAMILY_DOCUMENTS: Record<
+  string,
+  { title: string; category: string; filePath: string; note?: string }[]
+> = {
   SERINO: [
-    { title: "Voli (Lufthansa/United)", category: "volo", filePath: "SERINO/voli.pdf" },
-    { title: "Voucher, biglietti e transfer", category: "biglietto", filePath: "SERINO/documenti_di_viaggio.pdf" },
-    { title: "Polizza assicurativa Nobis", category: "assicurazione", filePath: "SERINO/assicurazione.pdf" },
+    { title: "ESTA — Daniele", category: "esta", filePath: "SERINO/esta_daniele.pdf", note: "DA STAMPARE o da tenere sul telefono: può essere richiesta alla frontiera" },
+    { title: "ESTA — Maria", category: "esta", filePath: "SERINO/esta_maria.pdf" },
+    { title: "ESTA — Claudia", category: "esta", filePath: "SERINO/esta_claudia.pdf" },
+    { title: "ESTA — Elena", category: "esta", filePath: "SERINO/esta_elena.pdf" },
+    { title: "ESTA — Alessandra", category: "esta", filePath: "SERINO/esta_alessandra.pdf" },
   ],
 };
 
