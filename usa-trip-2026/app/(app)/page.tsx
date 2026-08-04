@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, CalendarClock, Pill, Plane, Sunrise } from "lucide-react";
+import { ChevronLeft, ChevronRight, CalendarClock, Pill, Plane, Sunrise, Ticket } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { currentTripDayNumber, daysUntilTrip, TOTAL_DAYS, formatItalianDate } from "@/lib/trip";
 import { DayView } from "@/components/DayView";
@@ -103,11 +103,11 @@ export default async function HomePage({
           Dogana e farmaci
         </Link>
         <Link
-          href="/itinerario"
+          href="/escursioni"
           className="flex items-center gap-2.5 rounded-xl bg-white px-4 py-3.5 text-[15px] font-bold text-ink-900 shadow-sm ring-1 ring-sand-200"
         >
-          <CalendarClock size={19} strokeWidth={2.1} className="text-brand-600" />
-          Tutti i 15 giorni
+          <Ticket size={19} strokeWidth={2.1} className="text-clay-600" />
+          Escursioni extra
         </Link>
       </div>
     </div>

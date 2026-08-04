@@ -192,6 +192,28 @@ export const SUGGESTIONS: SuggestionInput[] = [
     sourceUrl: "https://truenorthmapco.com/pages/grand-canyon-national-park",
   },
 
+  {
+    dayNumber: 5,
+    category: "pratico",
+    title: "Acqua gratis e bagni nei parchi",
+    description:
+      "Nei parchi nazionali l'acqua potabile e' gratuita e si riempie la borraccia alle fontanelle " +
+      "apposite. Al Grand Canyon (South Rim, quello che vedete voi) le trovate a:\n\n" +
+      "• Grand Canyon Visitor Center\n" +
+      "• Canyon Village Marketplace\n" +
+      "• Verkamp's Visitor Center\n" +
+      "• Desert View (Visitor Center e Marketplace)\n" +
+      "• Hermits Rest\n" +
+      "• partenza dei sentieri Bright Angel e South Kaibab\n\n" +
+      "E' acqua di sorgente del parco, buona e freschissima. I bagni pubblici stanno negli stessi " +
+      "punti: visitor center, marketplace e principali belvedere.",
+    isFree: true,
+    warning:
+      "A 2.100 metri e con l'aria secchissima ci si disidrata senza accorgersene: riempite la borraccia a ogni sosta, anche se non avete sete.",
+    sourceName: "National Park Service",
+    sourceUrl: "https://www.nps.gov/grca/planyourvisit/refilling_stations.htm",
+  },
+
   // ---------------------------------------------------------------- Giorno 6
   {
     dayNumber: 6,
@@ -267,6 +289,22 @@ export const SUGGESTIONS: SuggestionInput[] = [
     warning: "Portate qualcosa di caldo: la sera si scende sotto i 15 gradi, all'alba sotto i 10.",
     sourceName: "Space Tourism Guide",
     sourceUrl: "https://spacetourismguide.com/bryce-canyon-national-park-stargazing/",
+  },
+
+  {
+    dayNumber: 7,
+    category: "pratico",
+    title: "Acqua e bagni a Bryce e ad Antelope",
+    description:
+      "A Bryce Canyon ci sono sei fontanelle per riempire le borracce, oltre ai bagni del visitor " +
+      "center e dei principali belvedere (Sunrise, Sunset, Inspiration Point).\n\n" +
+      "Ad Antelope Canyon invece dentro il canyon NON c'e' nulla: niente bagni, niente acqua, e non " +
+      "si puo' nemmeno portare uno zaino. Andate in bagno e bevete prima di entrare, all'area di " +
+      "partenza del tour.",
+    isFree: true,
+    sourceName: "National Parks Traveler",
+    sourceUrl:
+      "https://www.nationalparkstraveler.org/2015/06/vapur-partnership-slake-thirst-bryce-canyon-national-park-visitors",
   },
 
   // ---------------------------------------------------------------- Giorno 8
@@ -387,6 +425,41 @@ export const SUGGESTIONS: SuggestionInput[] = [
     isFree: true,
     sourceName: "NYC Health — Letter Grading",
     sourceUrl: "https://portal.311.nyc.gov/article/?kanumber=KA-01057",
+  },
+
+  {
+    dayNumber: 10,
+    category: "pratico",
+    title: "Bagni pubblici a New York: dove sono davvero",
+    description:
+      "E' il problema pratico numero uno di chi cammina tutto il giorno a Manhattan, perche' i bagni " +
+      "pubblici sono pochi e non segnalati. Il Comune ha pubblicato una mappa ufficiale chiamata " +
+      "«Ur in Luck» con tutti i bagni di parchi, biblioteche, metropolitana e spazi pubblici privati.\n\n" +
+      "Da scaricare prima di partire: l'app «NYC Bathroom Finder» (oltre 4.000 bagni, con le " +
+      "indicazioni a piedi) oppure «PeePass» su iPhone. C'e' anche got2gonyc.com, una mappa fatta da " +
+      "una newyorkese con i bagni davvero accessibili.\n\n" +
+      "La regola pratica intanto: le biblioteche pubbliche, i grandi magazzini, le hall degli hotel e " +
+      "gli Starbucks sono la soluzione piu' rapida quando siete in giro.",
+    isFree: true,
+    mapsQuery: "public restroom Manhattan New York",
+    sourceName: "NYC311 / got2gonyc",
+    sourceUrl: "https://portal.311.nyc.gov/article/?kanumber=KA-03643",
+  },
+  {
+    dayNumber: 10,
+    category: "pratico",
+    title: "Acqua potabile gratis a New York",
+    description:
+      "L'acqua del rubinetto di New York e' buona e si beve tranquillamente: comprare bottigliette " +
+      "tutto il giorno per quindici persone e' uno spreco di soldi.\n\n" +
+      "Nei parchi cittadini ci sono oltre mille fontanelle pubbliche, e d'estate il Comune installa i " +
+      "punti «Water-On-The-Go», pensati proprio per riempire le borracce. Central Park, Bryant Park e " +
+      "gli altri parchi del vostro programma ne hanno diverse.\n\n" +
+      "Portatevi la borraccia da casa: e' la stessa che userete nei parchi dell'Ovest.",
+    isFree: true,
+    mapsQuery: "water fountain Central Park New York",
+    sourceName: "NYC Parks — Cool It! NYC",
+    sourceUrl: "https://www.nycgovparks.org/about/health-and-safety-guide/cool-it-nyc",
   },
 
   // --------------------------------------------------------------- Giorno 11
