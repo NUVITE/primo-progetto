@@ -40,6 +40,15 @@ function nearbyUrl(query: string, lat: number, lng: number) {
   return `https://www.google.com/maps/search/${encodeURIComponent(query)}/@${lat},${lng},15z`;
 }
 
+/**
+ * Ricerca sul web fatta al momento: prezzi e orari cambiano, e queste schede
+ * sono ferme al giorno in cui le ho scritte.
+ */
+export function webSearchUrl(titolo: string, indirizzo?: string | null) {
+  const q = [titolo, indirizzo, "2026 orari prezzi"].filter(Boolean).join(" ");
+  return `https://www.google.com/search?q=${encodeURIComponent(q)}`;
+}
+
 export function SuggestionsPanel({
   suggestions,
   lat,
@@ -138,6 +147,15 @@ export function SuggestionsPanel({
                             Apri in Maps
                           </a>
                         )}
+                        <a
+                          href={webSearchUrl(s.title, s.address)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-[13px] font-bold text-clay-700 ring-1 ring-clay-600/30"
+                        >
+                          <Search size={14} strokeWidth={2.4} />
+                          Cerca aggiornato
+                        </a>
                         {s.sourceUrl && (
                           <a
                             href={s.sourceUrl}

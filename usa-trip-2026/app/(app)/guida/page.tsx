@@ -1,10 +1,17 @@
 import {
   ArrowLeftRight,
+  CalendarDays,
+  Clock,
+  Compass,
+  FileText,
   LifeBuoy,
+  Lightbulb,
+  Map,
   MapPin,
   Pencil,
   Share,
   Smartphone,
+  Sun,
   WifiOff,
 } from "lucide-react";
 
@@ -37,6 +44,85 @@ export default function GuidaPage() {
           Cinque minuti di lettura adesso, e durante il viaggio non dovrete più pensarci.
         </p>
       </div>
+
+      <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-sand-200">
+        <h2 className="flex items-center gap-2 text-[17px] font-extrabold text-ink-900">
+          <Compass size={19} strokeWidth={2.2} className="text-brand-600" />
+          Cosa c&apos;è in ogni sezione
+        </h2>
+        <p className="mt-1.5 text-[14px] leading-snug text-ink-400">
+          Le sei icone in fondo allo schermo, in ordine.
+        </p>
+
+        <ul className="mt-3 space-y-3">
+          {[
+            {
+              Icon: Sun,
+              nome: "Oggi",
+              cosa: "La giornata in corso: orari, tappe, hotel, come vestirsi. Con le frecce ai lati della data scorrete tutti i 15 giorni. Sotto trovate l'anteprima di domani, da leggere la sera. Prima della partenza qui c'è anche il conto alla rovescia, che porta alla lista di cosa stampare e mettere in valigia.",
+            },
+            {
+              Icon: CalendarDays,
+              nome: "Giorni",
+              cosa: "L'elenco di tutte e 15 le giornate, per saltare direttamente a quella che vi interessa senza scorrere.",
+            },
+            {
+              Icon: Lightbulb,
+              nome: "Idee",
+              cosa: "Le proposte che ho cercato io sul web, filtrabili per categoria: mangiare, utilità pratiche, cose da vedere, film, con i ragazzi. Ognuna dice se è gratis o a pagamento. NON fanno parte del programma dell'agenzia.",
+            },
+            {
+              Icon: Map,
+              nome: "New York",
+              cosa: "La mappa vera con le strade: scegliete il giorno e vedete il percorso di quella giornata col suo colore. Sotto, come si leggono gli indirizzi, come funziona OMNY e le fermate metro attorno all'hotel.",
+            },
+            {
+              Icon: FileText,
+              nome: "Documenti",
+              cosa: "Voucher, biglietti, hotel, transfer e assicurazione. Quelli comuni li vedono tutti; gli ESTA sono nominali e li vede solo la vostra famiglia.",
+            },
+            {
+              Icon: LifeBuoy,
+              nome: "SOS",
+              cosa: "Il 911, i numeri dell'agenzia e dei consolati, l'assicurazione e cosa fare passo per passo se qualcuno sta male o si perde un documento o un bagaglio.",
+            },
+          ].map((v) => (
+            <li key={v.nome} className="flex gap-3">
+              <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-700">
+                <v.Icon size={18} strokeWidth={2.2} />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-[16px] font-bold text-ink-900">{v.nome}</span>
+                <span className="block text-[14px] leading-snug text-ink-500">{v.cosa}</span>
+              </span>
+            </li>
+          ))}
+        </ul>
+
+        <p className="mt-4 rounded-xl bg-sand-100 px-3.5 py-3 text-[14px] leading-snug text-ink-500">
+          <strong className="text-ink-900">Dogana e farmaci</strong> ed{" "}
+          <strong className="text-ink-900">Escursioni extra</strong> si raggiungono dai due pulsanti
+          in fondo alla schermata Oggi.
+        </p>
+      </section>
+
+      <Card title="I due orologi in alto" Icon={Clock}>
+        <p>
+          Nell&apos;intestazione trovate sempre <strong className="text-ink-900">l&apos;ora del
+          posto dove siete</strong> e <strong className="text-ink-900">quella in Italia</strong>,
+          affiancate.
+        </p>
+        <p>
+          L&apos;icona del telefono accanto è <span className="font-bold text-emerald-700">verde</span>{" "}
+          quando in Italia sono svegli (dalle 8 alle 22) e{" "}
+          <span className="font-bold text-rose-700">rossa</span> quando è notte: un&apos;occhiata e
+          sapete se potete chiamare casa senza svegliare nessuno.
+        </p>
+        <p className="text-[14px] text-ink-400">
+          Il fuso cambia da solo seguendo la tappa del giorno. Nell&apos;Ovest ne attraverserete
+          quattro: l&apos;Arizona non fa l&apos;ora legale, la Nazione Navajo sì.
+        </p>
+      </Card>
 
       <Card title="Installarla sul telefono" Icon={Smartphone}>
         <p>

@@ -7,12 +7,14 @@ import {
   Eye,
   LayoutGrid,
   MapPin,
+  Search,
   ShoppingCart,
   TriangleAlert,
   Users,
   UtensilsCrossed,
 } from "lucide-react";
 import { googleMapsUrl, formatItalianDate } from "@/lib/trip";
+import { webSearchUrl } from "@/components/SuggestionsPanel";
 import type { Suggestion, TripDay } from "@/app/generated/prisma/client";
 
 export type IdeaConGiorno = Suggestion & {
@@ -111,6 +113,15 @@ export function ElencoIdee({ idee }: { idee: IdeaConGiorno[] }) {
                   Apri in Maps
                 </a>
               )}
+              <a
+                href={webSearchUrl(i.title, i.address)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-[13px] font-bold text-clay-700 ring-1 ring-clay-600/30"
+              >
+                <Search size={14} strokeWidth={2.4} />
+                Cerca aggiornato
+              </a>
               {i.sourceUrl && (
                 <a
                   href={i.sourceUrl}

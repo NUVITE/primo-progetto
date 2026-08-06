@@ -2,6 +2,7 @@ import { PrismaClient } from "../app/generated/prisma/client.ts";
 import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
 import bcrypt from "bcryptjs";
 import { SUGGESTIONS, DAY_COORDS } from "./suggerimenti.ts";
+import { MEALS_BY_DAY, type MealInput } from "./ristoranti.ts";
 
 const adapter = new PrismaBetterSqlite3({ url: process.env.DATABASE_URL ?? "file:./dev.db" });
 const prisma = new PrismaClient({ adapter });
@@ -27,13 +28,6 @@ interface ActivityInput {
   requiresDocument?: string;
 }
 
-interface MealInput {
-  name: string;
-  address?: string;
-  priceTier?: string;
-  note?: string;
-}
-
 interface DayInput {
   date: string; // YYYY-MM-DD
   dayNumber: number;
@@ -46,7 +40,8 @@ interface DayInput {
   dressCode?: string;
   summary?: string;
   activities: ActivityInput[];
-  meals?: MealInput[];
+  // I locali suggeriti dall'agenzia stanno in ristoranti.ts, tutti quanti:
+  // vanno riportati integralmente, senza selezioni.
 }
 
 const DAYS: DayInput[] = [
@@ -68,10 +63,6 @@ const DAYS: DayInput[] = [
       { time: "15:15", title: "Atterraggio Los Angeles, Terminal B (Tom Bradley Intl)", notes: "Controlli di frontiera + ritiro bagagli: conta un'ora abbondante. Risposte da dare: turismo, Hilton Los Angeles Airport, durata soggiorno." },
       { time: "17:00", title: "Navetta gratuita per l'hotel", address: "Hilton Los Angeles Airport, 5711 W Century Blvd", transportMode: "navetta gratuita hotel (ogni 10-15 min)", cost: "incluso", notes: "Dal piano arrivi salire a Departures, seguire 'Hotel & Courtesy Shuttles', poi cartello rosso 'Hotel & Private Parking Shuttle'. 1-2$ di mancia all'autista consigliati." },
     ],
-    meals: [
-      { name: "Landings Bar & Grill", note: "Accanto alla hall dell'hotel, comodo per la prima sera", priceTier: "$$" },
-      { name: "In-N-Out Burger", address: "9149 S Sepulveda Blvd", note: "10 min in taxi, l'hamburger californiano", priceTier: "$" },
-    ],
   },
   {
     date: "2026-08-10",
@@ -87,10 +78,6 @@ const DAYS: DayInput[] = [
       { time: "09:00", title: "Apertura Universal Studios Hollywood", requiresDocument: "Biglietto Universal Studios (2 giorni)", notes: "Entrare all'apertura riduce molto le code. Da non perdere: Studio Tour, Wizarding World of Harry Potter, Super Nintendo World, Jurassic World/Transformers/Simpsons." },
       { time: "18:00", title: "Rientro con calma o cena a CityWalk" },
     ],
-    meals: [
-      { name: "Antojitos Cocina Mexicana", address: "CityWalk", note: "Il migliore del complesso", priceTier: "$$" },
-      { name: "Voodoo Doughnut", address: "CityWalk", note: "Ciambelle giganti, aperto fino a tardi", priceTier: "$" },
-    ],
   },
   {
     date: "2026-08-11",
@@ -105,10 +92,6 @@ const DAYS: DayInput[] = [
       { time: "08:15", title: "City tour guidato (italiano/spagnolo/inglese, ~4h): Downtown, Olvera Street, Hollywood Blvd, Walk of Fame, scritta Hollywood" },
       { time: "12:30", title: "Fine tour a Hollywood - scegliere una delle 3 opzioni", notes: "1) Escursione 'LA by the beach' 60$ (Santa Monica + Venice Beach, riporta in hotel). 2) Secondo ingresso Universal (metro linea B, 2 fermate). 3) Pomeriggio libero a Hollywood (Walk of Fame, Griffith Observatory)." },
       { time: "18:00", title: "Rientro autonomo in hotel se non si è scelta l'escursione", transportMode: "uber/lyft (45-60 min, 50-70$) oppure metro (~1h30, 1.75$)", notes: "Evitare la fascia 16:00-19:00, traffico intenso." },
-    ],
-    meals: [
-      { name: "In-N-Out Burger", address: "7009 Sunset Blvd", note: "Chiedere il 'Double-Double animal style'", priceTier: "$" },
-      { name: "Musso & Frank Grill", address: "6667 Hollywood Blvd", note: "Il più antico ristorante di Hollywood (1919)", priceTier: "$$$" },
     ],
   },
   {
@@ -127,10 +110,6 @@ const DAYS: DayInput[] = [
       { time: "—", title: "Sosta a Calico Ghost Town", notes: "Città fantasma del 1881, miniere d'argento, casa di bottiglie di vetro" },
       { time: "sera", title: "Arrivo al Sahara Las Vegas", notes: "Escursione facoltativa 'Las Vegas by night' 60$ (fontane Bellagio, vulcano Mirage, Fremont Street)" },
     ],
-    meals: [
-      { name: "Chickie's & Pete's", address: "dentro il Sahara", note: "Sport bar, alette di pollo, Crabfries", priceTier: "$$" },
-      { name: "Earl of Sandwich", address: "dentro il Planet Hollywood", note: "Panini caldi 8-10$, ottimo rapporto qualità/prezzo sulla Strip", priceTier: "$" },
-    ],
   },
   {
     date: "2026-08-13",
@@ -143,10 +122,6 @@ const DAYS: DayInput[] = [
     activities: [
       { time: "—", title: "Partenza verso il Grand Canyon - South Rim", notes: "Sosta a Mather Point e Yavapai Point (Rim Trail pianeggiante). Bere costantemente: l'aria è secchissima a 2100m, ci si disidrata senza accorgersene." },
       { time: "sera", title: "Arrivo a Williams", notes: "Ultima città della Route 66 bypassata dall'autostrada (1984). Passeggiata serale di 20 minuti nel centro storico." },
-    ],
-    meals: [
-      { name: "Cruisers Route 66 Cafe", address: "233 W Route 66, Williams", note: "Costine barbecue, musica dal vivo", priceTier: "$$" },
-      { name: "Maswik Food Court", note: "Dentro il Grand Canyon Village, comodo per il pranzo al parco", priceTier: "$" },
     ],
   },
   {
@@ -161,9 +136,6 @@ const DAYS: DayInput[] = [
       { time: "—", title: "Monument Valley - View Point panoramico", notes: "Escursione facoltativa consigliata: Monument Valley Jeep Tour 80$/persona, 1h30-2h con guide Navajo - permette di entrare nella valle, non solo vederla dal piazzale." },
       { time: "sera", title: "Arrivo a Page", notes: "Base per Antelope Canyon e Lake Powell. Escursione facoltativa Lake Powell Air Tour 225$ (40-45 min)." },
     ],
-    meals: [
-      { name: "Big John's Texas BBQ", address: "153 S Lake Powell Blvd, Page", note: "Il locale più amato di Page", priceTier: "$$" },
-    ],
   },
   {
     date: "2026-08-15",
@@ -177,10 +149,6 @@ const DAYS: DayInput[] = [
       { time: "—", title: "Antelope Canyon (slot canyon, guida Navajo obbligatoria)", notes: "Visita contingentata, si cammina in fila. Scarpe chiuse, niente zaini/borse/treppiedi." },
       { time: "—", title: "Trasferimento a Bryce Canyon (2400-2700m)", notes: "Punti panoramici: Sunset Point, Sunrise Point, Inspiration Point" },
     ],
-    meals: [
-      { name: "Cowboy's Buffet & Steak Room", address: "dentro il Ruby's Inn", note: "Buffet abbondante", priceTier: "$$" },
-      { name: "Ebenezer's Barn & Grill", note: "Cena western con musica country dal vivo, da prenotare in giornata", priceTier: "$$$" },
-    ],
   },
   {
     date: "2026-08-16",
@@ -193,10 +161,6 @@ const DAYS: DayInput[] = [
     activities: [
       { time: "—", title: "Zion National Park", notes: "Il parco più verde del viaggio, gola scavata dal fiume Virgin. Possibile salto se il tunnel è chiuso ai veicoli fuori sagoma: la guida informerà in loco." },
       { time: "pomeriggio", title: "Rientro al Sahara Las Vegas, serata libera", notes: "Gratis e imperdibili: fontane del Bellagio (ogni 15 min dalle 20:00), canale del Venetian, giardini Flamingo, Fremont Street Experience." },
-    ],
-    meals: [
-      { name: "Bacchanal Buffet", address: "Caesars Palace", note: "Il buffet più celebre di Las Vegas, prenotare online", priceTier: "$$$$" },
-      { name: "In-N-Out Burger", address: "4888 Dean Martin Dr", note: "Aperto fino all'1:30", priceTier: "$" },
     ],
   },
   {
@@ -214,7 +178,6 @@ const DAYS: DayInput[] = [
       { time: "19:00", title: "Transfer privato Sahara > Aeroporto Harry Reid (LAS)", requiresDocument: "Riferimento transfer", notes: "Appuntamento ingresso principale hotel, minivan fino a 7 posti, 15 min attesa gratuiti. Centro assistenza transfer +39 02 3858 2909 (int.8)." },
       { time: "22:38", title: "Volo UA1681 Las Vegas > Newark (notturno)", notes: "Boeing 737 MAX, 4h52, ristoro a pagamento. Con 3 ore di fuso in avanti si atterra alle 06:30." },
     ],
-    meals: [],
   },
   {
     date: "2026-08-18",
@@ -227,17 +190,13 @@ const DAYS: DayInput[] = [
     summary: "Le stanze non sono disponibili prima delle 14:00-15:00: lasciate i bagagli al deposito hotel (gratuito) e iniziate subito la visita della città.",
     activities: [
       { time: "06:30", title: "Atterraggio a Newark, Terminal C", notes: "Volo interno, nessun controllo doganale, diretti al ritiro bagagli" },
-      { time: "07:15", title: "Transfer privato Newark > Hotel Riu Plaza", requiresDocument: "Prenotazione T2785671", zone: "midtown", transportMode: "transfer privato (furgoncino 11 posti, Llevame NYC)", notes: "Autista con cartello nome capo pratica in hall arrivi, 45-60 min fino a Manhattan" },
-      { time: "08:15", title: "Arrivo hotel, deposito bagagli, colazione" },
+      { time: "07:15", title: "Transfer privato Newark > Hotel Riu Plaza", requiresDocument: "Prenotazione T2785671", zone: "midtown", transportMode: "transfer privato (furgoncino 11 posti, Llevame NYC)", notes: "L'autista entra in terminal 45 minuti dopo l'atterraggio e aspetta fino a un'ora; oltre, costa 10 $ ogni 20 minuti. Vi scrive dal momento dell'atterraggio." },
+      { time: "08:15", title: "Arrivo hotel, deposito bagagli, colazione", notes: "Prenotazione hotel RNT5QHDM" },
       { time: "09:45", title: "Passeggiata verso il MoMA lungo la 6th Avenue", zone: "midtown", transportMode: "piedi (15 min)" },
-      { time: "10:30", title: "MoMA - Museum of Modern Art", address: "11 West 53rd Street, New York", zone: "midtown", cost: "incluso", requiresDocument: "Voucher MoMA - Rif. 254-7188066", notes: "Apertura 10:30, chiusura 17:30 (ven 20:30). Van Gogh, Picasso, Dalì, Monet al 5° piano." },
+      { time: "10:30", title: "MoMA - Museum of Modern Art", address: "11 West 53rd Street, New York", zone: "midtown", cost: "incluso", requiresDocument: "Voucher MoMA STAMPATO - Rif. 254-7188066", notes: "Apertura 10:30, chiusura 17:30 (ven 20:30). Il voucher richiede la copia stampata e un documento con foto. Van Gogh, Picasso, Dalì, Monet al 5° piano." },
       { time: "13:30", title: "Hudson Yards, Vessel, High Line, Chelsea Market, Little Island, Flatiron District", zone: "midtown", transportMode: "metro linea E (10 min) poi a piedi", cost: "incluso" },
       { time: "19:30", title: "Empire State Building", address: "20 W 34th St, New York", zone: "midtown", cost: "citypass", requiresDocument: "New York CityPASS", notes: "Ingresso già prenotato, arrivare 15-20 min prima per il controllo di sicurezza. Osservatorio 86° piano." },
       { time: "21:00", title: "Aperitivo/cena al 230 Fifth rooftop", zone: "midtown", transportMode: "piedi (8 min)", cost: "$$$" },
-    ],
-    meals: [
-      { name: "Chelsea Market", address: "75 9th Ave", note: "Los Tacos No.1, Miznon - pranzo veloce", priceTier: "$" },
-      { name: "Joe's Pizza", address: "1435 Broadway", note: "Vicino hotel, trancio newyorkese classico", priceTier: "$" },
     ],
   },
   {
@@ -258,10 +217,6 @@ const DAYS: DayInput[] = [
       { time: "20:00", title: "Cena da Olio e Più, Greenwich Village", zone: "lower", transportMode: "metro linea 1 o 15 min a piedi da SoHo", cost: "$$$", notes: "Prenotare su OpenTable, si riempie sempre" },
       { time: "22:00", title: "Rientro in hotel", transportMode: "metro linea 1 (12 min) o uber (20-25$)" },
     ],
-    meals: [
-      { name: "Juliana's Pizza", address: "19 Old Fulton St, Dumbo", note: "Forno a carbone, tra le migliori della città", priceTier: "$$" },
-      { name: "Time Out Market", address: "55 Water St, Dumbo", note: "Food hall con terrazza vista ponte", priceTier: "$$" },
-    ],
   },
   {
     date: "2026-08-20",
@@ -279,10 +234,6 @@ const DAYS: DayInput[] = [
       { time: "18:00", title: "Sosta da Katz's Delicatessen per il pastrami", zone: "lower", transportMode: "metro linea J (2 fermate) + 8 min a piedi", cost: "$$", notes: "Conservare il biglietto dato all'ingresso: smarrirlo costa 50$." },
       { time: "20:00", title: "Top of the Rock", address: "30 Rockefeller Plaza", zone: "midtown", cost: "citypass", requiresDocument: "New York CityPASS", transportMode: "metro linea F (15 min)", notes: "Salita al tramonto: vista su Empire State e Central Park insieme." },
       { time: "21:30", title: "Cena da Ellen's Stardust Diner", zone: "midtown", transportMode: "piedi", cost: "$$" },
-    ],
-    meals: [
-      { name: "Katz's Delicatessen", address: "205 E Houston St", note: "Pastrami on rye, uno ogni due persone basta", priceTier: "$$" },
-      { name: "Junior's Restaurant", address: "1515 Broadway", note: "La migliore cheesecake di New York, vicino hotel", priceTier: "$" },
     ],
   },
   {
@@ -303,10 +254,6 @@ const DAYS: DayInput[] = [
       { time: "21:00", title: "Roosevelt Island", zone: "queens/uptown", transportMode: "NYC Ferry (4$) o funivia da 59th St (2.90$ OMNY)", notes: "Verificare l'ultima corsa del traghetto la sera" },
       { time: "21:30", title: "Cena/cocktail al The Dickens", address: "783 8th Ave", zone: "midtown", cost: "$$$", notes: "Smart casual" },
     ],
-    meals: [
-      { name: "Levain Bakery", address: "167 W 74th St", note: "I cookie più famosi di New York", priceTier: "$" },
-      { name: "The Dickens", address: "783 8th Ave, tra 47th e 48th", note: "5 min dall'hotel, aperto fino alle 3 il venerdì", priceTier: "$$$" },
-    ],
   },
   {
     date: "2026-08-22",
@@ -324,9 +271,6 @@ const DAYS: DayInput[] = [
       { time: "12:30", title: "Arrivo a Newark, 3 ore prima del volo" },
       { time: "15:35", title: "Volo UA380 Newark > Bari (diretto)", notes: "Boeing 767, 8h55, pasto incluso. Ricordare limite liquidi 100ml." },
     ],
-    meals: [
-      { name: "Bryant Park Grill / Le Pain Quotidien", note: "Colazione/brunch all'aperto nel parco", priceTier: "$$" },
-    ],
   },
   {
     date: "2026-08-23",
@@ -337,7 +281,6 @@ const DAYS: DayInput[] = [
     activities: [
       { time: "06:30", title: "Atterraggio a Bari", notes: "Fine dei servizi C&C Viaggi" },
     ],
-    meals: [],
   },
 ];
 
@@ -516,7 +459,7 @@ async function main() {
         data: { ...a, tripDayId: tripDay.id, order: order++ },
       });
     }
-    for (const m of day.meals ?? []) {
+    for (const m of MEALS_BY_DAY[day.dayNumber] ?? []) {
       await prisma.mealSuggestion.create({
         data: { ...m, tripDayId: tripDay.id },
       });
