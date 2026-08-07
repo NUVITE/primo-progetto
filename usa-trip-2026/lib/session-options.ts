@@ -2,6 +2,7 @@ import type { SessionOptions } from "iron-session";
 
 export interface SessionData {
   familyCode?: string;
+  personId?: string;
 }
 
 export const sessionOptions: SessionOptions = {

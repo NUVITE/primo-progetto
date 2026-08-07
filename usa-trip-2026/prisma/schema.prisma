@@ -19,6 +19,51 @@ model Family {
   createdAt    DateTime @default(now())
 
   documents Document[]
+  people    Person[]
+  photos    Photo[]
+}
+
+// Una persona dentro una famiglia: l'account resta condiviso, ma serve per
+// attribuire foto/video a chi li ha caricati senza creare 15 login diversi.
+// Scelta una volta sul proprio telefono in /chi-sei.
+model Person {
+  id        String   @id @default(cuid())
+  familyId  String
+  family    Family   @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  name      String
+  createdAt DateTime @default(now())
+
+  photos Photo[]
+
+  @@unique([familyId, name])
+  @@index([familyId])
+}
+
+// Foto/video caricati dal telefono. Il file NON viene mai salvato sul VPS
+// (disco limitato, 15 persone per 15 giorni lo riempirebbero in pochi
+// giorni): passa in memoria e va dritto verso una piccola API PHP sul
+// dominio dell'utente, che ha spazio web illimitato (vedi lib/archive.ts e
+// archive-receiver-php/). Se l'invio fallisce non si crea la riga: la foto
+// resta sul telefono e si puo' ricaricare. Anche la lettura per la galleria
+// prende i byte al volo dal dominio (route /foto/[id]/file), mai da disco
+// locale.
+model Photo {
+  id             String   @id @default(cuid())
+  personId       String
+  person         Person   @relation(fields: [personId], references: [id], onDelete: Cascade)
+  familyId       String
+  family         Family   @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  kind           String // "foto" | "video"
+  mimeType       String
+  fileName       String // nome file originale, mostrato all'utente
+  storageName    String // nome generato (UUID+estensione) con cui vive sul dominio
+  sizeBytes      Int
+  caption        String?
+  sharedWithTrip Boolean  @default(false) // di default visibile solo alla propria famiglia
+  createdAt      DateTime @default(now())
+
+  @@index([familyId])
+  @@index([personId])
 }
 
 // Un giorno di viaggio, comune a tutte le famiglie

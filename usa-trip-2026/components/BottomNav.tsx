@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, FileText, LifeBuoy, Lightbulb, Map, Sun } from "lucide-react";
+import { CalendarDays, Camera, FileText, LifeBuoy, Lightbulb, Map, Sun } from "lucide-react";
 
 const ITEMS = [
   { href: "/", label: "Oggi", Icon: Sun },
   { href: "/itinerario", label: "Giorni", Icon: CalendarDays },
   { href: "/idee", label: "Idee", Icon: Lightbulb },
   { href: "/new-york", label: "New York", Icon: Map },
+  { href: "/foto", label: "Foto", Icon: Camera },
   { href: "/documenti", label: "Documenti", Icon: FileText },
   { href: "/emergenze", label: "SOS", Icon: LifeBuoy },
 ];

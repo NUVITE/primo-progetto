@@ -396,6 +396,14 @@ const COMMON_DOCUMENTS = [
   { title: "Le nostre domande e le risposte dell'agenzia", category: "altro", filePath: "TUTTI/nostre_note.pdf" },
 ];
 
+// Persone per famiglia, per il "Chi sei?".
+const PEOPLE: Record<string, string[]> = {
+  SERINO: ["Alessandra", "Claudia", "Daniele", "Elena", "Maria"],
+  GIANNELLA: ["Giuseppe", "Lucia"],
+  DICUONZO: ["Piero", "Angela", "Valeria", "Francesca"], // Pierluigi, detto Piero
+  CAFAGNA: ["Michele", "Chiara", "Angelo", "Emanuela"],
+};
+
 // Documenti nominali: visibili solo alla propria famiglia.
 const FAMILY_DOCUMENTS: Record<
   string,
@@ -536,6 +544,18 @@ async function main() {
     });
   }
   console.log(`  ${SUGGESTIONS.length} suggerimenti inseriti`);
+
+  console.log("Seeding persone (Chi sei?)...");
+  for (const [code, names] of Object.entries(PEOPLE)) {
+    const family = await prisma.family.findUniqueOrThrow({ where: { code } });
+    for (const name of names) {
+      await prisma.person.upsert({
+        where: { familyId_name: { familyId: family.id, name } },
+        update: {},
+        create: { familyId: family.id, name },
+      });
+    }
+  }
 
   console.log("Seeding documenti...");
   await prisma.document.deleteMany({ where: { familyId: null } });

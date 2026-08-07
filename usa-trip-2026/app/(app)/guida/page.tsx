@@ -1,9 +1,11 @@
 import {
   ArrowLeftRight,
   CalendarDays,
+  Camera,
   Clock,
   Compass,
   FileText,
+  KeyRound,
   LifeBuoy,
   Lightbulb,
   Map,
@@ -12,6 +14,7 @@ import {
   Share,
   Smartphone,
   Sun,
+  Users,
   WifiOff,
 } from "lucide-react";
 
@@ -51,7 +54,7 @@ export default function GuidaPage() {
           Cosa c&apos;è in ogni sezione
         </h2>
         <p className="mt-1.5 text-[14px] leading-snug text-ink-400">
-          Le sei icone in fondo allo schermo, in ordine.
+          Le sette icone in fondo allo schermo, in ordine.
         </p>
 
         <ul className="mt-3 space-y-3">
@@ -75,6 +78,11 @@ export default function GuidaPage() {
               Icon: Map,
               nome: "New York",
               cosa: "La mappa vera con le strade: scegliete il giorno e vedete il percorso di quella giornata col suo colore. Sotto, come si leggono gli indirizzi, come funziona OMNY e le fermate metro attorno all'hotel.",
+            },
+            {
+              Icon: Camera,
+              nome: "Foto",
+              cosa: "Scattate con la fotocamera normale del telefono, poi qui scegliete cosa e quando caricare (anche più foto insieme). Restano sempre anche nella fotocamera: se il caricamento fallisce, si riprova senza aver perso nulla. Vedete quelle della vostra famiglia e quelle che le altre famiglie hanno scelto di condividere con tutto il gruppo; toccando una foto trovate l'interruttore per condividerla anche voi con tutti.",
             },
             {
               Icon: FileText,
@@ -105,6 +113,34 @@ export default function GuidaPage() {
           in fondo alla schermata Oggi.
         </p>
       </section>
+
+      <Card title="Chi sei?" Icon={Users}>
+        <p>
+          Ogni famiglia ha un solo accesso condiviso, ma le foto vanno attribuite a chi le carica:
+          per questo, la prima volta che entrate su un telefono, l&apos;app chiede{" "}
+          <strong className="text-ink-900">chi siete</strong> tra i nomi della vostra famiglia (o
+          permette di aggiungerne uno nuovo).
+        </p>
+        <p className="rounded-xl bg-brand-50 px-3.5 py-3 text-[14px] leading-snug text-brand-800">
+          A cosa serve: dire chi siete crea la <strong>vostra area personale di foto e
+          ricordi</strong> nella sezione Foto, da riguardare con calma dopo il viaggio o da
+          condividere con gli altri quando volete voi.
+        </p>
+        <p>
+          Se un altro membro della famiglia usa lo stesso telefono, toccate{" "}
+          <strong className="text-ink-900">&ldquo;cambia&rdquo;</strong> accanto al vostro nome, in
+          alto, per scegliere un nome diverso.
+        </p>
+      </Card>
+
+      <Card title="Password e profilo" Icon={KeyRound}>
+        <p>
+          Dall&apos;icona <strong className="text-ink-900">ingranaggio</strong> in alto si apre il
+          profilo, dove ogni famiglia può <strong className="text-ink-900">cambiare la propria
+          password</strong>. Vale per tutti quelli che accedono con quella famiglia: chi non ha
+          ancora fatto accesso su un telefono dovrà usare la nuova.
+        </p>
+      </Card>
 
       <Card title="I due orologi in alto" Icon={Clock}>
         <p>
@@ -178,6 +214,26 @@ export default function GuidaPage() {
         <p>
           La modifica <strong className="text-ink-900">la vedono tutte e quattro le famiglie</strong>:
           basta che lo faccia una persona sola.
+        </p>
+      </Card>
+
+      <Card title="Foto e video: meglio in Wi-Fi" Icon={Camera}>
+        <p>
+          I video occupano molti giga. Se il telefono rileva che siete sotto rete dati mobile,
+          l&apos;app vi avvisa e blocca il caricamento a meno che confermiate di avere giga
+          illimitati. Su iPhone questo controllo automatico non è possibile: caricate quando siete
+          in Wi-Fi (di solito la sera in hotel).
+        </p>
+        <p>
+          Toccando &ldquo;Scegli foto o video&rdquo; potete selezionarne{" "}
+          <strong className="text-ink-900">più di uno insieme</strong> dalla galleria del
+          telefono: fotografate tutto il giorno tranquilli, poi la sera scegliete in blocco cosa
+          caricare.
+        </p>
+        <p className="text-[14px] text-ink-400">
+          Aprire una foto o un video già caricato richiede comunque un po&apos; di connessione,
+          perché il file vero e proprio non resta salvato nell&apos;app: viene ripreso al momento
+          da dove è archiviato.
         </p>
       </Card>
 

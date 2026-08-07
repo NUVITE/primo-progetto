@@ -3,12 +3,7 @@ import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { prisma } from "@/lib/db";
 import { getCurrentFamily } from "@/lib/dal";
-
-// In produzione i documenti stanno fuori dalla cartella dell'app, cosi' non
-// vengono persi quando si ridistribuisce una nuova versione.
-const PRIVATE_UPLOADS_ROOT = path.resolve(
-  process.env.PRIVATE_UPLOADS_DIR ?? path.join(process.cwd(), "private-uploads")
-);
+import { PRIVATE_UPLOADS_ROOT } from "@/lib/uploads";
 
 function contentTypeFor(filePath: string) {
   if (filePath.endsWith(".pdf")) return "application/pdf";

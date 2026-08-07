@@ -20,3 +20,15 @@ export const getCurrentFamily = cache(async () => {
   }
   return family;
 });
+
+export const getCurrentPerson = cache(async () => {
+  const session = await getSession();
+  if (!session.personId) {
+    redirect("/chi-sei");
+  }
+  const person = await prisma.person.findUnique({ where: { id: session.personId } });
+  if (!person) {
+    redirect("/chi-sei");
+  }
+  return person;
+});

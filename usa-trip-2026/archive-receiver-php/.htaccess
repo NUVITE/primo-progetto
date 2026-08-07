@@ -1,0 +1,7 @@
+# Apache spesso non passa l'header Authorization a PHP di default: questa
+# regola lo inoltra esplicitamente, cosi' upload.php puo' leggerlo.
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteCond %{HTTP:Authorization} ^(.*)
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+</IfModule>

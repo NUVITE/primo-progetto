@@ -53,3 +53,9 @@ next-env.d.ts
 /.claude/skills/
 /.agents/
 /.windsurf/
+
+# file di test sincronizzati da FileZilla dal server (mai committare: il
+# phpinfo() espone la configurazione del server)
+/archive-receiver-php/test.php
+/archive-receiver-php/*.jpg
+/archive-receiver-php/*.png
