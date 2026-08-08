@@ -5,7 +5,7 @@ import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { getCurrentFamily, getCurrentPerson } from "@/lib/dal";
-import { slugifyPersonName, uploadToArchive } from "@/lib/archive";
+import { slugifyPersonName, uploadToArchive, deleteFromArchive } from "@/lib/archive";
 
 export interface UploadPhotoState {
   error?: string;
@@ -105,6 +105,22 @@ export async function setPhotoShared(photoId: string, sharedWithTrip: boolean) {
     return;
   }
 
-  await prisma.photo.update({ where: { id: photoId }, data: { sharedWithTrip } });
+  await prisma.photo.update({
+    where: { id: photoId },
+    data: { sharedWithTrip, sharedAt: sharedWithTrip ? new Date() : null },
+  });
+  revalidatePath("/foto");
+}
+
+export async function deletePhoto(photoId: string) {
+  const family = await getCurrentFamily();
+
+  const photo = await prisma.photo.findUnique({ where: { id: photoId }, include: { person: true } });
+  if (!photo || photo.familyId !== family.id) {
+    return;
+  }
+
+  await prisma.photo.delete({ where: { id: photoId } });
+  await deleteFromArchive(family.code, slugifyPersonName(photo.person.name), photo.storageName);
   revalidatePath("/foto");
 }

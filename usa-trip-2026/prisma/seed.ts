@@ -383,8 +383,9 @@ const CUSTOMS_PHRASES = [
   { category: "Farmaci", italian: "Ho con me alcuni farmaci da prescrizione e da banco per uso personale, con le confezioni originali.", english: "I'm carrying some prescription and over-the-counter medications for personal use, in their original packaging.", order: 7 },
   { category: "Farmaci", italian: "Sono farmaci che uso regolarmente per una condizione cronica (tiroide/asma/allergie).", english: "These are medications I take regularly for a chronic condition (thyroid/asthma/allergies).", order: 8 },
   { category: "Cibo", italian: "Non ho alimenti freschi, carne, salumi o formaggi con me.", english: "I don't have any fresh food, meat, or cheese with me.", order: 9 },
-  { category: "Generale", italian: "Non parlo molto bene l'inglese, mi scusi.", english: "I don't speak English very well, I'm sorry.", order: 10 },
-  { category: "Generale", italian: "Può ripetere più lentamente, per favore?", english: "Could you repeat that more slowly, please?", order: 11 },
+  { category: "Cibo", italian: "Ho solo alcuni snack da forno confezionati (taralli, cracker), niente di fresco.", english: "I only have some packaged baked snacks with me, like Italian breadsticks and crackers — nothing fresh.", order: 10 },
+  { category: "Generale", italian: "Non parlo molto bene l'inglese, mi scusi.", english: "I don't speak English very well, I'm sorry.", order: 11 },
+  { category: "Generale", italian: "Può ripetere più lentamente, per favore?", english: "Could you repeat that more slowly, please?", order: 12 },
 ];
 
 const OPTIONAL_EXCURSIONS = [

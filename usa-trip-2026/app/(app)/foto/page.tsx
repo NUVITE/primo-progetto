@@ -25,6 +25,7 @@ export default async function FotoPage() {
     kind: p.kind,
     caption: p.caption,
     sharedWithTrip: p.sharedWithTrip,
+    sharedAt: p.sharedAt ? p.sharedAt.toISOString() : null,
     personName: p.person.name,
     familyDisplayName: p.family.displayName,
   });
@@ -41,7 +42,7 @@ export default async function FotoPage() {
           {family.displayName}
         </h2>
         {ownPhotos.length > 0 ? (
-          <PhotoGallery photos={ownPhotos} allowShareToggle />
+          <PhotoGallery photos={ownPhotos} allowShareToggle allowDelete />
         ) : (
           <p className="rounded-xl bg-sand-50 px-4 py-3 text-[14px] leading-snug text-ink-400">
             Non avete ancora caricato foto o video.
@@ -55,7 +56,7 @@ export default async function FotoPage() {
           Condivise da tutto il gruppo
         </h2>
         {tripPhotos.length > 0 ? (
-          <PhotoGallery photos={tripPhotos} allowShareToggle={false} />
+          <PhotoGallery photos={tripPhotos} allowShareToggle={false} allowDelete={false} />
         ) : (
           <p className="rounded-xl bg-sand-50 px-4 py-3 text-[14px] leading-snug text-ink-400">
             Nessuna famiglia ha ancora condiviso foto con tutto il gruppo.

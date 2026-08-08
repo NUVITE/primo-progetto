@@ -60,6 +60,7 @@ model Photo {
   sizeBytes      Int
   caption        String?
   sharedWithTrip Boolean  @default(false) // di default visibile solo alla propria famiglia
+  sharedAt       DateTime? // quando e' stata condivisa con tutto il gruppo (null se non condivisa)
   createdAt      DateTime @default(now())
 
   @@index([familyId])

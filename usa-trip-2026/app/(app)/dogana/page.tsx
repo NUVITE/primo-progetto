@@ -49,6 +49,13 @@ export default async function DoganaPage() {
             </div>
           ))}
         </div>
+        <p className="mt-2.5 rounded-xl bg-clay-50 px-4 py-3 text-[14px] leading-snug text-clay-700">
+          Sul modulo di dichiarazione doganale (o a voce) chiedono sempre se portate cibo:{" "}
+          <strong>dichiaratelo sempre</strong>, anche se pensate sia ammesso. I nostri taralli e
+          cracker sono prodotti da forno confezionati e generalmente non danno problemi, ma
+          dichiarare &quot;sì&quot; e farli vedere è la scelta giusta: nascondere un alimento,
+          anche innocuo, rischia una multa; dichiararlo no.
+        </p>
       </section>
 
       <section>

@@ -63,6 +63,41 @@ export async function uploadToArchive(
   }
 }
 
+/**
+ * Cancella il file dall'archivio sul dominio, quando una foto/video viene
+ * rimossa dalla webapp. Se la chiamata fallisce non blocca la cancellazione
+ * lato app: il file resta orfano sul dominio, meno grave di un errore che
+ * impedisce di rimuovere una foto sbagliata dalla galleria.
+ */
+export async function deleteFromArchive(
+  familyCode: string,
+  personSlug: string,
+  storageName: string
+): Promise<void> {
+  const base = baseUrl();
+  const token = process.env.ARCHIVE_API_TOKEN;
+  if (!base || !token) return;
+
+  try {
+    const form = new FormData();
+    form.append("family", familyCode);
+    form.append("person", personSlug);
+    form.append("file", storageName);
+
+    await fetch(`${base}/delete.php`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "X-Archive-Token": token,
+      },
+      body: form,
+      signal: AbortSignal.timeout(15_000),
+    });
+  } catch {
+    // vedi commento sopra: non propaghiamo l'errore
+  }
+}
+
 export interface ArchiveFetchResult {
   ok: boolean;
   status: number;
