@@ -147,6 +147,21 @@ export const SUGGESTIONS: SuggestionInput[] = [
     sourceName: "LorenziGo",
     sourceUrl: "https://lorenzigo.com/griffith-observatory-los-angeles-guide/",
   },
+  {
+    dayNumber: 3,
+    category: "film",
+    title: "La scena di La La Land, un passo più in là",
+    description:
+      "Il ballo di Mia e Sebastian tra le stelle non e' girato nella sala del planetario, ma poco " +
+      "fuori, in un punto panoramico chiamato Cathy's Corner, su Mount Hollywood Drive, a pochi minuti " +
+      "a piedi dall'edificio principale dell'osservatorio. Ci si arriva con la stessa passeggiata di " +
+      "chi va a vedere la scritta Hollywood.",
+    isFree: true,
+    address: "Mount Hollywood Dr, Los Angeles (Cathy's Corner)",
+    mapsQuery: "Cathy's Corner Griffith Observatory La La Land",
+    sourceName: "Atlas of Wonders",
+    sourceUrl: "https://www.atlasofwonders.com/2016/12/la-la-land-filming-locations.html",
+  },
 
   // ---------------------------------------------------------------- Giorno 4
   {
@@ -179,6 +194,21 @@ export const SUGGESTIONS: SuggestionInput[] = [
     mapsQuery: "Historic Route 66 Downtown Williams Arizona",
     sourceName: "Experience Williams",
     sourceUrl: "https://experiencewilliams.com/things-to-do-route-66/",
+  },
+  {
+    dayNumber: 5,
+    category: "ragazzi",
+    title: "Williams, il paese vero di Cars",
+    description:
+      "Per disegnare Radiator Springs, il regista John Lasseter e il team Pixar hanno studiato piu' " +
+      "volte le vecchie citta' di Route 66 in Arizona, e Williams e' una di quelle che ha ispirato di " +
+      "piu' le strade e le insegne del film: la stessa via principale che percorrete stasera. Con i " +
+      "bambini e' un buon aggancio per far riconoscere il posto.",
+    isFree: true,
+    mapsQuery: "Historic Route 66 Downtown Williams Arizona",
+    sourceName: "KJZZ",
+    sourceUrl:
+      "https://www.kjzz.org/business/2026-05-18/this-arizona-town-along-route-66-inspired-the-story-of-radiator-springs-in-pixars-cars",
   },
   {
     dayNumber: 5,
@@ -379,6 +409,21 @@ export const SUGGESTIONS: SuggestionInput[] = [
     sourceName: "Big Bus Tours",
     sourceUrl: "https://www.bigbustours.com/en/las-vegas/las-vegas-bus-tours",
   },
+  {
+    dayNumber: 9,
+    category: "ragazzi",
+    title: "The Strat e il videogioco Fallout: New Vegas",
+    description:
+      "Per chi conosce il gioco (o la serie TV arrivata dopo): il grattacielo piu' alto del videogioco " +
+      "Fallout: New Vegas, il Lucky 38, e' modellato proprio sullo Strat, scelto dagli sviluppatori per " +
+      "via della sua altezza fuori scala rispetto al resto della Strip. E' anche uno dei punti " +
+      "panoramici migliori della citta', gia' citato per la giornata libera di oggi.",
+    isFree: false,
+    costDetail: "Ingresso allo SkyPod a pagamento",
+    mapsQuery: "The Strat SkyPod Las Vegas",
+    sourceName: "PopGeeks",
+    sourceUrl: "https://popgeeks.com/seven-ish-fallout-new-vegas-locations-you-can-visit-in-real-life/",
+  },
 
   // --------------------------------------------------------------- Giorno 10
   {
@@ -477,6 +522,37 @@ export const SUGGESTIONS: SuggestionInput[] = [
     sourceName: "Sim Local",
     sourceUrl: "https://www.simlocal.com/post/famous-tv-movie-locations-to-visit-in-new-york-city",
   },
+  {
+    dayNumber: 11,
+    category: "film",
+    title: "Il portone di Sex and the City",
+    description:
+      "A due passi dal palazzo di Friends, al 66 di Perry Street, c'e' la scalinata usata come " +
+      "ingresso di casa di Carrie Bradshaw per gran parte della serie. E' un condominio privato: si " +
+      "guarda e si fotografa dal marciapiede, senza salire i gradini ne' appoggiarsi alla ringhiera, " +
+      "per rispetto di chi ci abita davvero.",
+    isFree: true,
+    address: "66 Perry Street, New York",
+    mapsQuery: "66 Perry Street New York Carrie Bradshaw",
+    sourceName: "The FilmTripper",
+    sourceUrl: "https://www.thefilmtripper.com/blog/carrie-bradshaw-apartment-perry-st",
+  },
+  {
+    dayNumber: 11,
+    category: "film",
+    title: "Le scale di Joker, nel Bronx",
+    description:
+      "La scalinata di West 167th Street, tra Shakespeare Avenue e Anderson Avenue, e' quella della " +
+      "celebre scena in cui Joaquin Phoenix balla da Joker: da quando e' uscito il film, nel 2019, e' " +
+      "diventata una piccola attrazione turistica, meta di chi rifa' la stessa scena.",
+    isFree: true,
+    address: "West 167th Street tra Shakespeare Ave e Anderson Ave, Bronx",
+    mapsQuery: "Joker Stairs Bronx",
+    warning:
+      "Non e' detto che il pullman del Tour dei Contrasti ci passi vicino: chiedete alla guida se rientra nel percorso di oggi nel Bronx, altrimenti resta un'idea per un'altra volta.",
+    sourceName: "Time Out",
+    sourceUrl: "https://www.timeout.com/news/how-the-joker-stairs-became-new-yorks-platform-9-050922",
+  },
 
   {
     dayNumber: 11,
@@ -545,6 +621,33 @@ export const SUGGESTIONS: SuggestionInput[] = [
     mapsQuery: "The Plaza Hotel New York",
     sourceName: "Hollywood Reporter",
     sourceUrl: "https://www.hollywoodreporter.com/lists/new-york-city-filming-locations-movie-tv-sites/",
+  },
+  {
+    dayNumber: 13,
+    category: "film",
+    title: "I gradini di Gossip Girl",
+    description:
+      "La scalinata del Metropolitan Museum, sulla Fifth Avenue, e' il punto di ritrovo di Blair e " +
+      "delle sue amiche in Gossip Girl, ripreso anche nel revival piu' recente. Non serve entrare al " +
+      "museo: ci si siede e basta, proprio mentre passate sul Museum Mile.",
+    isFree: true,
+    mapsQuery: "Metropolitan Museum of Art steps New York",
+    sourceName: "Screen Rant",
+    sourceUrl: "https://screenrant.com/gossip-girl-most-iconic-met-steps-scenes/",
+  },
+  {
+    dayNumber: 13,
+    category: "film",
+    title: "La funivia di Spider-Man",
+    description:
+      "E' la stessa funivia della scena in cui il Goblin fa cadere la cabina con dentro Mary Jane e un " +
+      "gruppo di bambini, e Spider-Man li salva entrambi appeso a un cavo, nel primo film del 2002. " +
+      "Funziona ancora esattamente come allora, tra Manhattan e Roosevelt Island.",
+    isFree: false,
+    costDetail: "Stessa tariffa della metropolitana",
+    mapsQuery: "Roosevelt Island Tramway Manhattan station",
+    sourceName: "Fantrippers",
+    sourceUrl: "https://www.fantrippers.com/en/fanspots/roosevelt-island-tramway/",
   },
   {
     dayNumber: 13,
