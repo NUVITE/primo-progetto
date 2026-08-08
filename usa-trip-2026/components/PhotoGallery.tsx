@@ -28,7 +28,10 @@ function formatSharedAt(iso: string) {
 }
 
 export function PhotoGallery({ photos }: { photos: GalleryPhoto[] }) {
-  const [items, setItems] = useState(photos);
+  // Solo le eliminazioni di questa sessione: la lista vera resta quella che
+  // arriva da "photos", cosi' cambiare filtro nel genitore si vede subito.
+  const [deletedIds, setDeletedIds] = useState<string[]>([]);
+  const items = photos.filter((p) => !deletedIds.includes(p.id));
   const [openId, setOpenId] = useState<string | null>(null);
   const open = items.find((p) => p.id === openId) ?? null;
 
@@ -72,7 +75,7 @@ export function PhotoGallery({ photos }: { photos: GalleryPhoto[] }) {
           photo={open}
           onClose={() => setOpenId(null)}
           onDeleted={() => {
-            setItems((prev) => prev.filter((p) => p.id !== open.id));
+            setDeletedIds((prev) => [...prev, open.id]);
             setOpenId(null);
           }}
         />
