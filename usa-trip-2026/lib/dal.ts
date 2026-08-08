@@ -22,12 +22,18 @@ export const getCurrentFamily = cache(async () => {
 });
 
 export const getCurrentPerson = cache(async () => {
+  const familyCode = await verifyFamily();
   const session = await getSession();
   if (!session.personId) {
     redirect("/chi-sei");
   }
-  const person = await prisma.person.findUnique({ where: { id: session.personId } });
-  if (!person) {
+  const person = await prisma.person.findUnique({
+    where: { id: session.personId },
+    include: { family: true },
+  });
+  // Un cambio famiglia sullo stesso dispositivo non deve mostrare la persona
+  // scelta in precedenza da un'altra famiglia.
+  if (!person || person.family.code !== familyCode) {
     redirect("/chi-sei");
   }
   return person;

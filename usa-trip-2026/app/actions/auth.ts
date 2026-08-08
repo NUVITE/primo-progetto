@@ -39,6 +39,9 @@ export async function login(
 
   const session = await getSession();
   session.familyCode = family.code;
+  // Non porta con sé la persona scelta in una sessione precedente: se sullo
+  // stesso dispositivo si cambia famiglia, "Chi sei?" va rifatto da capo.
+  session.personId = undefined;
   await session.save();
 
   redirect("/");

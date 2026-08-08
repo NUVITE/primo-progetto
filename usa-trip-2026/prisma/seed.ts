@@ -64,10 +64,10 @@ const DAYS: DayInput[] = [
     summary: "Si parte. Da Bari raggiungete Monaco di Baviera con un volo Air Dolomiti per Lufthansa e da lì, a bordo dell'Airbus A380, il più grande aereo di linea del mondo, attraversate l'Atlantico e l'intero continente americano fino a Los Angeles. Dodici ore esatte di volo con pasti a bordo: cercate di dormire nella parte centrale del viaggio e regolate l'orologio sul fuso californiano appena decollati da Monaco. Tra la sveglia a Bari e l'ora di andare a letto in California passeranno quasi ventiquattro ore: sarà la giornata più lunga del viaggio.",
     activities: [
       { time: "04:15", title: "Presentazione al banco check-in", address: "Aeroporto di Bari", notes: "Consegnate i bagagli: viaggeranno diretti fino a Los Angeles." },
-      { time: "06:00", title: "Partenza LH 1901 per Monaco di Baviera", notes: "Embraer 195. Ristoro a pagamento a bordo. Posti assegnati (check-in fatto): Daniele 7F, Alessandra 8F, Claudia 7C, Elena 7A, Maria 7D.", requiresDocument: "Carta d'imbarco" },
+      { time: "06:00", title: "Partenza LH 1901 per Monaco di Baviera", notes: "Embraer 195. Ristoro a pagamento a bordo. Posti assegnati: vedi la carta d'imbarco nei vostri documenti.", requiresDocument: "Carta d'imbarco" },
       { time: "07:45", title: "Arrivo a Monaco, Terminal 2", notes: "Restate in area transiti: non dovete ritirare i bagagli." },
       { time: "07:45–12:15", title: "Scalo di 4 ore e 30", notes: "Tempo abbondante e nessuna fretta. Come sfruttarlo: il Terminal 2 è uno dei più piacevoli d'Europa, con una vera birreria con birrificio interno (Airbräu, area transiti, con giardino), ristoranti veri e non solo fast food, e al Terminal 2 satellite una terrazza panoramica sulle piste. Con quattro ore e mezza potete pranzare con calma: fatelo, perché il pasto a bordo dell'A380 arriverà circa un'ora e mezza dopo il decollo. Approfittatene anche per sgranchirvi le gambe camminando: sarete seduti per dodici ore. Il wi-fi dell'aeroporto è gratuito e illimitato." },
-      { time: "12:15", title: "Partenza LH 452 per Los Angeles", notes: "Airbus A380. Pasti inclusi. Posti assegnati (check-in fatto): Daniele 86B, Alessandra 86A, Claudia 86D, Elena 86E, Maria 86C.", requiresDocument: "Carta d'imbarco" },
+      { time: "12:15", title: "Partenza LH 452 per Los Angeles", notes: "Airbus A380. Pasti inclusi. Posti assegnati: vedi la carta d'imbarco nei vostri documenti.", requiresDocument: "Carta d'imbarco" },
       { time: "15:15", title: "Atterraggio a Los Angeles – Terminal B (Tom Bradley International)", notes: "Controlli di frontiera e ritiro bagagli: mettete in conto un'ora abbondante. Preparate passaporto ed ESTA: alla domanda dell'ufficiale rispondete con semplicità, turismo, il nome dell'hotel (Hilton Los Angeles Airport, 5711 West Century Boulevard) e la durata del soggiorno." },
       { time: "17:00", title: "Navetta e arrivo in hotel", address: "Hilton Los Angeles Airport, 5711 W Century Blvd", transportMode: "navetta gratuita dell'hotel", cost: "incluso", notes: "Check-in dalle 16:00: la camera vi aspetta. Uscendo dall'area bagagli vi trovate al piano arrivi: salite al piano superiore, quello delle partenze. Seguite i cartelli «Hotel & Courtesy Shuttles» e uscite dal terminal. Sul marciapiede esterno cercate il cartello rosso «Hotel & Private Parking Shuttle»: è la fermata delle navette degli hotel. Attendete la navetta con la scritta Hilton Los Angeles Airport (passa ogni 10–15 minuti); il tragitto dura 5 minuti. Il servizio è gratuito, ma è buona educazione lasciare 1–2 $ all'autista che carica le valigie. Verrà richiesta una carta di credito a garanzia per gli extra: è prassi in tutti gli hotel americani." },
     ],
@@ -361,6 +361,16 @@ const MEDICATIONS = [
     reason: "Reintegro per il caldo (deserto/parchi)",
     phraseEn: "These are electrolyte/mineral supplements for hydration.",
   },
+  {
+    name: "Enalapril (ACE-inibitore)",
+    reason: "Ipertensione",
+    phraseEn: "This is a prescription medication for high blood pressure, prescribed by my doctor.",
+  },
+  {
+    name: "Silodosina",
+    reason: "Ipertrofia prostatica benigna",
+    phraseEn: "This is a prescription medication for a benign prostate condition, prescribed by my doctor.",
+  },
 ];
 
 const CUSTOMS_PHRASES = [
@@ -432,6 +442,15 @@ const FAMILY_DOCUMENTS: Record<
     { title: "ESTA — Elena", category: "esta", filePath: "SERINO/esta_elena.pdf" },
     { title: "ESTA — Alessandra", category: "esta", filePath: "SERINO/esta_alessandra.pdf" },
     { title: "Carte d'imbarco — voli di andata (9 agosto)", category: "volo", filePath: "SERINO/carte_imbarco_andata.pdf", tripDayNumber: 1, note: "Check-in già effettuato: posti ufficiali confermati su entrambi i voli. Bari-Monaco: Daniele 7F, Alessandra 8F, Claudia 7C, Elena 7A, Maria 7D. Monaco-Los Angeles: Daniele 86B, Alessandra 86A, Claudia 86D, Elena 86E, Maria 86C." },
+  ],
+  GIANNELLA: [
+    { title: "Carte d'imbarco — voli di andata (9 agosto)", category: "volo", filePath: "GIANNELLA/carte_imbarco_andata.pdf", tripDayNumber: 1, note: "Posti ufficiali confermati su entrambi i voli (sulla carta di Lucia il cognome riportato è Torre). Bari-Monaco: Giuseppe 11A, Lucia 11C. Monaco-Los Angeles: Giuseppe 91H, Lucia 91J." },
+  ],
+  DICUONZO: [
+    { title: "Carte d'imbarco — voli di andata (9 agosto)", category: "volo", filePath: "DICUONZO/carte_imbarco_andata.pdf", tripDayNumber: 1, note: "Posti ufficiali confermati su entrambi i voli (sulla carta di Angela il cognome riportato è Piazzolla). Bari-Monaco: Piero 25A, Angela 25C, Valeria 25D, Francesca 25F. Monaco-Los Angeles: Piero 81D, Angela 81E, Valeria 81F, Francesca 81G." },
+  ],
+  CAFAGNA: [
+    { title: "Carte d'imbarco — voli di andata (9 agosto)", category: "volo", filePath: "CAFAGNA/carte_imbarco_andata.pdf", tripDayNumber: 1, note: "Posti ufficiali confermati su entrambi i voli (sulla carta di Chiara il cognome riportato è Damato). Bari-Monaco: Emanuela 19A, Michele 19C, Chiara 19D, Angelo 19F. Monaco-Los Angeles: Emanuela 82D, Michele 82E, Chiara 82F, Angelo 82G." },
   ],
 };
 
