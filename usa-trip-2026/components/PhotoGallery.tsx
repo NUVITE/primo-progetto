@@ -12,6 +12,10 @@ export interface GalleryPhoto {
   sharedAt: string | null;
   personName: string;
   familyDisplayName: string;
+  // Foto della propria famiglia: solo per queste ha senso mostrare i
+  // controlli di condivisione/eliminazione (le action lato server rifanno
+  // comunque il controllo, questo serve solo per l'interfaccia).
+  isMine: boolean;
 }
 
 function formatSharedAt(iso: string) {
@@ -23,15 +27,7 @@ function formatSharedAt(iso: string) {
   });
 }
 
-export function PhotoGallery({
-  photos,
-  allowShareToggle,
-  allowDelete,
-}: {
-  photos: GalleryPhoto[];
-  allowShareToggle: boolean;
-  allowDelete: boolean;
-}) {
+export function PhotoGallery({ photos }: { photos: GalleryPhoto[] }) {
   const [items, setItems] = useState(photos);
   const [openId, setOpenId] = useState<string | null>(null);
   const open = items.find((p) => p.id === openId) ?? null;
@@ -74,8 +70,6 @@ export function PhotoGallery({
       {open && (
         <PhotoLightbox
           photo={open}
-          allowShareToggle={allowShareToggle}
-          allowDelete={allowDelete}
           onClose={() => setOpenId(null)}
           onDeleted={() => {
             setItems((prev) => prev.filter((p) => p.id !== open.id));
@@ -89,14 +83,10 @@ export function PhotoGallery({
 
 function PhotoLightbox({
   photo,
-  allowShareToggle,
-  allowDelete,
   onClose,
   onDeleted,
 }: {
   photo: GalleryPhoto;
-  allowShareToggle: boolean;
-  allowDelete: boolean;
   onClose: () => void;
   onDeleted: () => void;
 }) {
@@ -146,7 +136,7 @@ function PhotoLightbox({
           </p>
         )}
 
-        {allowShareToggle && (
+        {photo.isMine && (
           <label className="flex items-center gap-2.5 rounded-xl bg-white/10 px-3.5 py-3 text-[14px] font-semibold text-white">
             <input
               type="checkbox"
@@ -165,7 +155,7 @@ function PhotoLightbox({
           </label>
         )}
 
-        {allowDelete && (
+        {photo.isMine && (
           confirmingDelete ? (
             <div className="flex items-center gap-2 rounded-xl bg-red-500/15 px-3.5 py-3 text-[14px] font-semibold text-white">
               <span className="flex-1">Eliminare per sempre?</span>
