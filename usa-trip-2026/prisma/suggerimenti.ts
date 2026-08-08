@@ -20,6 +20,12 @@ export interface SuggestionInput {
   warning?: string;
   sourceName?: string;
   sourceUrl?: string;
+  /**
+   * Link a una pagina ESTERNA che mostra la scena/il personaggio citato (un
+   * articolo, non un file immagine): serve per far vedere di cosa si parla,
+   * senza ospitare noi fotogrammi protetti da copyright.
+   */
+  sceneUrl?: string;
 }
 
 /** Punto di riferimento di ogni giornata, per il pulsante "cerca qui intorno". */
@@ -127,6 +133,7 @@ export const SUGGESTIONS: SuggestionInput[] = [
       "Lo squalo si lancia sul lato DESTRO del trenino: sedetevi a destra. Il segmento di Fast & Furious e' chiuso definitivamente dal 2025.",
     sourceName: "The Better Vacation",
     sourceUrl: "https://thebettervacation.com/los-angeles/universal-studios-hollywood-studio-tour/",
+    sceneUrl: "https://www.thestudiotour.com/wp/studios/universal-studios-hollywood/backlot/current-backlot-sets/bates-motel/",
   },
 
   // ---------------------------------------------------------------- Giorno 3
@@ -161,6 +168,7 @@ export const SUGGESTIONS: SuggestionInput[] = [
     mapsQuery: "Cathy's Corner Griffith Observatory La La Land",
     sourceName: "Atlas of Wonders",
     sourceUrl: "https://www.atlasofwonders.com/2016/12/la-la-land-filming-locations.html",
+    sceneUrl: "https://www.atlasofwonders.com/2016/12/la-la-land-filming-locations.html",
   },
 
   // ---------------------------------------------------------------- Giorno 4
@@ -209,6 +217,7 @@ export const SUGGESTIONS: SuggestionInput[] = [
     sourceName: "KJZZ",
     sourceUrl:
       "https://www.kjzz.org/business/2026-05-18/this-arizona-town-along-route-66-inspired-the-story-of-radiator-springs-in-pixars-cars",
+    sceneUrl: "https://www.islands.com/2060821/seligman-arizona-town-inspired-radiator-springs-americana-gem-quaint-restaurants-movie-landmarks/",
   },
   {
     dayNumber: 5,
@@ -260,6 +269,7 @@ export const SUGGESTIONS: SuggestionInput[] = [
       "NON e' dentro Monument Valley: e' sulla strada verso Page. Chiedete alla guida se il pullman ci passa e se fa sosta.",
     sourceName: "Monument Valley Tours",
     sourceUrl: "https://www.monument-valley.com/poi/forrest-gump-point",
+    sceneUrl: "https://www.monument-valley.com/poi/forrest-gump-point",
   },
   {
     dayNumber: 6,
@@ -351,6 +361,7 @@ export const SUGGESTIONS: SuggestionInput[] = [
     mapsQuery: "Bellagio Las Vegas",
     sourceName: "HeyUGuys",
     sourceUrl: "https://www.heyuguys.com/oceans-eleven-in-real-life/",
+    sceneUrl: "https://www.heyuguys.com/oceans-eleven-in-real-life/",
   },
   {
     dayNumber: 8,
@@ -364,6 +375,7 @@ export const SUGGESTIONS: SuggestionInput[] = [
     warning: "Il Riviera, dove contavano le carte, e' stato demolito: non cercatelo.",
     sourceName: "On the Luce",
     sourceUrl: "https://www.ontheluce.com/las-vegas-film-locations/",
+    sceneUrl: "https://thecinemaholic.com/where-was-the-hangover-2009-filmed/",
   },
   {
     dayNumber: 8,
@@ -423,6 +435,7 @@ export const SUGGESTIONS: SuggestionInput[] = [
     mapsQuery: "The Strat SkyPod Las Vegas",
     sourceName: "PopGeeks",
     sourceUrl: "https://popgeeks.com/seven-ish-fallout-new-vegas-locations-you-can-visit-in-real-life/",
+    sceneUrl: "https://popgeeks.com/seven-ish-fallout-new-vegas-locations-you-can-visit-in-real-life/",
   },
 
   // --------------------------------------------------------------- Giorno 10
@@ -506,6 +519,21 @@ export const SUGGESTIONS: SuggestionInput[] = [
     sourceName: "NYC Parks — Cool It! NYC",
     sourceUrl: "https://www.nycgovparks.org/about/health-and-safety-guide/cool-it-nyc",
   },
+  {
+    dayNumber: 10,
+    category: "film",
+    title: "L'Empire State di King Kong",
+    description:
+      "E' il grattacielo su cui Kong si arrampica nel finale del film del 1933, primo di una lunga " +
+      "serie: da allora l'Empire State e' comparso in decine di pellicole, da Insonnia d'amore a Un " +
+      "amore splendido (gia' citate nel vostro programma). Guardando in cima alla guglia stasera, e' " +
+      "quella la sagoma che tutti hanno in mente.",
+    isFree: true,
+    mapsQuery: "Empire State Building New York",
+    sourceName: "House of Geekery",
+    sourceUrl: "https://houseofgeekery.com/2023/01/11/classic-scene-kong-atop-empire-state-building/",
+    sceneUrl: "https://houseofgeekery.com/2023/01/11/classic-scene-kong-atop-empire-state-building/",
+  },
 
   // --------------------------------------------------------------- Giorno 11
   {
@@ -521,6 +549,7 @@ export const SUGGESTIONS: SuggestionInput[] = [
     mapsQuery: "90 Bedford Street New York Friends building",
     sourceName: "Sim Local",
     sourceUrl: "https://www.simlocal.com/post/famous-tv-movie-locations-to-visit-in-new-york-city",
+    sceneUrl: "https://www.bustle.com/articles/59929-what-does-the-friends-apartment-in-nyc-look-like-in-real-life-the-answer-may-surprise",
   },
   {
     dayNumber: 11,
@@ -536,6 +565,7 @@ export const SUGGESTIONS: SuggestionInput[] = [
     mapsQuery: "66 Perry Street New York Carrie Bradshaw",
     sourceName: "The FilmTripper",
     sourceUrl: "https://www.thefilmtripper.com/blog/carrie-bradshaw-apartment-perry-st",
+    sceneUrl: "https://www.thefilmtripper.com/blog/carrie-bradshaw-apartment-perry-st",
   },
   {
     dayNumber: 11,
@@ -552,6 +582,23 @@ export const SUGGESTIONS: SuggestionInput[] = [
       "Non e' detto che il pullman del Tour dei Contrasti ci passi vicino: chiedete alla guida se rientra nel percorso di oggi nel Bronx, altrimenti resta un'idea per un'altra volta.",
     sourceName: "Time Out",
     sourceUrl: "https://www.timeout.com/news/how-the-joker-stairs-became-new-yorks-platform-9-050922",
+    sceneUrl: "https://grahmsguide.com/joker-stairs-location/",
+  },
+  {
+    dayNumber: 11,
+    category: "film",
+    title: "La caserma dei Ghostbusters",
+    description:
+      "La Hook & Ladder Company 8, al 14 di North Moore Street, e' la caserma dei pompieri usata per " +
+      "gli esterni del quartier generale degli Acchiappafantasmi nel film del 1984 (e in tutti i " +
+      "sequel). E' una caserma vera, ancora in servizio: non si entra, ma il logo sul marciapiede " +
+      "davanti all'ingresso e' lo stesso del film.",
+    isFree: true,
+    address: "14 North Moore Street, New York",
+    mapsQuery: "Hook and Ladder Company 8 Tribeca Ghostbusters",
+    sourceName: "Atlas Obscura",
+    sourceUrl: "https://www.atlasobscura.com/articles/the-tribeca-fire-station-that-got-a-starring-role-in-ghostbusters",
+    sceneUrl: "https://roadtrippers.com/magazine/hook-and-ladder-company-8-ghostbusters/",
   },
 
   {
@@ -588,6 +635,23 @@ export const SUGGESTIONS: SuggestionInput[] = [
     sourceName: "Free Tours by Foot",
     sourceUrl: "https://freetoursbyfoot.com/staten-island-ferry/",
   },
+  {
+    dayNumber: 12,
+    category: "film",
+    title: "La scena di Harry ti presento Sally, al vostro stesso tavolo",
+    description:
+      "E' qui che Meg Ryan finge un orgasmo a pranzo per dimostrare a Billy Crystal che le donne possono " +
+      "recitare, e una cliente al tavolo accanto (la madre del regista Rob Reiner) chiude la scena con " +
+      "la battuta piu' citata del film: «Io prendo quello che ha preso lei». Il cartello sopra al " +
+      "tavolo, in fondo a destra, segna il punto esatto: e' lo stesso che l'agenzia vi indica per il " +
+      "pastrami.",
+    isFree: true,
+    address: "205 East Houston Street, New York",
+    mapsQuery: "Katz's Delicatessen New York",
+    sourceName: "That's What She Had",
+    sourceUrl: "https://thatswhatshehad.com/iconic-katzs-deli/",
+    sceneUrl: "https://thatswhatshehad.com/iconic-katzs-deli/",
+  },
 
   {
     dayNumber: 12,
@@ -621,6 +685,7 @@ export const SUGGESTIONS: SuggestionInput[] = [
     mapsQuery: "The Plaza Hotel New York",
     sourceName: "Hollywood Reporter",
     sourceUrl: "https://www.hollywoodreporter.com/lists/new-york-city-filming-locations-movie-tv-sites/",
+    sceneUrl: "https://homealone.fandom.com/wiki/Plaza_Hotel",
   },
   {
     dayNumber: 13,
@@ -634,6 +699,7 @@ export const SUGGESTIONS: SuggestionInput[] = [
     mapsQuery: "Metropolitan Museum of Art steps New York",
     sourceName: "Screen Rant",
     sourceUrl: "https://screenrant.com/gossip-girl-most-iconic-met-steps-scenes/",
+    sceneUrl: "https://screenrant.com/gossip-girl-most-iconic-met-steps-scenes/",
   },
   {
     dayNumber: 13,
@@ -648,6 +714,7 @@ export const SUGGESTIONS: SuggestionInput[] = [
     mapsQuery: "Roosevelt Island Tramway Manhattan station",
     sourceName: "Fantrippers",
     sourceUrl: "https://www.fantrippers.com/en/fanspots/roosevelt-island-tramway/",
+    sceneUrl: "https://www.fantrippers.com/en/fanspots/roosevelt-island-tramway/",
   },
   {
     dayNumber: 13,

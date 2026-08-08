@@ -5,6 +5,7 @@ import {
   Clapperboard,
   ExternalLink,
   Eye,
+  Image,
   LayoutGrid,
   MapPin,
   Search,
@@ -111,6 +112,17 @@ export function ElencoIdee({ idee }: { idee: IdeaConGiorno[] }) {
                 >
                   <MapPin size={14} strokeWidth={2.4} />
                   Apri in Maps
+                </a>
+              )}
+              {i.sceneUrl && (
+                <a
+                  href={i.sceneUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-ink-900 px-3 py-1.5 text-[13px] font-bold text-white"
+                >
+                  <Image size={14} strokeWidth={2.4} />
+                  Guarda la scena
                 </a>
               )}
               <a

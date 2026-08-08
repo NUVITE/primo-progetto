@@ -4,6 +4,7 @@ import { useState } from "react";
 import {
   Clapperboard,
   ExternalLink,
+  Image,
   Lightbulb,
   MapPin,
   Search,
@@ -145,6 +146,17 @@ export function SuggestionsPanel({
                           >
                             <MapPin size={14} strokeWidth={2.4} />
                             Apri in Maps
+                          </a>
+                        )}
+                        {s.sceneUrl && (
+                          <a
+                            href={s.sceneUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-ink-900 px-3 py-1.5 text-[13px] font-bold text-white"
+                          >
+                            <Image size={14} strokeWidth={2.4} />
+                            Guarda la scena
                           </a>
                         )}
                         <a

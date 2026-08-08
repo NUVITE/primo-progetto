@@ -106,6 +106,7 @@ model Suggestion {
   warning     String? // es. "da verificare sul posto"
   sourceName  String?
   sourceUrl   String?
+  sceneUrl    String? // link esterno a una pagina che mostra la scena/il personaggio citato (mai un file immagine ospitato da noi: diritti d'autore)
   verifiedAt  DateTime
   order       Int      @default(0)
 
