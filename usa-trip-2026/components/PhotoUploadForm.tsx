@@ -1,10 +1,8 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { Camera, CircleCheck, TriangleAlert, Wifi } from "lucide-react";
 import { uploadPhoto, type UploadPhotoState } from "@/app/actions/photo";
-
-const initialState: UploadPhotoState = {};
 
 // L'API di rete e' disponibile solo su alcuni browser (Chrome/Android): dove
 // c'e', blocchiamo l'upload sotto rete dati a meno che l'utente confermi di
@@ -20,11 +18,20 @@ function getConnectionType(): "wifi" | "cellular" | "unknown" {
   return "unknown";
 }
 
+interface FileResult {
+  name: string;
+  ok: boolean;
+  message?: string;
+}
+
 export function PhotoUploadForm() {
-  const [state, formAction, pending] = useActionState(uploadPhoto, initialState);
   const formRef = useRef<HTMLFormElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const allowCellularRef = useRef(false);
+  const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+  const [state, setState] = useState<UploadPhotoState>({});
   const [cellularWarning, setCellularWarning] = useState(false);
-  const [allowCellular, setAllowCellular] = useState(false);
   const [connectionType, setConnectionType] = useState<"wifi" | "cellular" | "unknown">("unknown");
   const [selectedCount, setSelectedCount] = useState(0);
 
@@ -32,30 +39,77 @@ export function PhotoUploadForm() {
     setSelectedCount(e.target.files?.length ?? 0);
     const type = getConnectionType();
     setConnectionType(type);
-    setCellularWarning(type === "cellular" && !allowCellular);
+    setCellularWarning(type === "cellular" && !allowCellularRef.current);
   }
 
-  function handleSubmit(e: React.FormEvent) {
-    if (connectionType === "cellular" && !allowCellular) {
-      e.preventDefault();
+  // Un file per chiamata, uno alla volta: con tante foto/video in un colpo
+  // solo la richiesta diventava enorme e lenta da spedire dal telefono, e un
+  // singolo intoppo di rete a meta' trasferimento perdeva TUTTO il blocco
+  // invece del solo file incriminato. Cosi' ogni file ha il suo esito e i
+  // problemi restano isolati (si puo' ricaricare solo cio' che e' fallito).
+  async function startUpload(files: File[], caption: string, sharedWithTrip: boolean) {
+    setUploading(true);
+    setState({});
+    const results: FileResult[] = [];
+
+    for (let i = 0; i < files.length; i++) {
+      setProgress({ done: i, total: files.length });
+      const fd = new FormData();
+      fd.append("file", files[i]);
+      if (caption) fd.append("caption", caption);
+      if (sharedWithTrip) fd.append("sharedWithTrip", "on");
+
+      try {
+        const result = await uploadPhoto(undefined, fd);
+        results.push({ name: files[i].name, ok: !result.error, message: result.error });
+      } catch (err) {
+        results.push({
+          name: files[i].name,
+          ok: false,
+          message: err instanceof Error ? err.message : "errore di rete",
+        });
+      }
+    }
+
+    setProgress(null);
+    setUploading(false);
+    allowCellularRef.current = false;
+    setConnectionType("unknown");
+    setSelectedCount(0);
+    formRef.current?.reset();
+
+    const ok = results.filter((r) => r.ok).length;
+    const failed = results.filter((r) => !r.ok);
+    if (ok === 0) {
+      setState({ error: failed[0] ? `${failed[0].name}: ${failed[0].message ?? "invio fallito"}` : "Nessun file caricato." });
+      return;
+    }
+    const suffix =
+      failed.length > 0
+        ? ` — ${failed.length} non riusciti: ${failed.slice(0, 2).map((f) => f.name).join("; ")}${failed.length > 2 ? "…" : ""}`
+        : "";
+    setState({ info: `${ok} file caricat${ok === 1 ? "o" : "i"}${suffix}` });
+  }
+
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const files = fileInputRef.current?.files ? Array.from(fileInputRef.current.files) : [];
+    if (files.length === 0) return;
+
+    if (connectionType === "cellular" && !allowCellularRef.current) {
       setCellularWarning(true);
+      return;
     }
-  }
 
-  useEffect(() => {
-    if (!pending && !state?.error) {
-      formRef.current?.reset();
-      setConnectionType("unknown");
-      setAllowCellular(false);
-      setSelectedCount(0);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state]);
+    const formData = new FormData(e.currentTarget);
+    const caption = String(formData.get("caption") ?? "").trim();
+    const sharedWithTrip = formData.get("sharedWithTrip") === "on";
+    startUpload(files, caption, sharedWithTrip);
+  }
 
   return (
     <form
       ref={formRef}
-      action={formAction}
       onSubmit={handleSubmit}
       className="space-y-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-sand-200"
     >
@@ -69,6 +123,7 @@ export function PhotoUploadForm() {
           : "Scegli foto o video (anche più di uno)"}
       </label>
       <input
+        ref={fileInputRef}
         id="file"
         name="file"
         type="file"
@@ -115,7 +170,7 @@ export function PhotoUploadForm() {
             <button
               type="button"
               onClick={() => {
-                setAllowCellular(true);
+                allowCellularRef.current = true;
                 setCellularWarning(false);
                 formRef.current?.requestSubmit();
               }}
@@ -142,10 +197,10 @@ export function PhotoUploadForm() {
 
       <button
         type="submit"
-        disabled={pending || cellularWarning}
+        disabled={uploading || cellularWarning}
         className="w-full rounded-xl bg-brand-700 py-3 text-[15px] font-extrabold text-white transition-colors active:bg-brand-800 disabled:opacity-60"
       >
-        {pending ? "Caricamento…" : "Carica"}
+        {progress ? `Carico ${progress.done + 1} di ${progress.total}…` : uploading ? "Caricamento…" : "Carica"}
       </button>
     </form>
   );
