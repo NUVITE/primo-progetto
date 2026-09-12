@@ -51,7 +51,9 @@ export async function uploadToArchive(
         "X-Archive-Token": token, // ripiego se l'hosting non passa Authorization a PHP
       },
       body: form,
-      signal: AbortSignal.timeout(30_000),
+      // Un video puo' arrivare a 150 MB: 30s bastavano per una foto ma non
+      // sempre per un video su un hosting condiviso non velocissimo.
+      signal: AbortSignal.timeout(120_000),
     });
 
     if (!response.ok) {

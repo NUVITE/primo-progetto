@@ -6,13 +6,12 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { getCurrentFamily, getCurrentPerson } from "@/lib/dal";
 import { slugifyPersonName, uploadToArchive, deleteFromArchive } from "@/lib/archive";
+import { MAX_PHOTO_SIZE_BYTES, MAX_PHOTO_SIZE_LABEL } from "@/lib/photoLimits";
 
 export interface UploadPhotoState {
   error?: string;
   info?: string;
 }
-
-const MAX_SIZE_BYTES = 150 * 1024 * 1024; // 150 MB, abbondante per un video da telefono
 
 function extensionFor(file: File) {
   const fromName = path.extname(file.name);
@@ -51,11 +50,11 @@ export async function uploadPhoto(
     const isImage = file.type.startsWith("image/");
     const isVideo = file.type.startsWith("video/");
     if (!isImage && !isVideo) {
-      problems.push(`${file.name}: tipo non supportato`);
+      problems.push("tipo non supportato");
       continue;
     }
-    if (file.size > MAX_SIZE_BYTES) {
-      problems.push(`${file.name}: troppo grande (oltre 150 MB)`);
+    if (file.size > MAX_PHOTO_SIZE_BYTES) {
+      problems.push(`troppo grande (oltre ${MAX_PHOTO_SIZE_LABEL})`);
       continue;
     }
 
@@ -65,7 +64,7 @@ export async function uploadPhoto(
 
     if (!archiveResult.ok) {
       // Niente riga nel DB: il file resta solo sul telefono, si puo' riprovare.
-      problems.push(`${file.name}: invio fallito${archiveResult.error ? ` (${archiveResult.error})` : ""}`);
+      problems.push(`invio fallito${archiveResult.error ? ` (${archiveResult.error})` : ""}`);
       continue;
     }
 
