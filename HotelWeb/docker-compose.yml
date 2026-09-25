@@ -1,0 +1,16 @@
+services:
+  db:
+    image: mariadb:11
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: hotelweb
+      MARIADB_USER: hotelweb
+      MARIADB_PASSWORD: GestionaleHotel2026!
+      MARIADB_ROOT_PASSWORD: rootlocaldev
+    ports:
+      - "3309:3306"
+    volumes:
+      - hotelweb_db_data:/var/lib/mysql
+
+volumes:
+  hotelweb_db_data:

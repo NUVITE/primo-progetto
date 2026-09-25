@@ -60,6 +60,24 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["--prefix", "usa-trip-2026", "run", "dev", "--", "--port", "3010"],
       "port": 3010
+    },
+    {
+      "name": "incassi-server",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "C:/sorgenti/diTacchio/nuv_incassi/web/server", "run", "dev"],
+      "port": 4000
+    },
+    {
+      "name": "incassi-client",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "C:/sorgenti/diTacchio/nuv_incassi/web/client", "run", "dev", "--", "--port", "5176"],
+      "port": 5176
+    },
+    {
+      "name": "hotelweb",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "HotelWeb", "run", "dev", "--", "--port", "3020"],
+      "port": 3020
     }
   ]
 }
