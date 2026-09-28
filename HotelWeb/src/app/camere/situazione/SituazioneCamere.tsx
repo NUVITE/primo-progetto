@@ -204,7 +204,6 @@ export function SituazioneCamere() {
         const dalIso = giorni[inizioIdx];
         const alIso = isoGiorno(addDays(new Date(giorni[fineIdx]), 1));
         setPeriodoConfermato({ dal: dalIso, al: alIso });
-        setSelezionata(null);
       }
       stoTrascinando.current = false;
       setTrascinamento(null);
@@ -547,7 +546,6 @@ export function SituazioneCamere() {
                                     <button
                                       key={g}
                                       onClick={() => {
-                                        setPeriodoConfermato(null);
                                         setErroreAssegnazione(null);
                                         setSelezionata({ cameraId: c.id, giorno: g });
                                       }}
@@ -577,9 +575,11 @@ export function SituazioneCamere() {
           )}
         </div>
 
-        <div className="w-80 flex-shrink-0 rounded-xl border border-stone-200 bg-white p-5">
-          {periodoConfermato ? (
-            <div className="flex flex-col gap-3">
+        {/* Colonna destra: la nuova prenotazione si apre SOPRA il dettaglio, senza sostituirlo —
+            chi prenota deve continuare a vedere chi c'e' gia' in quelle date (feedback 2026-09-28). */}
+        <div className="flex w-80 flex-shrink-0 flex-col gap-4">
+          {periodoConfermato && (
+            <div className="flex flex-col gap-3 rounded-xl border-2 border-teal-600 bg-white p-5">
               <div>
                 <h2 className="text-xs font-semibold uppercase tracking-wide text-stone-600">Nuova prenotazione veloce</h2>
                 <p className="text-sm font-bold">{formattaIt(periodoConfermato.dal)} → {formattaIt(periodoConfermato.al)}</p>
@@ -715,92 +715,98 @@ export function SituazioneCamere() {
               </div>
               <p className="text-[11px] text-stone-500">Le camere fisiche specifiche si assegnano più avanti, dal dettaglio della prenotazione.</p>
             </div>
-          ) : (
-            <>
-              <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-stone-600">Dettaglio</h2>
-              {selezionata && cellaSelezionata && cameraSelezionata ? (
-                <div className="flex flex-col gap-2">
-                  <div className="text-lg font-bold">Camera {cameraSelezionata.codice}</div>
-                  <div className="text-sm text-stone-600">{cameraSelezionata.tipoCameraNome}</div>
-                  <span
-                    className="inline-block w-fit rounded-full px-2.5 py-1 text-xs font-semibold"
-                    style={{ background: STILE[cellaSelezionata.stato].bg, color: STILE[cellaSelezionata.stato].text }}
-                  >
-                    {ETICHETTA[cellaSelezionata.stato]}
-                  </span>
-                  {cellaSelezionata.label && <div className="text-sm"><strong>{cellaSelezionata.label}</strong></div>}
-                  {(cellaSelezionata.stato === "libera" || cellaSelezionata.stato === "in_partenza") && (
-                    <Link href="/prenotazioni/nuova" className="mt-2 rounded-md bg-teal-700 py-2 text-center text-sm font-bold text-white">
-                      + Nuova prenotazione (camera specifica)
-                    </Link>
-                  )}
-                  {cellaSelezionata.prenotazioneId && (
-                    <Link
-                      href={`/prenotazioni/${cellaSelezionata.prenotazioneId}`}
-                      className="mt-2 rounded-md border border-teal-700 py-2 text-center text-sm font-bold text-teal-700"
-                    >
-                      Apri prenotazione #{cellaSelezionata.prenotazioneId}
-                    </Link>
-                  )}
-                  {cellaSelezionata.stato === "occupata_generica" && cellaSelezionata.genericiCandidati && (
-                    <div className="flex flex-col gap-2">
-                      <p className="text-xs text-stone-500">
-                        Questa camera non e' ancora assegnata: {cellaSelezionata.genericiCandidati.length} prenotazione/i
-                        generica/che di questo tipo occupano la disponibilita' in questo giorno.
-                      </p>
-                      {cellaSelezionata.genericiCandidati.map((cand) => (
-                        <div key={cand.segmentoId} className="flex items-center justify-between gap-2 rounded-md border border-stone-200 p-2">
-                          <div className="flex flex-col">
-                            <span className="text-sm font-semibold">{cand.label}</span>
-                            <Link href={`/prenotazioni/${cand.prenotazioneId}`} className="text-xs text-teal-700 underline">
-                              Apri prenotazione #{cand.prenotazioneId}
-                            </Link>
-                          </div>
-                          <button
-                            disabled={assegnando}
-                            onClick={() => assegnaQuestaCamera(cameraSelezionata.id, cand)}
-                            className="rounded-md bg-teal-700 px-2.5 py-1.5 text-xs font-bold text-white disabled:opacity-40"
-                          >
-                            Assegna questa camera
-                          </button>
-                        </div>
-                      ))}
-                      {erroreAssegnazione && <p className="text-sm font-semibold text-red-700">{erroreAssegnazione}</p>}
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="flex flex-col gap-3">
-                  <p className="text-sm text-stone-600">Clicca una cella per i dettagli, oppure trascina sulle date per prenotare un periodo.</p>
-                  <div className="border-t border-stone-200 pt-3">
-                    <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-stone-600">
-                      Prenotazioni in questo periodo
-                    </h3>
-                    {prenotazioniNelPeriodo.length === 0 ? (
-                      <p className="text-sm text-stone-500">Nessuna prenotazione attiva nel periodo visualizzato.</p>
-                    ) : (
-                      <ul className="flex flex-col gap-1.5">
-                        {prenotazioniNelPeriodo.map((p) => (
-                          <li key={p.segmentoId}>
-                            <Link
-                              href={`/prenotazioni/${p.prenotazioneId}`}
-                              className="group flex items-center justify-between gap-2 rounded-md border border-transparent px-2 py-1.5 text-sm hover:border-teal-200 hover:bg-teal-50"
-                            >
-                              <span className="font-semibold group-hover:text-teal-700 group-hover:underline">{p.label}</span>
-                              <span className="flex items-center gap-1 text-xs text-stone-500">
-                                {p.cameraCodice ?? "da assegnare"} · {formattaIt(p.dal)}–{formattaIt(p.al)}
-                                <span className="text-teal-700 opacity-0 group-hover:opacity-100">›</span>
-                              </span>
-                            </Link>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                </div>
-              )}
-            </>
           )}
+          <div className="rounded-xl border border-stone-200 bg-white p-5">
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <h2 className="text-xs font-semibold uppercase tracking-wide text-stone-600">Dettaglio</h2>
+              {selezionata && (
+                <button className="text-xs font-semibold text-teal-700 hover:underline" onClick={() => setSelezionata(null)}>
+                  ← Prenotazioni del periodo
+                </button>
+              )}
+            </div>
+            {selezionata && cellaSelezionata && cameraSelezionata ? (
+              <div className="flex flex-col gap-2">
+                <div className="text-lg font-bold">Camera {cameraSelezionata.codice}</div>
+                <div className="text-sm text-stone-600">{cameraSelezionata.tipoCameraNome}</div>
+                <span
+                  className="inline-block w-fit rounded-full px-2.5 py-1 text-xs font-semibold"
+                  style={{ background: STILE[cellaSelezionata.stato].bg, color: STILE[cellaSelezionata.stato].text }}
+                >
+                  {ETICHETTA[cellaSelezionata.stato]}
+                </span>
+                {cellaSelezionata.label && <div className="text-sm"><strong>{cellaSelezionata.label}</strong></div>}
+                {(cellaSelezionata.stato === "libera" || cellaSelezionata.stato === "in_partenza") && (
+                  <Link href="/prenotazioni/nuova" className="mt-2 rounded-md bg-teal-700 py-2 text-center text-sm font-bold text-white">
+                    + Nuova prenotazione (camera specifica)
+                  </Link>
+                )}
+                {cellaSelezionata.prenotazioneId && (
+                  <Link
+                    href={`/prenotazioni/${cellaSelezionata.prenotazioneId}`}
+                    className="mt-2 rounded-md border border-teal-700 py-2 text-center text-sm font-bold text-teal-700"
+                  >
+                    Apri prenotazione #{cellaSelezionata.prenotazioneId}
+                  </Link>
+                )}
+                {cellaSelezionata.stato === "occupata_generica" && cellaSelezionata.genericiCandidati && (
+                  <div className="flex flex-col gap-2">
+                    <p className="text-xs text-stone-500">
+                      Questa camera non e' ancora assegnata: {cellaSelezionata.genericiCandidati.length} prenotazione/i
+                      generica/che di questo tipo occupano la disponibilita' in questo giorno.
+                    </p>
+                    {cellaSelezionata.genericiCandidati.map((cand) => (
+                      <div key={cand.segmentoId} className="flex items-center justify-between gap-2 rounded-md border border-stone-200 p-2">
+                        <div className="flex flex-col">
+                          <span className="text-sm font-semibold">{cand.label}</span>
+                          <Link href={`/prenotazioni/${cand.prenotazioneId}`} className="text-xs text-teal-700 underline">
+                            Apri prenotazione #{cand.prenotazioneId}
+                          </Link>
+                        </div>
+                        <button
+                          disabled={assegnando}
+                          onClick={() => assegnaQuestaCamera(cameraSelezionata.id, cand)}
+                          className="rounded-md bg-teal-700 px-2.5 py-1.5 text-xs font-bold text-white disabled:opacity-40"
+                        >
+                          Assegna questa camera
+                        </button>
+                      </div>
+                    ))}
+                    {erroreAssegnazione && <p className="text-sm font-semibold text-red-700">{erroreAssegnazione}</p>}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3">
+                <p className="text-sm text-stone-600">Clicca una cella per i dettagli, oppure trascina sulle date per prenotare un periodo.</p>
+                <div className="border-t border-stone-200 pt-3">
+                  <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-stone-600">
+                    Prenotazioni in questo periodo
+                  </h3>
+                  {prenotazioniNelPeriodo.length === 0 ? (
+                    <p className="text-sm text-stone-500">Nessuna prenotazione attiva nel periodo visualizzato.</p>
+                  ) : (
+                    <ul className="flex flex-col gap-1.5">
+                      {prenotazioniNelPeriodo.map((p) => (
+                        <li key={p.segmentoId}>
+                          <Link
+                            href={`/prenotazioni/${p.prenotazioneId}`}
+                            className="group flex items-center justify-between gap-2 rounded-md border border-transparent px-2 py-1.5 text-sm hover:border-teal-200 hover:bg-teal-50"
+                          >
+                            <span className="font-semibold group-hover:text-teal-700 group-hover:underline">{p.label}</span>
+                            <span className="flex items-center gap-1 text-xs text-stone-500">
+                              {p.cameraCodice ?? "da assegnare"} · {formattaIt(p.dal)}–{formattaIt(p.al)}
+                              <span className="text-teal-700 opacity-0 group-hover:opacity-100">›</span>
+                            </span>
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
