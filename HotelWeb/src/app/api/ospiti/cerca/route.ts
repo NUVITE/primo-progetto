@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-
-// MVP: un solo hotel. Quando si aggiunge multi-hotel, l'hotelId va preso dalla sessione utente.
-const HOTEL_ID = 1;
+import { getUtenteCorrente } from "@/lib/auth";
 
 /**
  * Ricerca ospiti per frammento di nome/cognome (in qualunque ordine), usata dalla
@@ -10,6 +8,11 @@ const HOTEL_ID = 1;
  * propone eventuali corrispondenze prima di creare un nuovo ospite.
  */
 export async function GET(request: NextRequest) {
+  const utente = await getUtenteCorrente();
+  if (!utente) {
+    return NextResponse.json({ error: "Non autenticato." }, { status: 401 });
+  }
+
   const q = request.nextUrl.searchParams.get("q")?.trim() ?? "";
   const tokens = q.split(/\s+/).filter(Boolean);
 
@@ -19,7 +22,7 @@ export async function GET(request: NextRequest) {
 
   const ospiti = await prisma.ospite.findMany({
     where: {
-      hotelId: HOTEL_ID,
+      hotelId: utente.hotelId,
       AND: tokens.map((t) => ({
         OR: [
           { nome: { contains: t } },

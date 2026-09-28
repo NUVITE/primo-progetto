@@ -3,9 +3,6 @@ import type { Prisma, PrismaClient } from "@/generated/prisma/client";
 import { nottiTraDate, trovaPrezzoNotte } from "@/lib/pricing";
 import { calcolaTassaNotte } from "@/lib/tassaSoggiorno";
 
-// MVP: un solo hotel. Quando si aggiunge multi-hotel, l'hotelId va preso dalla sessione utente.
-const HOTEL_ID = 1;
-
 type Db = PrismaClient | Prisma.TransactionClient;
 
 export type OspiteRif = { id: number } | { nome: string; cognome: string; telefono?: string; email?: string };
@@ -40,28 +37,33 @@ export type CreaPrenotazioneGenericaInput = {
   dataInizio: string;
   dataFine: string;
   richieste: RichiestaGenerica[];
+  numeroPersone?: number;
+  note?: string;
 };
 
 /**
  * Crea una prenotazione con i suoi segmenti in un'unica transazione: se un
  * ospite indicato è nuovo (senza id) viene creato al volo nell'anagrafica —
  * è il flusso "free" richiesto per il booking, mai una gestione clienti separata.
+ *
+ * hotelId viene sempre dalla sessione dell'utente loggato (mai dal client): è quello
+ * che isola i dati di un hotel da quelli di un altro per gli account multi-struttura.
  */
-export async function creaPrenotazione(input: CreaPrenotazioneInput) {
+export async function creaPrenotazione(hotelId: number, input: CreaPrenotazioneInput) {
   if (input.segmenti.length === 0) {
     throw new Error("Serve almeno una camera/segmento per creare la prenotazione.");
   }
 
   return prisma.$transaction(async (tx) => {
-    const ospitePrenotanteId = await risolviOspite(tx, input.ospitePrenotante);
+    const ospitePrenotanteId = await risolviOspite(tx, hotelId, input.ospitePrenotante);
 
     const gruppoId = input.gruppoNome
-      ? (await tx.gruppo.create({ data: { hotelId: HOTEL_ID, nome: input.gruppoNome } })).id
+      ? (await tx.gruppo.create({ data: { hotelId, nome: input.gruppoNome } })).id
       : undefined;
 
     const prenotazione = await tx.prenotazione.create({
       data: {
-        hotelId: HOTEL_ID,
+        hotelId,
         gruppoId,
         ospitePrenotanteId,
         accontoRichiesto: input.accontoRichiesto,
@@ -69,10 +71,10 @@ export async function creaPrenotazione(input: CreaPrenotazioneInput) {
     });
 
     for (const segInput of input.segmenti) {
-      await creaSegmento(tx, prenotazione.id, segInput, 0);
+      await creaSegmento(tx, hotelId, prenotazione.id, segInput, 0);
     }
 
-    return caricaPrenotazioneCompleta(tx, prenotazione.id);
+    return caricaPrenotazioneCompleta(tx, hotelId, prenotazione.id);
   });
 }
 
@@ -81,26 +83,33 @@ export async function creaPrenotazione(input: CreaPrenotazioneInput) {
  * un certo tipo in un periodo, senza assegnare subito le camere fisiche —
  * l'assegnazione specifica avviene più avanti con assegnaCamera().
  */
-export async function creaPrenotazioneGenerica(input: CreaPrenotazioneGenericaInput) {
+export async function creaPrenotazioneGenerica(hotelId: number, input: CreaPrenotazioneGenericaInput) {
   if (input.richieste.length === 0 || input.richieste.every((r) => r.quantita <= 0)) {
     throw new Error("Indicare almeno una camera richiesta.");
   }
 
   return prisma.$transaction(async (tx) => {
-    const ospitePrenotanteId = await risolviOspite(tx, input.ospitePrenotante);
+    const ospitePrenotanteId = await risolviOspite(tx, hotelId, input.ospitePrenotante);
 
     const gruppoId = input.gruppoNome
-      ? (await tx.gruppo.create({ data: { hotelId: HOTEL_ID, nome: input.gruppoNome } })).id
+      ? (await tx.gruppo.create({ data: { hotelId, nome: input.gruppoNome } })).id
       : undefined;
 
     const prenotazione = await tx.prenotazione.create({
-      data: { hotelId: HOTEL_ID, gruppoId, ospitePrenotanteId, accontoRichiesto: input.accontoRichiesto },
+      data: {
+        hotelId,
+        gruppoId,
+        ospitePrenotanteId,
+        accontoRichiesto: input.accontoRichiesto,
+        numeroPersone: input.numeroPersone,
+        note: input.note,
+      },
     });
 
     for (const richiesta of input.richieste) {
       if (richiesta.quantita <= 0) continue;
       for (let i = 0; i < richiesta.quantita; i++) {
-        await creaSegmento(tx, prenotazione.id, {
+        await creaSegmento(tx, hotelId, prenotazione.id, {
           tipoCameraId: richiesta.tipoCameraId,
           ospite: { id: ospitePrenotanteId },
           trattamento: input.trattamento,
@@ -111,19 +120,19 @@ export async function creaPrenotazioneGenerica(input: CreaPrenotazioneGenericaIn
       }
     }
 
-    return caricaPrenotazioneCompleta(tx, prenotazione.id);
+    return caricaPrenotazioneCompleta(tx, hotelId, prenotazione.id);
   });
 }
 
 /** Assegna una camera fisica specifica a un segmento creato senza camera (prenotazione generica). */
-export async function assegnaCamera(segmentoId: number, cameraId: number) {
+export async function assegnaCamera(hotelId: number, segmentoId: number, cameraId: number) {
   return prisma.$transaction(async (tx) => {
-    const segmento = await tx.segmentoSoggiorno.findUniqueOrThrow({ where: { id: segmentoId } });
+    const segmento = await trovaSegmentoDelHotel(tx, hotelId, segmentoId);
     if (segmento.cameraId) {
       throw new Error("Questo segmento ha già una camera assegnata: usa Cambia camera per sostituirla.");
     }
 
-    const camera = await tx.camera.findUniqueOrThrow({ where: { id: cameraId } });
+    const camera = await trovaCameraDelHotel(tx, hotelId, cameraId);
     if (camera.tipoCameraId !== segmento.tipoCameraId) {
       throw new Error(`La camera ${camera.codice} non è del tipo richiesto per questo segmento.`);
     }
@@ -132,17 +141,17 @@ export async function assegnaCamera(segmentoId: number, cameraId: number) {
     }
 
     await tx.segmentoSoggiorno.update({ where: { id: segmentoId }, data: { cameraId } });
-    return caricaPrenotazioneCompleta(tx, segmento.prenotazioneId);
+    return caricaPrenotazioneCompleta(tx, hotelId, segmento.prenotazioneId);
   });
 }
 
-export async function trovaPrenotazione(id: number) {
-  return caricaPrenotazioneCompleta(prisma, id);
+export async function trovaPrenotazione(hotelId: number, id: number) {
+  return caricaPrenotazioneCompleta(prisma, hotelId, id);
 }
 
 type PrenotazioneCompleta = Awaited<ReturnType<typeof caricaPrenotazioneCompleta>>;
 
-/** Totali sempre ricalcolati dalle notti/tasse salvate — mai un numero scritto a mano. */
+/** Totali sempre ricalcolati dalle notti/tasse/servizi salvati — mai un numero scritto a mano. */
 export function calcolaTotaliPrenotazione(prenotazione: PrenotazioneCompleta) {
   const subtotale = prenotazione.segmenti.reduce(
     (tot, seg) => tot + seg.notti.reduce((s, n) => s + Number(n.prezzo), 0),
@@ -152,12 +161,13 @@ export function calcolaTotaliPrenotazione(prenotazione: PrenotazioneCompleta) {
     (tot, seg) => tot + seg.notti.reduce((s, n) => s + (n.tassa ? Number(n.tassa.importo) : 0), 0),
     0
   );
-  return { subtotale, tassa, totale: subtotale + tassa };
+  const servizi = prenotazione.serviziAggiunti.reduce((tot, s) => tot + Number(s.prezzoUnitario) * s.quantita, 0);
+  return { subtotale, tassa, servizi, totale: subtotale + tassa + servizi };
 }
 
-export async function elencoPrenotazioni() {
+export async function elencoPrenotazioni(hotelId: number) {
   return prisma.prenotazione.findMany({
-    where: { hotelId: HOTEL_ID },
+    where: { hotelId },
     include: {
       ospitePrenotante: true,
       gruppo: true,
@@ -168,9 +178,37 @@ export async function elencoPrenotazioni() {
   });
 }
 
-async function caricaPrenotazioneCompleta(db: Db, id: number) {
-  return db.prenotazione.findUniqueOrThrow({
-    where: { id },
+/**
+ * Cerca prenotazioni per nome/cognome, sia dell'ospite prenotante sia di un qualsiasi
+ * componente del gruppo — passate o future, non solo le piu' recenti (a differenza di
+ * elencoPrenotazioni che mostra solo le ultime create): serve a ritrovare velocemente una
+ * prenotazione per nome invece di scorrere il planning giorno per giorno.
+ */
+export async function cercaPrenotazioni(hotelId: number, query: string) {
+  const q = query.trim();
+  if (q.length < 2) return [];
+  return prisma.prenotazione.findMany({
+    where: {
+      hotelId,
+      OR: [
+        { ospitePrenotante: { OR: [{ nome: { contains: q } }, { cognome: { contains: q } }] } },
+        { segmenti: { some: { ospite: { OR: [{ nome: { contains: q } }, { cognome: { contains: q } }] } } } },
+      ],
+    },
+    include: {
+      ospitePrenotante: true,
+      gruppo: true,
+      segmenti: { select: { dataInizio: true, dataFine: true, camera: { select: { codice: true } }, tipoCamera: { select: { descrizione: true } } } },
+    },
+    orderBy: { createdAt: "desc" },
+    take: 30,
+  });
+}
+
+/** Sempre filtrato per hotelId: una prenotazione di un altro hotel deve dare "non trovata", non i suoi dati. */
+async function caricaPrenotazioneCompleta(db: Db, hotelId: number, id: number) {
+  return db.prenotazione.findFirstOrThrow({
+    where: { id, hotelId },
     include: {
       ospitePrenotante: true,
       gruppo: true,
@@ -178,14 +216,34 @@ async function caricaPrenotazioneCompleta(db: Db, id: number) {
         orderBy: { dataInizio: "asc" },
         include: { camera: true, tipoCamera: true, ospite: true, notti: { include: { tassa: true } } },
       },
+      serviziAggiunti: {
+        orderBy: { createdAt: "asc" },
+        include: { servizioCatalogo: true, segmenti: { include: { segmento: { include: { ospite: true, camera: true } } } } },
+      },
     },
   });
 }
 
-async function risolviOspite(db: Db, ref: OspiteRif) {
-  if ("id" in ref) return ref.id;
+async function trovaSegmentoDelHotel(db: Db, hotelId: number, segmentoId: number) {
+  const segmento = await db.segmentoSoggiorno.findFirstOrThrow({
+    where: { id: segmentoId, prenotazione: { hotelId } },
+    include: { camera: true, tipoCamera: true, ospite: true },
+  });
+  return segmento;
+}
+
+async function trovaCameraDelHotel(db: Db, hotelId: number, cameraId: number) {
+  return db.camera.findFirstOrThrow({ where: { id: cameraId, hotelId } });
+}
+
+async function risolviOspite(db: Db, hotelId: number, ref: OspiteRif) {
+  if ("id" in ref) {
+    // Verifica che l'ospite esistente appartenga davvero a questo hotel (mai fidarsi di un id dal client).
+    const ospite = await db.ospite.findFirstOrThrow({ where: { id: ref.id, hotelId } });
+    return ospite.id;
+  }
   const nuovo = await db.ospite.create({
-    data: { hotelId: HOTEL_ID, nome: ref.nome, cognome: ref.cognome, telefono: ref.telefono, email: ref.email },
+    data: { hotelId, nome: ref.nome, cognome: ref.cognome, telefono: ref.telefono, email: ref.email },
   });
   return nuovo.id;
 }
@@ -213,6 +271,9 @@ async function cameraDisponibile(db: Db, cameraId: number, dal: Date, al: Date, 
  * camere attive meno quelle in manutenzione, assegnate a un soggiorno, o già
  * bloccate da una prenotazione generica dello stesso tipo — stesso motore usato
  * sia per una prenotazione generica sia per assegnare una camera specifica dopo.
+ *
+ * tipoCameraId identifica già univocamente l'hotel (appartiene a un solo hotel),
+ * quindi non serve un filtro hotelId separato qui — lo fa chi risolve tipoCameraId.
  */
 export async function capacitaLiberaPerTipo(
   db: Db,
@@ -262,15 +323,17 @@ async function contaNottiTassabiliCatena(db: Db, segmentoId: number): Promise<nu
 
 async function creaSegmento(
   db: Db,
+  hotelId: number,
   prenotazioneId: number,
   segInput: NuovoSegmentoInput,
   contatoreIniziale: number,
   segmentoPrecedenteId?: number
 ) {
-  const ospiteId = await risolviOspite(db, segInput.ospite);
+  const ospiteId = await risolviOspite(db, hotelId, segInput.ospite);
   const ospite = await db.ospite.findUniqueOrThrow({ where: { id: ospiteId } });
-  const tipoCamera = await db.tipoCamera.findUniqueOrThrow({ where: { id: segInput.tipoCameraId } });
-  const hotel = await db.hotel.findUniqueOrThrow({ where: { id: HOTEL_ID } });
+  const tipoCamera = await db.tipoCamera.findFirstOrThrow({ where: { id: segInput.tipoCameraId, hotelId } });
+  const listino = await db.listino.findFirstOrThrow({ where: { id: segInput.listinoId, hotelId } });
+  const hotel = await db.hotel.findUniqueOrThrow({ where: { id: hotelId } });
 
   const dataInizio = new Date(segInput.dataInizio);
   const dataFine = new Date(segInput.dataFine);
@@ -280,7 +343,7 @@ async function creaSegmento(
 
   let camera = null;
   if (segInput.cameraId) {
-    camera = await db.camera.findUniqueOrThrow({ where: { id: segInput.cameraId } });
+    camera = await trovaCameraDelHotel(db, hotelId, segInput.cameraId);
     if (camera.tipoCameraId !== segInput.tipoCameraId) {
       throw new Error(`La camera ${camera.codice} non è del tipo richiesto.`);
     }
@@ -301,7 +364,7 @@ async function creaSegmento(
       tipoCameraId: segInput.tipoCameraId,
       ospiteId,
       trattamento: segInput.trattamento,
-      listinoId: segInput.listinoId,
+      listinoId: listino.id,
       dataInizio,
       dataFine,
       segmentoPrecedenteId,
@@ -311,7 +374,7 @@ async function creaSegmento(
   await generaNottiETasse(
     db,
     segmento.id,
-    segInput.listinoId,
+    listino,
     { codice: camera?.codice ?? tipoCamera.descrizione, tipoCameraId: segInput.tipoCameraId, hotel },
     ospite,
     dataInizio,
@@ -325,7 +388,7 @@ async function creaSegmento(
 async function generaNottiETasse(
   db: Db,
   segmentoId: number,
-  listinoId: number,
+  listino: { id: number; tipo: string },
   riferimento: { codice: string; tipoCameraId: number; hotel: { comuneId: number; categoria: string | null } },
   ospite: { id: number; dataNascita: Date | null },
   dataInizio: Date,
@@ -333,17 +396,21 @@ async function generaNottiETasse(
   contatoreIniziale: number
 ) {
   const notti = nottiTraDate(dataInizio, dataFine);
-  const listino = await db.listino.findUniqueOrThrow({ where: { id: listinoId } });
 
   let contatoreNottiTassabili = contatoreIniziale;
   for (const notte of notti) {
-    const prezzoInfo = await trovaPrezzoNotte(db, listinoId, riferimento.tipoCameraId, notte);
-    if (!prezzoInfo) {
-      throw new Error(`Nessuna tariffa trovata per ${riferimento.codice} in data ${notte.toISOString().slice(0, 10)}.`);
-    }
-
+    const prezzoInfo = await trovaPrezzoNotte(db, listino.id, riferimento.tipoCameraId, notte);
+    // Nessuna tariffa impostata per questa notte: non blocca piu' la prenotazione (l'operatore
+    // puo' bloccare le camere comunque e sistemare il listino piu' avanti — richiesto esplicitamente
+    // dall'utente 2026-09-26), ma la notte resta segnata con prezzo 0 e motivo "mancante" cosi'
+    // si vede chiaramente nel dettaglio prenotazione che il totale e' incompleto.
     const notteSoggiorno = await db.notteSoggiorno.create({
-      data: { segmentoId, data: notte, prezzo: prezzoInfo.prezzo, motivoPrezzo: listino.tipo },
+      data: {
+        segmentoId,
+        data: notte,
+        prezzo: prezzoInfo?.prezzo ?? 0,
+        motivoPrezzo: prezzoInfo ? listino.tipo : "mancante",
+      },
     });
 
     const tassaInfo = await calcolaTassaNotte(db, {
@@ -371,10 +438,12 @@ async function generaNottiETasse(
 }
 
 /** Aggiunge un nuovo segmento a una prenotazione già esistente (es. un componente del gruppo che arriva dopo). */
-export async function aggiungiSegmentoAPrenotazione(prenotazioneId: number, segInput: NuovoSegmentoInput) {
+export async function aggiungiSegmentoAPrenotazione(hotelId: number, prenotazioneId: number, segInput: NuovoSegmentoInput) {
   return prisma.$transaction(async (tx) => {
-    await creaSegmento(tx, prenotazioneId, segInput, 0);
-    return caricaPrenotazioneCompleta(tx, prenotazioneId);
+    // Verifica che la prenotazione appartenga all'hotel prima di aggiungerci qualcosa.
+    await tx.prenotazione.findFirstOrThrow({ where: { id: prenotazioneId, hotelId } });
+    await creaSegmento(tx, hotelId, prenotazioneId, segInput, 0);
+    return caricaPrenotazioneCompleta(tx, hotelId, prenotazioneId);
   });
 }
 
@@ -384,13 +453,10 @@ export async function aggiungiSegmentoAPrenotazione(prenotazioneId: number, segI
  * Allungare verifica prima la disponibilità (camera specifica se assegnata,
  * altrimenti capacità del tipo) per le notti aggiuntive.
  */
-export async function cambiaDataFineSegmento(segmentoId: number, nuovaDataFineIso: string) {
+export async function cambiaDataFineSegmento(hotelId: number, segmentoId: number, nuovaDataFineIso: string) {
   return prisma.$transaction(async (tx) => {
-    const segmento = await tx.segmentoSoggiorno.findUniqueOrThrow({
-      where: { id: segmentoId },
-      include: { camera: true, tipoCamera: true, ospite: true },
-    });
-    const hotel = await tx.hotel.findUniqueOrThrow({ where: { id: HOTEL_ID } });
+    const segmento = await trovaSegmentoDelHotel(tx, hotelId, segmentoId);
+    const hotel = await tx.hotel.findUniqueOrThrow({ where: { id: hotelId } });
 
     const nuovaDataFine = new Date(nuovaDataFineIso);
     if (nuovaDataFine <= segmento.dataInizio) {
@@ -418,11 +484,12 @@ export async function cambiaDataFineSegmento(segmentoId: number, nuovaDataFineIs
           throw new Error(`Nessuna camera di tipo "${segmento.tipoCamera.descrizione}" disponibile per le notti aggiuntive.`);
         }
       }
+      const listino = await tx.listino.findUniqueOrThrow({ where: { id: segmento.listinoId } });
       const contatorePrecedente = await contaNottiTassabiliCatena(tx, segmentoId);
       await generaNottiETasse(
         tx,
         segmentoId,
-        segmento.listinoId,
+        listino,
         { codice: segmento.camera?.codice ?? segmento.tipoCamera.descrizione, tipoCameraId: segmento.tipoCameraId, hotel },
         segmento.ospite,
         segmento.dataFine,
@@ -433,7 +500,7 @@ export async function cambiaDataFineSegmento(segmentoId: number, nuovaDataFineIs
 
     await tx.segmentoSoggiorno.update({ where: { id: segmentoId }, data: { dataFine: nuovaDataFine } });
 
-    return caricaPrenotazioneCompleta(tx, segmento.prenotazioneId);
+    return caricaPrenotazioneCompleta(tx, hotelId, segmento.prenotazioneId);
   });
 }
 
@@ -442,19 +509,16 @@ export async function cambiaDataFineSegmento(segmentoId: number, nuovaDataFineIs
  * e ne apre uno nuovo, nella nuova camera, collegato al precedente — mai una
  * cancellazione della prenotazione (era il problema del sistema legacy).
  */
-export async function cambiaCameraSegmento(segmentoId: number, dataCambioIso: string, nuovaCameraId: number) {
+export async function cambiaCameraSegmento(hotelId: number, segmentoId: number, dataCambioIso: string, nuovaCameraId: number) {
   return prisma.$transaction(async (tx) => {
-    const segmento = await tx.segmentoSoggiorno.findUniqueOrThrow({
-      where: { id: segmentoId },
-      include: { camera: true, ospite: true },
-    });
+    const segmento = await trovaSegmentoDelHotel(tx, hotelId, segmentoId);
 
     const dataCambio = new Date(dataCambioIso);
     if (dataCambio <= segmento.dataInizio || dataCambio >= segmento.dataFine) {
       throw new Error("La data del cambio camera deve cadere durante il soggiorno (non al primo o ultimo giorno).");
     }
 
-    const nuovaCamera = await tx.camera.findUniqueOrThrow({ where: { id: nuovaCameraId } });
+    const nuovaCamera = await trovaCameraDelHotel(tx, hotelId, nuovaCameraId);
 
     const disponibile = await cameraDisponibile(tx, nuovaCameraId, dataCambio, segmento.dataFine);
     if (!disponibile) {
@@ -476,6 +540,7 @@ export async function cambiaCameraSegmento(segmentoId: number, dataCambioIso: st
 
     await creaSegmento(
       tx,
+      hotelId,
       segmento.prenotazioneId,
       {
         cameraId: nuovaCameraId,
@@ -490,6 +555,6 @@ export async function cambiaCameraSegmento(segmentoId: number, dataCambioIso: st
       segmentoId
     );
 
-    return caricaPrenotazioneCompleta(tx, segmento.prenotazioneId);
+    return caricaPrenotazioneCompleta(tx, hotelId, segmento.prenotazioneId);
   });
 }

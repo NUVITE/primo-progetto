@@ -3,11 +3,22 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { OspiteSearch, type OspiteValue } from "../nuova/OspiteSearch";
-import { azioneAccorciaEstendi, azioneAggiungiSegmento, azioneAssegnaCamera, azioneCambiaCamera, caricaPrenotazione, datiIniziali } from "./actions";
+import {
+  azioneAccorciaEstendi,
+  azioneAggiungiSegmento,
+  azioneAggiungiServizio,
+  azioneAssegnaCamera,
+  azioneCambiaCamera,
+  azioneModificaServizio,
+  azioneRimuoviServizio,
+  caricaPrenotazione,
+  datiIniziali,
+} from "./actions";
 
 type Prenotazione = Awaited<ReturnType<typeof caricaPrenotazione>>;
 type Camera = { id: number; codice: string; tipoCameraId: number; tipoCameraNome: string };
 type Listino = { id: number; descrizione: string; tipo: string };
+type ServizioCatalogo = { id: number; nome: string; prezzo: number };
 
 const TRATTAMENTI = ["Mezza pensione", "Pensione completa", "B&B"];
 
@@ -33,12 +44,81 @@ export function PrenotazioneDettaglio({ iniziale }: { iniziale: Prenotazione }) 
   const [nuovoDal, setNuovoDal] = useState("");
   const [nuovoAl, setNuovoAl] = useState("");
 
+  const [serviziCatalogo, setServiziCatalogo] = useState<ServizioCatalogo[]>([]);
+  const [dettagliTotaliAperti, setDettagliTotaliAperti] = useState(false);
+  const [servizioAperto, setServizioAperto] = useState(false);
+  const [servizioCatalogoId, setServizioCatalogoId] = useState<number | "libero">("libero");
+  const [servizioDescrizione, setServizioDescrizione] = useState("");
+  const [servizioPrezzo, setServizioPrezzo] = useState("");
+  const [servizioQuantita, setServizioQuantita] = useState("1");
+  const [servizioAmbito, setServizioAmbito] = useState<"tutta" | "specifici">("tutta");
+  const [servizioSegmenti, setServizioSegmenti] = useState<Set<number>>(new Set());
+  const [servizioInModifica, setServizioInModifica] = useState<number | null>(null);
+  const [servizioEditNome, setServizioEditNome] = useState("");
+  const [servizioEditDaCatalogo, setServizioEditDaCatalogo] = useState(false);
+
   useEffect(() => {
     datiIniziali().then((d) => {
       setCamere(d.camere);
       setListini(d.listini);
+      setServiziCatalogo(d.serviziCatalogo);
     });
   }, []);
+
+  function resetFormServizio() {
+    setServizioAperto(false);
+    setServizioCatalogoId("libero");
+    setServizioDescrizione("");
+    setServizioPrezzo("");
+    setServizioQuantita("1");
+    setServizioAmbito("tutta");
+    setServizioSegmenti(new Set());
+    setServizioInModifica(null);
+    setServizioEditNome("");
+    setServizioEditDaCatalogo(false);
+  }
+
+  function iniziaModificaServizio(s: Prenotazione["serviziAggiunti"][number]) {
+    setServizioInModifica(s.id);
+    setServizioEditNome(s.nome);
+    setServizioEditDaCatalogo(s.daCatalogo);
+    setServizioDescrizione(s.descrizione ?? "");
+    setServizioPrezzo(String(s.prezzoUnitario));
+    setServizioQuantita(String(s.quantita));
+    setServizioAmbito(s.segmenti.length === 0 ? "tutta" : "specifici");
+    setServizioSegmenti(new Set(s.segmenti.map((sg) => sg.segmentoId)));
+    setServizioAperto(true);
+  }
+
+  async function confermaAggiungiServizio() {
+    const prezzo = Number(servizioPrezzo);
+    if (!prezzo || prezzo <= 0) return;
+    const risultato = await eseguendo(() =>
+      servizioInModifica !== null
+        ? azioneModificaServizio(prenotazione.id, servizioInModifica, {
+            descrizione: servizioEditDaCatalogo ? undefined : servizioDescrizione.trim(),
+            prezzoUnitario: prezzo,
+            quantita: Number(servizioQuantita) || 1,
+            segmentoIds: servizioAmbito === "specifici" ? Array.from(servizioSegmenti) : undefined,
+          })
+        : azioneAggiungiServizio(prenotazione.id, {
+            servizioCatalogoId: servizioCatalogoId === "libero" ? undefined : servizioCatalogoId,
+            descrizione: servizioCatalogoId === "libero" ? servizioDescrizione.trim() : undefined,
+            prezzoUnitario: prezzo,
+            quantita: Number(servizioQuantita) || 1,
+            segmentoIds: servizioAmbito === "specifici" ? Array.from(servizioSegmenti) : undefined,
+          })
+    );
+    if (risultato) {
+      setPrenotazione(risultato);
+      resetFormServizio();
+    }
+  }
+
+  async function rimuoviServizio(servizioAggiuntoId: number) {
+    const risultato = await eseguendo(() => azioneRimuoviServizio(prenotazione.id, servizioAggiuntoId));
+    if (risultato) setPrenotazione(risultato);
+  }
 
   async function eseguendo<T>(fn: () => Promise<T>) {
     setErrore(null);
@@ -109,15 +189,12 @@ export function PrenotazioneDettaglio({ iniziale }: { iniziale: Prenotazione }) 
     <div className="flex w-full flex-col gap-6 p-6">
       <div className="flex items-center justify-between">
         <div>
-          <Link href="/prenotazioni" className="text-sm text-teal-700">← Tutte le prenotazioni</Link>
+          <Link href="/" className="text-sm text-teal-700">← Situazione camere</Link>
           <h1 className="text-xl font-bold">Prenotazione #{prenotazione.id}</h1>
           <p className="text-sm text-stone-600">
             {prenotazione.ospitePrenotante} {prenotazione.gruppoNome && `· Gruppo: ${prenotazione.gruppoNome}`} · {prenotazione.stato}
           </p>
         </div>
-        <Link href="/camere/situazione" className="rounded-md border border-teal-700 px-4 py-2 text-sm font-bold text-teal-700">
-          Vedi planning camere
-        </Link>
       </div>
 
       {errore && <p className="rounded-md bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">{errore}</p>}
@@ -176,7 +253,14 @@ export function PrenotazioneDettaglio({ iniziale }: { iniziale: Prenotazione }) 
                       )}
                     </td>
                     <td className="px-3 py-2 font-mono">{s.notti}</td>
-                    <td className="px-3 py-2 font-mono">{eur(s.subtotale)}</td>
+                    <td className="px-3 py-2 font-mono">
+                      {eur(s.subtotale)}
+                      {s.tariffaIncompleta && (
+                        <div className="mt-0.5 text-[11px] font-semibold text-amber-700" title="Manca la tariffa per una o più notti: il subtotale non è completo.">
+                          ⚠ tariffa mancante
+                        </div>
+                      )}
+                    </td>
                     <td className="px-3 py-2 font-mono">{eur(s.tassa)}</td>
                     <td className="px-3 py-2">
                       {!s.cameraId && (
@@ -300,6 +384,171 @@ export function PrenotazioneDettaglio({ iniziale }: { iniziale: Prenotazione }) 
               </button>
             )}
           </div>
+
+          <div className="rounded-xl border border-stone-200 bg-white p-4">
+            <h3 className="mb-2 text-sm font-bold">Servizi aggiuntivi</h3>
+            {prenotazione.serviziAggiunti.length > 0 && (
+              <table className="mb-3 w-full text-sm">
+                <thead className="text-left text-xs uppercase text-stone-500">
+                  <tr><th className="pb-1">Servizio</th><th className="pb-1">Ambito</th><th className="pb-1">Importo</th><th /></tr>
+                </thead>
+                <tbody>
+                  {prenotazione.serviziAggiunti.map((s) => (
+                    <tr key={s.id} className="border-t border-stone-100">
+                      <td className="py-1.5">
+                        <div className="font-semibold">{s.nome}</div>
+                        {s.note && <div className="text-xs text-stone-500">{s.note}</div>}
+                      </td>
+                      <td className="py-1.5 text-xs text-stone-600">
+                        {s.segmenti.length === 0 ? "Tutta la prenotazione" : s.segmenti.map((sg) => sg.etichetta).join(", ")}
+                      </td>
+                      <td className="py-1.5 font-mono">
+                        {s.quantita > 1 ? `${s.quantita} × ${eur(s.prezzoUnitario)} = ` : ""}
+                        {eur(s.totale)}
+                      </td>
+                      <td className="py-1.5 text-right">
+                        <button className="mr-3 text-xs font-semibold text-teal-700" onClick={() => iniziaModificaServizio(s)}>
+                          Modifica
+                        </button>
+                        <button className="text-xs font-semibold text-red-600" onClick={() => rimuoviServizio(s.id)}>
+                          Rimuovi
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+            {servizioAperto ? (
+              <div className="flex flex-col gap-3">
+                <div className="grid grid-cols-2 gap-3">
+                  {servizioInModifica !== null ? (
+                    <div>
+                      <label className="mb-1 block text-xs text-stone-600">Servizio</label>
+                      <div className="rounded-md border border-stone-200 bg-stone-50 px-2 py-1.5 text-sm text-stone-700">{servizioEditNome}</div>
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="mb-1 block text-xs text-stone-600">Servizio</label>
+                      <select
+                        className="w-full rounded-md border border-stone-300 px-2 py-1.5 text-sm"
+                        value={servizioCatalogoId}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          if (v === "libero") {
+                            setServizioCatalogoId("libero");
+                            setServizioPrezzo("");
+                          } else {
+                            const id = Number(v);
+                            setServizioCatalogoId(id);
+                            setServizioPrezzo(String(serviziCatalogo.find((sc) => sc.id === id)?.prezzo ?? ""));
+                          }
+                        }}
+                      >
+                        <option value="libero">Prezzo libero...</option>
+                        {serviziCatalogo.map((sc) => (
+                          <option key={sc.id} value={sc.id}>{sc.nome} ({eur(sc.prezzo)})</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                  {(servizioInModifica !== null ? !servizioEditDaCatalogo : servizioCatalogoId === "libero") && (
+                    <div>
+                      <label className="mb-1 block text-xs text-stone-600">Descrizione</label>
+                      <input
+                        className="w-full rounded-md border border-stone-300 px-2 py-1.5 text-sm"
+                        placeholder="Es. Transfer aeroporto"
+                        value={servizioDescrizione}
+                        onChange={(e) => setServizioDescrizione(e.target.value)}
+                      />
+                    </div>
+                  )}
+                  <div>
+                    <label className="mb-1 block text-xs text-stone-600">Prezzo unitario</label>
+                    <input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      className="w-full rounded-md border border-stone-300 px-2 py-1.5 text-sm"
+                      value={servizioPrezzo}
+                      onChange={(e) => setServizioPrezzo(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs text-stone-600">Quantità</label>
+                    <input
+                      type="number"
+                      min={1}
+                      className="w-full rounded-md border border-stone-300 px-2 py-1.5 text-sm"
+                      value={servizioQuantita}
+                      onChange={(e) => setServizioQuantita(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-xs text-stone-600">Si applica a</label>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <label className="flex items-center gap-1.5 text-sm">
+                      <input type="radio" checked={servizioAmbito === "tutta"} onChange={() => setServizioAmbito("tutta")} />
+                      Tutta la prenotazione
+                    </label>
+                    <label className="flex items-center gap-1.5 text-sm">
+                      <input type="radio" checked={servizioAmbito === "specifici"} onChange={() => setServizioAmbito("specifici")} />
+                      Solo alcuni componenti del gruppo
+                    </label>
+                  </div>
+                  {servizioAmbito === "specifici" && (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {prenotazione.segmenti.map((s) => {
+                        const attivo = servizioSegmenti.has(s.id);
+                        return (
+                          <button
+                            type="button"
+                            key={s.id}
+                            className={`rounded-full px-2.5 py-1 text-xs font-semibold ${attivo ? "border border-teal-700 bg-teal-50 text-teal-700" : "border border-stone-300 bg-stone-100 text-stone-500"}`}
+                            onClick={() =>
+                              setServizioSegmenti((prev) => {
+                                const next = new Set(prev);
+                                if (next.has(s.id)) next.delete(s.id);
+                                else next.add(s.id);
+                                return next;
+                              })
+                            }
+                          >
+                            {s.ospiteNome} {s.cameraCodice ? `— ${s.cameraCodice}` : ""}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex justify-end gap-2">
+                  <button className="rounded-md border border-stone-300 px-3 py-1.5 text-sm font-semibold" onClick={resetFormServizio}>
+                    Annulla
+                  </button>
+                  <button
+                    disabled={
+                      salvando ||
+                      !servizioPrezzo ||
+                      Number(servizioPrezzo) <= 0 ||
+                      ((servizioInModifica !== null ? !servizioEditDaCatalogo : servizioCatalogoId === "libero") && !servizioDescrizione.trim()) ||
+                      (servizioAmbito === "specifici" && servizioSegmenti.size === 0)
+                    }
+                    className="rounded-md bg-teal-700 px-3 py-1.5 text-sm font-bold text-white disabled:opacity-40"
+                    onClick={confermaAggiungiServizio}
+                  >
+                    {servizioInModifica !== null ? "Salva modifiche" : "Aggiungi"}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button onClick={() => setServizioAperto(true)} className="rounded-md border border-teal-700 px-3 py-1.5 text-sm font-semibold text-teal-700">
+                + Aggiungi servizio
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="rounded-xl border border-stone-200 bg-white p-5 xl:w-80 xl:flex-shrink-0">
@@ -307,7 +556,38 @@ export function PrenotazioneDettaglio({ iniziale }: { iniziale: Prenotazione }) 
           <div className="space-y-1 text-sm">
             <div className="flex justify-between"><span>Subtotale soggiorno</span><span className="font-mono">{eur(prenotazione.totali.subtotale)}</span></div>
             <div className="flex justify-between"><span>Tassa di soggiorno</span><span className="font-mono">{eur(prenotazione.totali.tassa)}</span></div>
+            {prenotazione.totali.servizi > 0 && (
+              <div className="flex justify-between"><span>Servizi aggiuntivi</span><span className="font-mono">{eur(prenotazione.totali.servizi)}</span></div>
+            )}
             <div className="flex justify-between text-base font-bold"><span>Totale</span><span className="font-mono">{eur(prenotazione.totali.totale)}</span></div>
+            {prenotazione.segmenti.some((s) => s.tariffaIncompleta) && (
+              <p className="text-xs font-semibold text-amber-700">
+                ⚠ Manca la tariffa per una o più camere/notti: il totale sopra è incompleto (calcolato come se costassero €0). Da correggere manualmente una volta impostato il listino per queste date.
+              </p>
+            )}
+            <button
+              type="button"
+              onClick={() => setDettagliTotaliAperti((v) => !v)}
+              className="text-[11px] font-semibold text-teal-700 underline"
+            >
+              {dettagliTotaliAperti ? "Nascondi il dettaglio" : "Da cosa deriva questo totale?"}
+            </button>
+            {dettagliTotaliAperti && (
+              <div className="flex flex-col gap-1 border-t border-stone-200 pt-1.5 text-[11px] text-stone-600">
+                {prenotazione.segmenti.map((s) => (
+                  <div key={s.id} className="flex justify-between">
+                    <span>{s.ospiteNome} — {s.cameraCodice ?? s.tipoCameraNome} ({s.notti} notti)</span>
+                    <span className="font-mono">{eur(s.subtotale + s.tassa)}</span>
+                  </div>
+                ))}
+                {prenotazione.serviziAggiunti.map((sv) => (
+                  <div key={sv.id} className="flex justify-between">
+                    <span>{sv.nome}{sv.quantita > 1 ? ` ×${sv.quantita}` : ""}</span>
+                    <span className="font-mono">{eur(sv.totale)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>

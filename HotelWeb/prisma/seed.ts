@@ -1,4 +1,5 @@
 import "dotenv/config";
+import bcrypt from "bcryptjs";
 import { PrismaMariaDb } from "@prisma/adapter-mariadb";
 import { PrismaClient } from "../src/generated/prisma/client";
 
@@ -80,6 +81,16 @@ async function main() {
   );
   const tipoByCodice = Object.fromEntries(tipiCamera.map((t) => [t.codice, t]));
 
+  // Capienza per tipo: la Singola non puo' avere la stessa capienza di una Doppia,
+  // altrimenti l'avviso "persone vs camere scelte" nel booking veloce non ha senso
+  // (scoperto 2026-09-26: prima tutte le camere avevano la capienza di default 2/0).
+  const capienzaPerTipoCodice: Record<string, { adulti: number; bambini: number }> = {
+    SNG: { adulti: 1, bambini: 0 },
+    DBL: { adulti: 2, bambini: 0 },
+    DBLM: { adulti: 2, bambini: 0 },
+    SUITE: { adulti: 2, bambini: 2 },
+  };
+
   const camere = [
     { codice: "11", tipo: "SNG", piano: "Piano 1" },
     { codice: "12", tipo: "DBLM", piano: "Piano 1" },
@@ -91,19 +102,22 @@ async function main() {
     { codice: "24", tipo: "DBLM", piano: "Piano 2" },
   ];
   for (const c of camere) {
+    const capienza = capienzaPerTipoCodice[c.tipo];
     await prisma.camera.upsert({
       where: { hotelId_codice: { hotelId: hotel.id, codice: c.codice } },
-      update: {},
+      update: { capienzaAdulti: capienza.adulti, capienzaBambini: capienza.bambini },
       create: {
         hotelId: hotel.id,
         codice: c.codice,
         tipoCameraId: tipoByCodice[c.tipo].id,
         piano: c.piano,
+        capienzaAdulti: capienza.adulti,
+        capienzaBambini: capienza.bambini,
       },
     });
   }
 
-  console.log("Seed: listino base e prezzi per luglio 2026...");
+  console.log("Seed: listino base e prezzi...");
 
   const listino = await prisma.listino.upsert({
     where: { hotelId_codice: { hotelId: hotel.id, codice: "BASE" } },
@@ -112,8 +126,11 @@ async function main() {
   });
 
   const prezziPerTipo: Record<string, number> = { SNG: 65, DBL: 80, DBLM: 95, SUITE: 130 };
-  const dal = new Date("2026-06-01");
-  const al = new Date("2026-09-30");
+  // Periodo volutamente ampio (non legato a una data demo fissa): la vista di default usa
+  // ormai la data reale del sistema, quindi il listino deve coprire "oggi in poi" senza
+  // dover essere riesteso ogni volta che passa una stagione (vedi feedback 2026-09-26).
+  const dal = new Date("2026-01-01");
+  const al = new Date("2027-12-31");
   for (const t of tipiCamera) {
     const esiste = await prisma.periodoTariffario.findFirst({
       where: { listinoId: listino.id, tipoCameraId: t.id, dal, al },
@@ -150,7 +167,258 @@ async function main() {
     }
   }
 
+  console.log("Seed: secondo hotel (per dimostrare l'account multi-struttura)...");
+
+  const bisceglie = await prisma.comune.upsert({
+    where: { codiceIstat: "110003" },
+    update: {},
+    create: { codiceIstat: "110003", nome: "Bisceglie", provincia: "BT" },
+  });
+
+  // Regola reale verificata in HotelWeb/TASSA_SOGGIORNO_PUGLIA.md: 1-2 EUR, tetto 7 notti,
+  // attiva SOLO 1 maggio - 31 ottobre (non tutto l'anno, a differenza di Trani).
+  const regolamentoBisceglieEsistente = await prisma.regolamentoTassaComune.findFirst({
+    where: { comuneId: bisceglie.id, categoriaStruttura: "Hotel" },
+  });
+  const regolamentoBisceglie =
+    regolamentoBisceglieEsistente ??
+    (await prisma.regolamentoTassaComune.create({
+      data: {
+        comuneId: bisceglie.id,
+        categoriaStruttura: "Hotel",
+        aliquota: 1.0,
+        tettoNotti: 7,
+        tettoNottiTipo: "per_soggiorno",
+        validoDal: new Date("2026-03-28"),
+        stagionalitaDal: "05-01",
+        stagionalitaAl: "10-31",
+      },
+    }));
+
+  if (!(await prisma.motivoEsenzioneTassa.findFirst({ where: { regolamentoId: regolamentoBisceglie.id, codice: "MINORE12" } }))) {
+    await prisma.motivoEsenzioneTassa.create({
+      data: { regolamentoId: regolamentoBisceglie.id, codice: "MINORE12", descrizione: "Minori di 12 anni", etaSoglia: 12 },
+    });
+  }
+
+  const hotel2 = await prisma.hotel.upsert({
+    where: { id: 2 },
+    update: {},
+    create: { id: 2, comuneId: bisceglie.id, nome: "Hotel Bisceglie Mare", categoria: "Hotel" },
+  });
+
+  const tipiCamera2 = await Promise.all(
+    [
+      { codice: "SNG", descrizione: "Singola" },
+      { codice: "DBL", descrizione: "Doppia" },
+    ].map((t) =>
+      prisma.tipoCamera.upsert({
+        where: { hotelId_codice: { hotelId: hotel2.id, codice: t.codice } },
+        update: {},
+        create: { hotelId: hotel2.id, ...t },
+      })
+    )
+  );
+  const tipoByCodice2 = Object.fromEntries(tipiCamera2.map((t) => [t.codice, t]));
+
+  for (const c of [
+    { codice: "101", tipo: "SNG", piano: "Piano 1" },
+    { codice: "102", tipo: "DBL", piano: "Piano 1" },
+    { codice: "103", tipo: "DBL", piano: "Piano 1" },
+  ]) {
+    const capienza = capienzaPerTipoCodice[c.tipo];
+    await prisma.camera.upsert({
+      where: { hotelId_codice: { hotelId: hotel2.id, codice: c.codice } },
+      update: { capienzaAdulti: capienza.adulti, capienzaBambini: capienza.bambini },
+      create: {
+        hotelId: hotel2.id,
+        codice: c.codice,
+        tipoCameraId: tipoByCodice2[c.tipo].id,
+        piano: c.piano,
+        capienzaAdulti: capienza.adulti,
+        capienzaBambini: capienza.bambini,
+      },
+    });
+  }
+
+  const listino2 = await prisma.listino.upsert({
+    where: { hotelId_codice: { hotelId: hotel2.id, codice: "BASE" } },
+    update: {},
+    create: { hotelId: hotel2.id, codice: "BASE", descrizione: "Listino base", tipo: "base" },
+  });
+
+  const prezzi2: Record<string, number> = { SNG: 55, DBL: 75 };
+  for (const t of tipiCamera2) {
+    if (!(await prisma.periodoTariffario.findFirst({ where: { listinoId: listino2.id, tipoCameraId: t.id, dal, al } }))) {
+      await prisma.periodoTariffario.create({
+        data: { listinoId: listino2.id, tipoCameraId: t.id, dal, al, prezzoNotte: prezzi2[t.codice] },
+      });
+    }
+  }
+
+  console.log("Seed: Casa per ferie Maria Domenica Barbantini (Roma)...");
+
+  // Cliente reale (2026-09-26): Via Ausano Labadini 20, Roma (La Storta) — gestita dalla
+  // Congregazione delle Suore Ministre degli Infermi di San Camillo. Numero camere/prezzi non
+  // pubblicati: inventati in modo plausibile (richiesta esplicita dell'utente) partendo dal dato
+  // reale "tariffe a partire da 20 EUR a persona" trovato sul sito ufficiale.
+  const roma = await prisma.comune.upsert({
+    where: { codiceIstat: "058091" },
+    update: {},
+    create: { codiceIstat: "058091", nome: "Roma", provincia: "RM" },
+  });
+
+  // Tassa di soggiorno di Roma Capitale: tariffa differenziata per categoria di struttura.
+  // "Case per ferie" = 6 EUR/persona/notte (corretto dall'utente 2026-09-26: la ricerca web aveva
+  // inizialmente trovato 3,50 EUR da una fonte che si e' rivelata sbagliata/obsoleta — l'utente
+  // segue clienti reali in questo settore e conferma che e' 6 EUR da oltre un anno), tetto 10
+  // notti consecutive, minori di 10 anni esenti.
+  const regolamentoRomaEsistente = await prisma.regolamentoTassaComune.findFirst({
+    where: { comuneId: roma.id, categoriaStruttura: "Casa per ferie" },
+  });
+  const regolamentoRoma =
+    regolamentoRomaEsistente ??
+    (await prisma.regolamentoTassaComune.create({
+      data: {
+        comuneId: roma.id,
+        categoriaStruttura: "Casa per ferie",
+        aliquota: 6.0,
+        tettoNotti: 10,
+        tettoNottiTipo: "per_soggiorno",
+        validoDal: new Date("2026-01-01"),
+      },
+    }));
+
+  if (!(await prisma.motivoEsenzioneTassa.findFirst({ where: { regolamentoId: regolamentoRoma.id, codice: "MINORE10" } }))) {
+    await prisma.motivoEsenzioneTassa.create({
+      data: { regolamentoId: regolamentoRoma.id, codice: "MINORE10", descrizione: "Minori di 10 anni", etaSoglia: 10 },
+    });
+  }
+
+  const hotel3 = await prisma.hotel.upsert({
+    where: { id: 3 },
+    update: {},
+    create: { id: 3, comuneId: roma.id, nome: "Casa per ferie Maria Domenica Barbantini", categoria: "Casa per ferie" },
+  });
+
+  const tipiCamera3 = await Promise.all(
+    [
+      { codice: "SNG", descrizione: "Singola" },
+      { codice: "DBL", descrizione: "Doppia" },
+      { codice: "SPEC", descrizione: "Camera attrezzata (esigenze speciali)" },
+    ].map((t) =>
+      prisma.tipoCamera.upsert({
+        where: { hotelId_codice: { hotelId: hotel3.id, codice: t.codice } },
+        update: {},
+        create: { hotelId: hotel3.id, ...t },
+      })
+    )
+  );
+  const tipoByCodice3 = Object.fromEntries(tipiCamera3.map((t) => [t.codice, t]));
+
+  const capienzaPerTipoCodice3: Record<string, { adulti: number; bambini: number }> = {
+    ...capienzaPerTipoCodice,
+    SPEC: { adulti: 2, bambini: 0 },
+  };
+
+  const camere3 = [
+    { codice: "S1", tipo: "SNG", piano: "Piano 1" },
+    { codice: "S2", tipo: "SNG", piano: "Piano 1" },
+    { codice: "S3", tipo: "SNG", piano: "Piano 1" },
+    { codice: "S4", tipo: "SNG", piano: "Piano 1" },
+    { codice: "S5", tipo: "SNG", piano: "Piano 1" },
+    { codice: "S6", tipo: "SNG", piano: "Piano 2" },
+    { codice: "D1", tipo: "DBL", piano: "Piano 1" },
+    { codice: "D2", tipo: "DBL", piano: "Piano 1" },
+    { codice: "D3", tipo: "DBL", piano: "Piano 2" },
+    { codice: "D4", tipo: "DBL", piano: "Piano 2" },
+    { codice: "D5", tipo: "DBL", piano: "Piano 2" },
+    { codice: "D6", tipo: "DBL", piano: "Piano 2" },
+    { codice: "D7", tipo: "DBL", piano: "Piano 3" },
+    { codice: "D8", tipo: "DBL", piano: "Piano 3" },
+    { codice: "SP1", tipo: "SPEC", piano: "Piano 1" },
+  ];
+  for (const c of camere3) {
+    const capienza = capienzaPerTipoCodice3[c.tipo];
+    await prisma.camera.upsert({
+      where: { hotelId_codice: { hotelId: hotel3.id, codice: c.codice } },
+      update: { capienzaAdulti: capienza.adulti, capienzaBambini: capienza.bambini },
+      create: {
+        hotelId: hotel3.id,
+        codice: c.codice,
+        tipoCameraId: tipoByCodice3[c.tipo].id,
+        piano: c.piano,
+        capienzaAdulti: capienza.adulti,
+        capienzaBambini: capienza.bambini,
+      },
+    });
+  }
+
+  const listino3 = await prisma.listino.upsert({
+    where: { hotelId_codice: { hotelId: hotel3.id, codice: "BASE" } },
+    update: {},
+    create: { hotelId: hotel3.id, codice: "BASE", descrizione: "Listino base", tipo: "base" },
+  });
+
+  // Inventati partendo dal dato reale "tariffe a partire da 20 EUR a persona" del sito ufficiale.
+  const prezzi3: Record<string, number> = { SNG: 25, DBL: 40, SPEC: 35 };
+  for (const t of tipiCamera3) {
+    if (!(await prisma.periodoTariffario.findFirst({ where: { listinoId: listino3.id, tipoCameraId: t.id, dal, al } }))) {
+      await prisma.periodoTariffario.create({
+        data: { listinoId: listino3.id, tipoCameraId: t.id, dal, al, prezzoNotte: prezzi3[t.codice] },
+      });
+    }
+  }
+
+  const passwordBarbantini = await bcrypt.hash("barbantini1234", 10);
+  await prisma.utente.upsert({
+    where: { email: "info@casaperferiemdbarbantini.it" },
+    update: { hotels: { connect: [{ id: hotel3.id }] } },
+    create: {
+      nome: "Casa Barbantini",
+      email: "info@casaperferiemdbarbantini.it",
+      passwordHash: passwordBarbantini,
+      ruolo: "ADMIN",
+      hotels: { connect: [{ id: hotel3.id }] },
+    },
+  });
+
+  console.log("Seed: utenti...");
+
+  const passwordAdmin = await bcrypt.hash("admin1234", 10);
+  const passwordReception = await bcrypt.hash("reception1234", 10);
+
+  // Amministratore multi-struttura: vede ed edita entrambi gli hotel, con selettore in alto.
+  await prisma.utente.upsert({
+    where: { email: "admin@nuvite.it" },
+    update: { hotels: { connect: [{ id: hotel.id }, { id: hotel2.id }, { id: hotel3.id }] } },
+    create: {
+      nome: "Amministratore",
+      email: "admin@nuvite.it",
+      passwordHash: passwordAdmin,
+      ruolo: "ADMIN",
+      hotels: { connect: [{ id: hotel.id }, { id: hotel2.id }, { id: hotel3.id }] },
+    },
+  });
+
+  // Reception: un solo hotel, nessun selettore, nessun accesso a gestione camere/utenti.
+  await prisma.utente.upsert({
+    where: { email: "reception@hotelmeridiana.it" },
+    update: { hotels: { connect: [{ id: hotel.id }] } },
+    create: {
+      nome: "Reception Meridiana",
+      email: "reception@hotelmeridiana.it",
+      passwordHash: passwordReception,
+      ruolo: "RECEZIONE",
+      hotels: { connect: [{ id: hotel.id }] },
+    },
+  });
+
   console.log("Seed completato.");
+  console.log("Credenziali di prova:");
+  console.log("  admin@nuvite.it / admin1234              (ADMIN, vede tutti e 3 gli hotel demo)");
+  console.log("  reception@hotelmeridiana.it / reception1234  (RECEZIONE, solo Hotel Meridiana)");
+  console.log("  info@casaperferiemdbarbantini.it / barbantini1234  (ADMIN, solo Casa Barbantini)");
 }
 
 main()

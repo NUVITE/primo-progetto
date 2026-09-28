@@ -1,20 +1,17 @@
 import { prisma } from "@/lib/prisma";
 
-// MVP: un solo hotel. Quando si aggiunge multi-hotel, l'hotelId va preso dalla sessione utente.
-const HOTEL_ID = 1;
-
-export async function datiGestioneCamere() {
+export async function datiGestioneCamere(hotelId: number) {
   const [tipiCamera, camere, indisponibilita] = await Promise.all([
-    prisma.tipoCamera.findMany({ where: { hotelId: HOTEL_ID }, orderBy: { descrizione: "asc" } }),
+    prisma.tipoCamera.findMany({ where: { hotelId }, orderBy: { descrizione: "asc" } }),
     prisma.camera.findMany({
-      where: { hotelId: HOTEL_ID },
+      where: { hotelId },
       include: { tipoCamera: true },
       orderBy: [{ piano: "asc" }, { codice: "asc" }],
     }),
     // Nota: nessun filtro sulla data "oggi reale" — questa build usa una data di riferimento
     // fittizia (luglio 2026) per i dati demo, non la data di sistema.
     prisma.cameraIndisponibilita.findMany({
-      where: { camera: { hotelId: HOTEL_ID } },
+      where: { camera: { hotelId } },
       include: { camera: true },
       orderBy: { dal: "asc" },
     }),
@@ -22,31 +19,38 @@ export async function datiGestioneCamere() {
   return { tipiCamera, camere, indisponibilita };
 }
 
-export async function creaTipoCamera(codice: string, descrizione: string) {
-  return prisma.tipoCamera.create({ data: { hotelId: HOTEL_ID, codice, descrizione } });
+export async function creaTipoCamera(hotelId: number, codice: string, descrizione: string) {
+  return prisma.tipoCamera.create({ data: { hotelId, codice, descrizione } });
 }
 
-export async function creaCamera(input: {
+export async function creaCamera(hotelId: number, input: {
   codice: string;
   tipoCameraId: number;
   piano?: string;
   capienzaAdulti: number;
   capienzaBambini: number;
 }) {
-  return prisma.camera.create({ data: { hotelId: HOTEL_ID, ...input } });
+  // Il tipo camera indicato deve appartenere a questo hotel, non a un altro.
+  await prisma.tipoCamera.findFirstOrThrow({ where: { id: input.tipoCameraId, hotelId } });
+  return prisma.camera.create({ data: { hotelId, ...input } });
 }
 
 /** Cambia il tipo di una camera (es. una singola a cui si aggiunge un letto diventa doppia).
  * Le prenotazioni passate/esistenti mantengono il proprio tipoCameraId storico, non vengono toccate. */
-export async function cambiaTipoCamera(cameraId: number, nuovoTipoCameraId: number) {
+export async function cambiaTipoCamera(hotelId: number, cameraId: number, nuovoTipoCameraId: number) {
+  await prisma.camera.findFirstOrThrow({ where: { id: cameraId, hotelId } });
+  await prisma.tipoCamera.findFirstOrThrow({ where: { id: nuovoTipoCameraId, hotelId } });
   return prisma.camera.update({ where: { id: cameraId }, data: { tipoCameraId: nuovoTipoCameraId } });
 }
 
-export async function impostaCameraAttiva(cameraId: number, attivo: boolean) {
+export async function impostaCameraAttiva(hotelId: number, cameraId: number, attivo: boolean) {
+  await prisma.camera.findFirstOrThrow({ where: { id: cameraId, hotelId } });
   return prisma.camera.update({ where: { id: cameraId }, data: { attivo } });
 }
 
-export async function creaIndisponibilita(input: { cameraId: number; dal: string; al: string; motivo: string }) {
+export async function creaIndisponibilita(hotelId: number, input: { cameraId: number; dal: string; al: string; motivo: string }) {
+  await prisma.camera.findFirstOrThrow({ where: { id: input.cameraId, hotelId } });
+
   const dal = new Date(input.dal);
   const al = new Date(input.al);
   if (al <= dal) throw new Error("La data di fine manutenzione deve essere dopo la data di inizio.");
@@ -61,6 +65,7 @@ export async function creaIndisponibilita(input: { cameraId: number; dal: string
   return prisma.cameraIndisponibilita.create({ data: { cameraId: input.cameraId, dal, al, motivo: input.motivo } });
 }
 
-export async function eliminaIndisponibilita(id: number) {
+export async function eliminaIndisponibilita(hotelId: number, id: number) {
+  await prisma.cameraIndisponibilita.findFirstOrThrow({ where: { id, camera: { hotelId } } });
   return prisma.cameraIndisponibilita.delete({ where: { id } });
 }

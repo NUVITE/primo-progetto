@@ -39,6 +39,7 @@ export function NuovaPrenotazioneForm() {
   const [camere, setCamere] = useState<Camera[]>([]);
   const [listini, setListini] = useState<Listino[]>([]);
   const [caricato, setCaricato] = useState(false);
+  const [erroreCaricamento, setErroreCaricamento] = useState<string | null>(null);
 
   const [ospitePrenotante, setOspitePrenotante] = useState<OspiteValue>({ mode: "vuoto" });
   const [gruppoAttivo, setGruppoAttivo] = useState(false);
@@ -51,12 +52,16 @@ export function NuovaPrenotazioneForm() {
   const [esito, setEsito] = useState<Awaited<ReturnType<typeof salvaPrenotazione>> | null>(null);
 
   useEffect(() => {
-    datiIniziali().then((d) => {
-      setCamere(d.camere);
-      setListini(d.listini);
-      setSegmenti([nuovoSegmento(d.listini[0]?.id ?? null)]);
-      setCaricato(true);
-    });
+    datiIniziali()
+      .then((d) => {
+        setCamere(d.camere);
+        setListini(d.listini);
+        setSegmenti([nuovoSegmento(d.listini[0]?.id ?? null)]);
+        setCaricato(true);
+      })
+      .catch((e) => {
+        setErroreCaricamento(e instanceof Error ? e.message : "Errore imprevisto nel caricamento.");
+      });
   }, []);
 
   // Ricalcola l'anteprima di un segmento quando cambiano camera/listino/date.
@@ -132,6 +137,10 @@ export function NuovaPrenotazioneForm() {
     } finally {
       setSalvando(false);
     }
+  }
+
+  if (erroreCaricamento) {
+    return <div className="p-8 text-sm font-semibold text-red-700">{erroreCaricamento}</div>;
   }
 
   if (!caricato) {

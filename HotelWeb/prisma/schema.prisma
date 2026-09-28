@@ -21,12 +21,36 @@ model Hotel {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  camere       Camera[]
-  tipiCamera   TipoCamera[]
-  ospiti       Ospite[]
-  gruppi       Gruppo[]
-  prenotazioni Prenotazione[]
-  listini      Listino[]
+  camere           Camera[]
+  tipiCamera       TipoCamera[]
+  ospiti           Ospite[]
+  gruppi           Gruppo[]
+  prenotazioni     Prenotazione[]
+  listini          Listino[]
+  utenti           Utente[]
+  serviziCatalogo  ServizioCatalogo[]
+}
+
+enum RuoloUtente {
+  ADMIN
+  RECEZIONE
+}
+
+/**
+ * Relazione molti-a-molti con Hotel: la maggior parte degli utenti avra' un solo hotel,
+ * ma un account "proprietario multi-struttura" puo' vedere ed operare su piu' hotel,
+ * passando dall'uno all'altro (vedi src/lib/auth.ts, hotel attivo nella sessione).
+ */
+model Utente {
+  id           Int         @id @default(autoincrement())
+  hotels       Hotel[]
+  nome         String
+  email        String      @unique
+  passwordHash String
+  ruolo        RuoloUtente @default(RECEZIONE)
+  attivo       Boolean     @default(true)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
 }
 
 model Comune {
@@ -135,11 +159,15 @@ model Prenotazione {
   stato              StatoPrenotazione @default(OPZIONE)
   accontoRichiesto   Decimal?          @db.Decimal(10, 2)
   accontoRicevuto    Decimal?          @db.Decimal(10, 2)
+  // Conteggio persone informativo (es. per colazioni/pulizie): non influenza il calcolo
+  // di prezzo/tassa, che restano per camera/notte come nel resto del motore.
+  numeroPersone      Int?
   note               String?
   createdAt          DateTime          @default(now())
   updatedAt          DateTime          @updatedAt
 
-  segmenti SegmentoSoggiorno[]
+  segmenti         SegmentoSoggiorno[]
+  serviziAggiunti  ServizioAggiunto[]
 }
 
 enum StatoSegmento {
@@ -179,6 +207,60 @@ model SegmentoSoggiorno {
   notti     NotteSoggiorno[]
   createdAt DateTime         @default(now())
   updatedAt DateTime         @updatedAt
+
+  // Servizi aggiuntivi assegnati specificamente a questo ospite/camera (non a tutto il gruppo).
+  serviziAggiunti ServizioAggiuntoSegmento[]
+}
+
+/**
+ * Voce a catalogo per un servizio extra (sala conferenze, pranzo aggiuntivo, colazione
+ * extra...) con un prezzo di listino. Un servizio "a prezzo libero" (importo deciso al
+ * momento, non a catalogo) non ha una voce qui: vedi ServizioAggiunto.servizioCatalogoId nullable.
+ */
+model ServizioCatalogo {
+  id        Int      @id @default(autoincrement())
+  hotelId   Int
+  hotel     Hotel    @relation(fields: [hotelId], references: [id])
+  nome      String
+  prezzo    Decimal  @db.Decimal(10, 2)
+  attivo    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  serviziAggiunti ServizioAggiunto[]
+}
+
+/**
+ * Un servizio extra addebitato su una prenotazione: puo' venire dal catalogo (prezzo
+ * suggerito, modificabile) oppure essere a prezzo libero (descrizione + importo liberi).
+ * Se non e' collegato a nessun ServizioAggiuntoSegmento si applica a TUTTA la prenotazione
+ * (es. sala conferenze per l'intera famiglia); se e' collegato a uno o piu' segmenti si
+ * applica solo a quei componenti del gruppo (uno o alcuni, non necessariamente tutti).
+ */
+model ServizioAggiunto {
+  id                 Int               @id @default(autoincrement())
+  prenotazioneId     Int
+  prenotazione       Prenotazione      @relation(fields: [prenotazioneId], references: [id])
+  servizioCatalogoId Int?
+  servizioCatalogo   ServizioCatalogo? @relation(fields: [servizioCatalogoId], references: [id])
+  // Nome da mostrare: se non c'e' un servizio a catalogo e' obbligatoria (prezzo libero).
+  descrizione        String?
+  prezzoUnitario     Decimal           @db.Decimal(10, 2)
+  quantita           Int               @default(1)
+  data               DateTime?         @db.Date
+  note               String?
+  createdAt          DateTime          @default(now())
+
+  segmenti ServizioAggiuntoSegmento[]
+}
+
+model ServizioAggiuntoSegmento {
+  servizioAggiuntoId Int
+  servizioAggiunto   ServizioAggiunto  @relation(fields: [servizioAggiuntoId], references: [id])
+  segmentoId         Int
+  segmento           SegmentoSoggiorno @relation(fields: [segmentoId], references: [id])
+
+  @@id([servizioAggiuntoId, segmentoId])
 }
 
 model NotteSoggiorno {

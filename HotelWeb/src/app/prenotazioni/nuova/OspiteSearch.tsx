@@ -73,6 +73,7 @@ export function OspiteSearch({
       <div className="flex flex-col gap-2 rounded-lg border border-dashed border-stone-300 p-3">
         <div className="flex gap-2">
           <input
+            autoFocus
             className="w-full rounded-md border border-stone-300 px-2 py-1.5 text-sm"
             placeholder="Nome"
             value={nuovoNome}

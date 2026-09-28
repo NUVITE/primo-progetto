@@ -9,6 +9,14 @@ import {
   trovaPrenotazione,
   type NuovoSegmentoInput,
 } from "@/lib/prenotazioni";
+import {
+  aggiungiServizioAPrenotazione,
+  modificaServizio,
+  rimuoviServizioDaPrenotazione,
+  type AggiungiServizioInput,
+  type ModificaServizioInput,
+} from "@/lib/servizi";
+import { richiediUtente } from "@/lib/auth";
 
 import { datiIniziali as _datiIniziali } from "@/app/prenotazioni/nuova/actions";
 
@@ -41,30 +49,72 @@ function serializza(prenotazione: Awaited<ReturnType<typeof trovaPrenotazione>>)
       notti: s.notti.length,
       subtotale: s.notti.reduce((t, n) => t + Number(n.prezzo), 0),
       tassa: s.notti.reduce((t, n) => t + (n.tassa ? Number(n.tassa.importo) : 0), 0),
+      // Notti create senza trovare una tariffa (prenotazione bloccata comunque, da sistemare
+      // aggiungendo il listino mancante) — vedi generaNottiETasse in src/lib/prenotazioni.ts.
+      tariffaIncompleta: s.notti.some((n) => n.motivoPrezzo === "mancante"),
+    })),
+    serviziAggiunti: prenotazione.serviziAggiunti.map((s) => ({
+      id: s.id,
+      nome: s.servizioCatalogo?.nome ?? s.descrizione ?? "Servizio",
+      daCatalogo: s.servizioCatalogoId !== null,
+      descrizione: s.descrizione,
+      prezzoUnitario: Number(s.prezzoUnitario),
+      quantita: s.quantita,
+      totale: Number(s.prezzoUnitario) * s.quantita,
+      data: s.data ? s.data.toISOString().slice(0, 10) : null,
+      note: s.note,
+      // Vuoto = si applica a tutta la prenotazione.
+      segmenti: s.segmenti.map((sg) => ({
+        segmentoId: sg.segmentoId,
+        etichetta: `${sg.segmento.ospite.nome} ${sg.segmento.ospite.cognome}${sg.segmento.camera ? " — " + sg.segmento.camera.codice : ""}`,
+      })),
     })),
   };
 }
 
 export async function caricaPrenotazione(id: number) {
-  return serializza(await trovaPrenotazione(id));
+  const { hotelId } = await richiediUtente();
+  return serializza(await trovaPrenotazione(hotelId, id));
 }
 
 export async function azioneAccorciaEstendi(segmentoId: number, nuovaDataFine: string) {
-  const prenotazione = await cambiaDataFineSegmento(segmentoId, nuovaDataFine);
+  const { hotelId } = await richiediUtente();
+  const prenotazione = await cambiaDataFineSegmento(hotelId, segmentoId, nuovaDataFine);
   return serializza(prenotazione);
 }
 
 export async function azioneCambiaCamera(segmentoId: number, dataCambio: string, nuovaCameraId: number) {
-  const prenotazione = await cambiaCameraSegmento(segmentoId, dataCambio, nuovaCameraId);
+  const { hotelId } = await richiediUtente();
+  const prenotazione = await cambiaCameraSegmento(hotelId, segmentoId, dataCambio, nuovaCameraId);
   return serializza(prenotazione);
 }
 
 export async function azioneAggiungiSegmento(prenotazioneId: number, input: NuovoSegmentoInput) {
-  const prenotazione = await aggiungiSegmentoAPrenotazione(prenotazioneId, input);
+  const { hotelId } = await richiediUtente();
+  const prenotazione = await aggiungiSegmentoAPrenotazione(hotelId, prenotazioneId, input);
   return serializza(prenotazione);
 }
 
 export async function azioneAssegnaCamera(segmentoId: number, cameraId: number) {
-  const prenotazione = await assegnaCamera(segmentoId, cameraId);
+  const { hotelId } = await richiediUtente();
+  const prenotazione = await assegnaCamera(hotelId, segmentoId, cameraId);
   return serializza(prenotazione);
+}
+
+export async function azioneAggiungiServizio(prenotazioneId: number, input: AggiungiServizioInput) {
+  const { hotelId } = await richiediUtente();
+  await aggiungiServizioAPrenotazione(hotelId, prenotazioneId, input);
+  return serializza(await trovaPrenotazione(hotelId, prenotazioneId));
+}
+
+export async function azioneRimuoviServizio(prenotazioneId: number, servizioAggiuntoId: number) {
+  const { hotelId } = await richiediUtente();
+  await rimuoviServizioDaPrenotazione(hotelId, servizioAggiuntoId);
+  return serializza(await trovaPrenotazione(hotelId, prenotazioneId));
+}
+
+export async function azioneModificaServizio(prenotazioneId: number, servizioAggiuntoId: number, input: ModificaServizioInput) {
+  const { hotelId } = await richiediUtente();
+  await modificaServizio(hotelId, servizioAggiuntoId, input);
+  return serializza(await trovaPrenotazione(hotelId, prenotazioneId));
 }

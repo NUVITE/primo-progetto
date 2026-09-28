@@ -4,20 +4,29 @@ import { prisma } from "@/lib/prisma";
 import { calcolaTotaliPrenotazione, creaPrenotazione, type CreaPrenotazioneInput } from "@/lib/prenotazioni";
 import { nottiTraDate, trovaPrezzoNotte } from "@/lib/pricing";
 import { trovaRegolamentoAttivo } from "@/lib/tassaSoggiorno";
-
-const HOTEL_ID = 1;
+import { richiediUtente } from "@/lib/auth";
+import { elencoServiziCatalogo } from "@/lib/servizi";
 
 export async function datiIniziali() {
-  const [camere, tipiCamera, listini] = await Promise.all([
-    prisma.camera.findMany({ where: { hotelId: HOTEL_ID, attivo: true }, include: { tipoCamera: true }, orderBy: { codice: "asc" } }),
-    prisma.tipoCamera.findMany({ where: { hotelId: HOTEL_ID } }),
-    prisma.listino.findMany({ where: { hotelId: HOTEL_ID } }),
+  const { hotelId } = await richiediUtente();
+  const [camere, tipiCamera, listini, serviziCatalogo] = await Promise.all([
+    prisma.camera.findMany({ where: { hotelId, attivo: true }, include: { tipoCamera: true }, orderBy: { codice: "asc" } }),
+    prisma.tipoCamera.findMany({ where: { hotelId } }),
+    prisma.listino.findMany({ where: { hotelId } }),
+    elencoServiziCatalogo(hotelId),
   ]);
 
   return {
-    camere: camere.map((c) => ({ id: c.id, codice: c.codice, tipoCameraId: c.tipoCameraId, tipoCameraNome: c.tipoCamera.descrizione })),
+    camere: camere.map((c) => ({
+      id: c.id,
+      codice: c.codice,
+      tipoCameraId: c.tipoCameraId,
+      tipoCameraNome: c.tipoCamera.descrizione,
+      capienza: c.capienzaAdulti + c.capienzaBambini,
+    })),
     tipiCamera: tipiCamera.map((t) => ({ id: t.id, descrizione: t.descrizione })),
     listini: listini.map((l) => ({ id: l.id, descrizione: l.descrizione, tipo: l.tipo })),
+    serviziCatalogo: serviziCatalogo.filter((s) => s.attivo).map((s) => ({ id: s.id, nome: s.nome, prezzo: Number(s.prezzo) })),
   };
 }
 
@@ -33,8 +42,10 @@ export async function anteprimaSegmento(input: {
   dataInizio: string;
   dataFine: string;
 }) {
-  const camera = await prisma.camera.findUniqueOrThrow({
-    where: { id: input.cameraId },
+  const { hotelId } = await richiediUtente();
+
+  const camera = await prisma.camera.findFirstOrThrow({
+    where: { id: input.cameraId, hotelId },
     include: { hotel: { include: { comune: true } } },
   });
 
@@ -63,8 +74,78 @@ export async function anteprimaSegmento(input: {
   };
 }
 
+/**
+ * Anteprima prezzo/tassa per una prenotazione "veloce" (piu' camere per tipo, stessa
+ * ospite/periodo, camere non ancora assegnate) — stessa logica di stima di anteprimaSegmento,
+ * sommata su tutte le camere richieste. Come li', la tassa e' una stima (nessuna esenzione).
+ */
+export async function anteprimaGenerica(input: {
+  richieste: { tipoCameraId: number; quantita: number }[];
+  listinoId: number;
+  dataInizio: string;
+  dataFine: string;
+}) {
+  const { hotelId } = await richiediUtente();
+
+  const hotel = await prisma.hotel.findFirstOrThrow({
+    where: { id: hotelId },
+    include: { comune: true },
+  });
+
+  const dataInizio = new Date(input.dataInizio);
+  const dataFine = new Date(input.dataFine);
+  if (dataFine <= dataInizio) return null;
+
+  const notti = nottiTraDate(dataInizio, dataFine);
+  const regolamento = await trovaRegolamentoAttivo(prisma, hotel.comuneId, dataInizio, hotel.categoria);
+  const nottiTassabili = regolamento ? Math.min(notti.length, regolamento.tettoNotti) : 0;
+
+  const tipiRichiesti = await prisma.tipoCamera.findMany({
+    where: { id: { in: input.richieste.filter((r) => r.quantita > 0).map((r) => r.tipoCameraId) } },
+  });
+
+  let subtotale = 0;
+  let tassaStimata = 0;
+  const tipiSenzaTariffa = new Set<string>();
+  const dettaglio: { tipoCameraId: number; descrizione: string; quantita: number; notti: number; prezzoNotte: number; subtotale: number }[] = [];
+  for (const richiesta of input.richieste) {
+    if (richiesta.quantita <= 0) continue;
+    const descrizioneTipo = tipiRichiesti.find((t) => t.id === richiesta.tipoCameraId)?.descrizione ?? "?";
+    let subtotaleCamera = 0;
+    for (const notte of notti) {
+      const p = await trovaPrezzoNotte(prisma, input.listinoId, richiesta.tipoCameraId, notte);
+      if (p) subtotaleCamera += p.prezzo;
+      else tipiSenzaTariffa.add(descrizioneTipo);
+    }
+    subtotale += subtotaleCamera * richiesta.quantita;
+    if (regolamento) tassaStimata += nottiTassabili * Number(regolamento.aliquota) * richiesta.quantita;
+    dettaglio.push({
+      tipoCameraId: richiesta.tipoCameraId,
+      descrizione: descrizioneTipo,
+      quantita: richiesta.quantita,
+      notti: notti.length,
+      prezzoNotte: notti.length > 0 ? subtotaleCamera / notti.length : 0,
+      subtotale: subtotaleCamera * richiesta.quantita,
+    });
+  }
+
+  return {
+    notti: notti.length,
+    subtotale,
+    tassaStimata,
+    totale: subtotale + tassaStimata,
+    dettaglio,
+    nottiTassabili,
+    tipiSenzaTariffa: Array.from(tipiSenzaTariffa),
+    regolamento: regolamento
+      ? { comune: hotel.comune.nome, aliquota: Number(regolamento.aliquota), tettoNotti: regolamento.tettoNotti }
+      : null,
+  };
+}
+
 export async function salvaPrenotazione(input: CreaPrenotazioneInput) {
-  const prenotazione = await creaPrenotazione(input);
+  const { hotelId } = await richiediUtente();
+  const prenotazione = await creaPrenotazione(hotelId, input);
   return {
     id: prenotazione.id,
     ospitePrenotante: `${prenotazione.ospitePrenotante.nome} ${prenotazione.ospitePrenotante.cognome}`,

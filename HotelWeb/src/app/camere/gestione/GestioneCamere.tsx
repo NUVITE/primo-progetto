@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
   azioneCambiaTipoCamera,
@@ -54,12 +53,7 @@ export function GestioneCamere({ iniziale }: { iniziale: Dati }) {
 
   return (
     <div className="flex w-full flex-col gap-6 p-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold">Gestione camere</h1>
-        <Link href="/" className="rounded-md border border-teal-700 px-4 py-2 text-sm font-bold text-teal-700">
-          Situazione camere
-        </Link>
-      </div>
+      <h1 className="text-xl font-bold">Gestione camere</h1>
 
       {errore && <p className="rounded-md bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">{errore}</p>}
 

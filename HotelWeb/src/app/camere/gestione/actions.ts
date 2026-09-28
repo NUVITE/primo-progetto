@@ -9,9 +9,16 @@ import {
   eliminaIndisponibilita,
   impostaCameraAttiva,
 } from "@/lib/camere";
+import { richiediRuolo } from "@/lib/auth";
+
+async function hotelAmministrato() {
+  const utente = await richiediRuolo(["ADMIN"]);
+  return utente.hotelId;
+}
 
 export async function datiGestione() {
-  const { tipiCamera, camere, indisponibilita } = await datiGestioneCamere();
+  const hotelId = await hotelAmministrato();
+  const { tipiCamera, camere, indisponibilita } = await datiGestioneCamere(hotelId);
   return {
     tipiCamera: tipiCamera.map((t) => ({ id: t.id, codice: t.codice, descrizione: t.descrizione })),
     camere: camere.map((c) => ({
@@ -36,31 +43,37 @@ export async function datiGestione() {
 }
 
 export async function azioneCreaTipoCamera(codice: string, descrizione: string) {
-  await creaTipoCamera(codice, descrizione);
+  const hotelId = await hotelAmministrato();
+  await creaTipoCamera(hotelId, codice, descrizione);
   return datiGestione();
 }
 
 export async function azioneCreaCamera(input: { codice: string; tipoCameraId: number; piano: string; capienzaAdulti: number; capienzaBambini: number }) {
-  await creaCamera({ ...input, piano: input.piano || undefined });
+  const hotelId = await hotelAmministrato();
+  await creaCamera(hotelId, { ...input, piano: input.piano || undefined });
   return datiGestione();
 }
 
 export async function azioneCambiaTipoCamera(cameraId: number, nuovoTipoCameraId: number) {
-  await cambiaTipoCamera(cameraId, nuovoTipoCameraId);
+  const hotelId = await hotelAmministrato();
+  await cambiaTipoCamera(hotelId, cameraId, nuovoTipoCameraId);
   return datiGestione();
 }
 
 export async function azioneImpostaCameraAttiva(cameraId: number, attivo: boolean) {
-  await impostaCameraAttiva(cameraId, attivo);
+  const hotelId = await hotelAmministrato();
+  await impostaCameraAttiva(hotelId, cameraId, attivo);
   return datiGestione();
 }
 
 export async function azioneCreaIndisponibilita(input: { cameraId: number; dal: string; al: string; motivo: string }) {
-  await creaIndisponibilita(input);
+  const hotelId = await hotelAmministrato();
+  await creaIndisponibilita(hotelId, input);
   return datiGestione();
 }
 
 export async function azioneEliminaIndisponibilita(id: number) {
-  await eliminaIndisponibilita(id);
+  const hotelId = await hotelAmministrato();
+  await eliminaIndisponibilita(hotelId, id);
   return datiGestione();
 }

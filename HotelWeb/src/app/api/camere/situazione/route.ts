@@ -1,15 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-
-const HOTEL_ID = 1;
+import { getUtenteCorrente } from "@/lib/auth";
 
 function isoGiorno(d: Date) {
   return d.toISOString().slice(0, 10);
 }
 
-type Stato = "libera" | "occupata" | "in_arrivo" | "in_partenza" | "fuori_servizio";
+type Stato = "libera" | "occupata" | "in_arrivo" | "in_partenza" | "fuori_servizio" | "occupata_generica";
+type Candidato = { segmentoId: number; prenotazioneId: number; label: string };
 
 export async function GET(request: NextRequest) {
+  const utente = await getUtenteCorrente();
+  if (!utente) {
+    return NextResponse.json({ error: "Non autenticato." }, { status: 401 });
+  }
+  const HOTEL_ID = utente.hotelId;
+
   const dalStr = request.nextUrl.searchParams.get("dal");
   const alStr = request.nextUrl.searchParams.get("al");
   if (!dalStr || !alStr) {
@@ -67,12 +73,43 @@ export async function GET(request: NextRequest) {
     giorni.push(isoGiorno(d));
   }
 
+  // Le prenotazioni generiche (senza camera fisica) "consumano" visivamente le prime N camere
+  // ancora libere di quel tipo/giorno (ordine deterministico per codice) — cosi' la griglia per
+  // camera non mostra mai piu' camere verdi di quante ne restino davvero, anche se nessuna e'
+  // stata assegnata fisicamente. La scelta di QUALE camera e' arbitraria e puramente visiva:
+  // l'assegnazione reale resta libera finche' non si clicca "Assegna questa camera".
+  const consumatePerTipoGiorno = new Map<string, Set<number>>();
+  const genericiCandidatiPerTipoGiorno = new Map<string, Candidato[]>();
+  for (const t of tipiCamera) {
+    const camereDelTipo = camere.filter((c) => c.tipoCameraId === t.id);
+    const genericiDelTipo = segmentiGenericiPerTipo.get(t.id) ?? [];
+    for (const giornoIso of giorni) {
+      const giorno = new Date(giornoIso);
+      const genericiAttivi = genericiDelTipo.filter((s) => s.dataInizio <= giorno && giorno < s.dataFine);
+      if (genericiAttivi.length === 0) continue;
+
+      const chiave = `${t.id}-${giornoIso}`;
+      genericiCandidatiPerTipoGiorno.set(
+        chiave,
+        genericiAttivi.map((s) => ({ segmentoId: s.id, prenotazioneId: s.prenotazioneId, label: `${s.ospite.nome} ${s.ospite.cognome}` }))
+      );
+
+      const candidateLibere = camereDelTipo.filter((c) => {
+        const inManutenzione = (indisponibilitaPerCamera.get(c.id) ?? []).some((m) => m.dal <= giorno && giorno < m.al);
+        if (inManutenzione) return false;
+        const assegnataOccupata = (segmentiPerCamera.get(c.id) ?? []).some((s) => s.dataInizio <= giorno && giorno < s.dataFine);
+        return !assegnataOccupata;
+      });
+      consumatePerTipoGiorno.set(chiave, new Set(candidateLibere.slice(0, genericiAttivi.length).map((c) => c.id)));
+    }
+  }
+
   const risultatoCamere = camere.map((c) => {
     const miei = segmentiPerCamera.get(c.id) ?? [];
     const manutenzioni = indisponibilitaPerCamera.get(c.id) ?? [];
     const celle: Record<
       string,
-      { stato: Stato; label: string | null; segmentoId: number | null; prenotazioneId: number | null }
+      { stato: Stato; label: string | null; segmentoId: number | null; prenotazioneId: number | null; genericiCandidati?: Candidato[] }
     > = {};
 
     for (const giornoIso of giorni) {
@@ -102,6 +139,17 @@ export async function GET(request: NextRequest) {
           label: `${partito.ospite.nome} ${partito.ospite.cognome}`,
           segmentoId: partito.id,
           prenotazioneId: partito.prenotazioneId,
+        };
+        continue;
+      }
+      const chiave = `${c.tipoCameraId}-${giornoIso}`;
+      if (consumatePerTipoGiorno.get(chiave)?.has(c.id)) {
+        celle[giornoIso] = {
+          stato: "occupata_generica",
+          label: null,
+          segmentoId: null,
+          prenotazioneId: null,
+          genericiCandidati: genericiCandidatiPerTipoGiorno.get(chiave),
         };
         continue;
       }
