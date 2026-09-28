@@ -14,6 +14,26 @@ export async function impostaAttivoServizioCatalogo(hotelId: number, id: number,
   return prisma.servizioCatalogo.update({ where: { id }, data: { attivo } });
 }
 
+/** Il nuovo prezzo vale solo per gli addebiti futuri: quelli gia' fatti hanno il proprio prezzoUnitario. */
+export async function modificaServizioCatalogo(hotelId: number, id: number, input: { nome: string; prezzo: number }) {
+  if (!input.nome.trim()) throw new Error("Il nome del servizio è obbligatorio.");
+  if (!(input.prezzo >= 0)) throw new Error("Prezzo non valido.");
+  await prisma.servizioCatalogo.findFirstOrThrow({ where: { id, hotelId } });
+  return prisma.servizioCatalogo.update({ where: { id }, data: { nome: input.nome.trim(), prezzo: input.prezzo } });
+}
+
+/** Eliminabile solo se mai usato: altrimenti si perderebbe lo storico degli addebiti (si disattiva). */
+export async function eliminaServizioCatalogo(hotelId: number, id: number) {
+  await prisma.servizioCatalogo.findFirstOrThrow({ where: { id, hotelId } });
+  const usi = await prisma.servizioAggiunto.count({ where: { servizioCatalogoId: id } });
+  if (usi > 0) {
+    throw new Error(
+      `Servizio già usato in ${usi} ${usi === 1 ? "addebito" : "addebiti"} su prenotazioni: non si può eliminare, disattivalo.`,
+    );
+  }
+  await prisma.servizioCatalogo.delete({ where: { id } });
+}
+
 export type AggiungiServizioInput = {
   // Un servizio a catalogo (prezzoUnitario suggerito dal listino, modificabile) oppure
   // a prezzo libero (servizioCatalogoId assente, descrizione obbligatoria).
