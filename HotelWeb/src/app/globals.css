@@ -17,3 +17,47 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/*
+ * Tabelle su telefono: sotto i 768px ogni riga diventa una scheda a due colonne e ogni cella
+ * mostra la propria intestazione presa da data-label. Così le tabelle restano un'unica
+ * implementazione (niente doppio markup tabella/schede) e la logica dei componenti non cambia.
+ * Le celle con class="cella-intera" occupano tutta la larghezza (azioni, form inline).
+ */
+@media (max-width: 767px) {
+  .tabella-responsive,
+  .tabella-responsive tbody {
+    display: block;
+  }
+  .tabella-responsive thead {
+    display: none;
+  }
+  .tabella-responsive tr {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem 0.75rem;
+    padding: 0.75rem;
+  }
+  .tabella-responsive td {
+    display: block;
+    padding: 0 !important;
+    min-width: 0;
+  }
+  .tabella-responsive td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 0.125rem;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: #78716c;
+  }
+  .tabella-responsive td.cella-intera {
+    grid-column: 1 / -1;
+  }
+  .tabella-responsive td:empty {
+    display: none;
+  }
+}

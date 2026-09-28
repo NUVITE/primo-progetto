@@ -187,7 +187,7 @@ export function PrenotazioneDettaglio({ iniziale }: { iniziale: Prenotazione }) 
   }
 
   return (
-    <div className="flex w-full flex-col gap-6 p-6">
+    <div className="flex w-full min-w-0 flex-col gap-6 p-3 sm:p-6">
       <div className="flex items-center justify-between">
         <div>
           <Link href="/" className="text-sm text-teal-700">← Situazione camere</Link>
@@ -202,8 +202,8 @@ export function PrenotazioneDettaglio({ iniziale }: { iniziale: Prenotazione }) 
 
       <div className="flex flex-col gap-6 xl:flex-row xl:items-start">
         <div className="flex flex-1 flex-col gap-4">
-          <div className="overflow-hidden rounded-xl border border-stone-200 bg-white">
-            <table className="w-full text-sm">
+          <div className="overflow-x-auto rounded-xl border border-stone-200 bg-white">
+            <table className="tabella-responsive w-full text-sm">
               <thead className="border-b border-stone-200 bg-stone-50 text-left text-xs uppercase tracking-wide text-stone-600">
                 <tr>
                   <th className="px-3 py-2">Camera</th>
@@ -219,7 +219,7 @@ export function PrenotazioneDettaglio({ iniziale }: { iniziale: Prenotazione }) 
               <tbody>
                 {prenotazione.segmenti.map((s) => (
                   <tr key={s.id} className="border-b border-stone-100 last:border-0 align-top">
-                    <td className="px-3 py-2">
+                    <td data-label="Camera" className="px-3 py-2">
                       {s.cameraCodice ? (
                         <div className="font-semibold">{s.cameraCodice}</div>
                       ) : (
@@ -227,9 +227,9 @@ export function PrenotazioneDettaglio({ iniziale }: { iniziale: Prenotazione }) 
                       )}
                       <div className="text-xs text-stone-600">{s.tipoCameraNome}</div>
                     </td>
-                    <td className="px-3 py-2">{s.ospiteNome}</td>
-                    <td className="px-3 py-2 font-mono">{s.dataInizio.split("-").reverse().join("/")}</td>
-                    <td className="px-3 py-2">
+                    <td data-label="Ospite" className="px-3 py-2">{s.ospiteNome}</td>
+                    <td data-label="Check-in" className="px-3 py-2 font-mono">{s.dataInizio.split("-").reverse().join("/")}</td>
+                    <td data-label="Check-out" className="px-3 py-2">
                       {modificaFine?.segmentoId === s.id ? (
                         <div className="flex items-center gap-1">
                           <input
@@ -253,8 +253,8 @@ export function PrenotazioneDettaglio({ iniziale }: { iniziale: Prenotazione }) 
                         </button>
                       )}
                     </td>
-                    <td className="px-3 py-2 font-mono">{s.notti}</td>
-                    <td className="px-3 py-2 font-mono">
+                    <td data-label="Notti" className="px-3 py-2 font-mono">{s.notti}</td>
+                    <td data-label="Subtotale" className="px-3 py-2 font-mono">
                       {eur(s.subtotale)}
                       {s.tariffaIncompleta && (
                         <div className="mt-0.5 text-[11px] font-semibold text-amber-700" title="Manca la tariffa per una o più notti: il subtotale non è completo.">
@@ -262,8 +262,8 @@ export function PrenotazioneDettaglio({ iniziale }: { iniziale: Prenotazione }) 
                         </div>
                       )}
                     </td>
-                    <td className="px-3 py-2 font-mono">{eur(s.tassa)}</td>
-                    <td className="px-3 py-2">
+                    <td data-label="Tassa" className="px-3 py-2 font-mono">{eur(s.tassa)}</td>
+                    <td className="cella-intera px-3 py-2">
                       {!s.cameraId && (
                         assegnaCameraState?.segmentoId === s.id ? (
                           <div className="flex flex-col gap-1 rounded-md border border-stone-200 p-2">
@@ -342,7 +342,7 @@ export function PrenotazioneDettaglio({ iniziale }: { iniziale: Prenotazione }) 
             {aggiungiAperto ? (
               <div className="flex flex-col gap-3">
                 <h3 className="text-sm font-bold">Aggiungi un arrivo al gruppo</h3>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div>
                     <label className="mb-1 block text-xs text-stone-600">Camera</label>
                     <select className="w-full rounded-md border border-stone-300 px-2 py-1.5 text-sm" value={nuovaCameraId ?? ""} onChange={(e) => setNuovaCameraId(Number(e.target.value))}>
@@ -389,25 +389,25 @@ export function PrenotazioneDettaglio({ iniziale }: { iniziale: Prenotazione }) 
           <div className="rounded-xl border border-stone-200 bg-white p-4">
             <h3 className="mb-2 text-sm font-bold">Servizi aggiuntivi</h3>
             {prenotazione.serviziAggiunti.length > 0 && (
-              <table className="mb-3 w-full text-sm">
+              <table className="tabella-responsive mb-3 w-full text-sm">
                 <thead className="text-left text-xs uppercase text-stone-500">
                   <tr><th className="pb-1">Servizio</th><th className="pb-1">Ambito</th><th className="pb-1">Importo</th><th /></tr>
                 </thead>
                 <tbody>
                   {prenotazione.serviziAggiunti.map((s) => (
                     <tr key={s.id} className="border-t border-stone-100">
-                      <td className="py-1.5">
+                      <td className="cella-intera py-1.5">
                         <div className="font-semibold">{s.nome}</div>
                         {s.note && <div className="text-xs text-stone-500">{s.note}</div>}
                       </td>
-                      <td className="py-1.5 text-xs text-stone-600">
+                      <td data-label="Ambito" className="py-1.5 text-xs text-stone-600">
                         {s.segmenti.length === 0 ? "Tutta la prenotazione" : s.segmenti.map((sg) => sg.etichetta).join(", ")}
                       </td>
-                      <td className="py-1.5 font-mono">
+                      <td data-label="Importo" className="py-1.5 font-mono">
                         {s.quantita > 1 ? `${s.quantita} × ${eur(s.prezzoUnitario)} = ` : ""}
                         {eur(s.totale)}
                       </td>
-                      <td className="py-1.5 text-right">
+                      <td className="cella-intera py-1.5 md:text-right">
                         <button className="mr-3 text-xs font-semibold text-teal-700" onClick={() => iniziaModificaServizio(s)}>
                           Modifica
                         </button>
@@ -422,7 +422,7 @@ export function PrenotazioneDettaglio({ iniziale }: { iniziale: Prenotazione }) 
             )}
             {servizioAperto ? (
               <div className="flex flex-col gap-3">
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   {servizioInModifica !== null ? (
                     <div>
                       <label className="mb-1 block text-xs text-stone-600">Servizio</label>

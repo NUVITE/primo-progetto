@@ -25,8 +25,8 @@ export default async function ElencoPrenotazioniPage() {
   });
 
   return (
-    <div className="flex w-full flex-col gap-4 p-6">
-      <div className="flex items-center justify-between">
+    <div className="flex w-full flex-col gap-4 p-3 sm:p-6">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-bold">Prenotazioni</h1>
         <Link href="/prenotazioni/nuova" className="rounded-md bg-teal-700 px-4 py-2 text-sm font-bold text-white">
           + Nuova prenotazione

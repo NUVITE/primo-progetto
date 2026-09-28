@@ -35,14 +35,14 @@ export function GestioneUtenti({ iniziale }: { iniziale: Dati }) {
   }
 
   return (
-    <div className="flex w-full flex-col gap-6 p-6">
+    <div className="flex w-full min-w-0 flex-col gap-6 p-3 sm:p-6">
       <h1 className="text-xl font-bold">Utenti</h1>
 
       {errore && <p className="rounded-md bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">{errore}</p>}
 
-      <section className="rounded-xl border border-stone-200 bg-white p-5">
+      <section className="min-w-0 rounded-xl border border-stone-200 bg-white p-4 sm:p-5">
         <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-stone-600">Elenco</h2>
-        <table className="w-full text-sm">
+        <table className="tabella-responsive w-full text-sm">
           <thead className="text-left text-xs uppercase text-stone-500">
             <tr>
               <th className="pb-1">Nome</th>
@@ -55,9 +55,9 @@ export function GestioneUtenti({ iniziale }: { iniziale: Dati }) {
           <tbody>
             {dati.utenti.map((u) => (
               <tr key={u.id} className="border-t border-stone-100">
-                <td className="py-2 font-semibold">{u.nome}</td>
-                <td className="py-2">{u.email}</td>
-                <td className="py-2">
+                <td data-label="Nome" className="py-2 font-semibold">{u.nome}</td>
+                <td data-label="Email" className="py-2 break-all">{u.email}</td>
+                <td data-label="Ruolo" className="py-2">
                   <select
                     className="rounded-md border border-stone-300 px-2 py-1 text-sm"
                     value={u.ruolo}
@@ -66,7 +66,7 @@ export function GestioneUtenti({ iniziale }: { iniziale: Dati }) {
                     {RUOLI.map((r) => <option key={r} value={r}>{r === "ADMIN" ? "Amministratore" : "Reception"}</option>)}
                   </select>
                 </td>
-                <td className="py-2">
+                <td data-label="Hotel" className="cella-intera py-2">
                   <div className="flex flex-wrap gap-2">
                     {dati.hotelsGestibili.map((h) => {
                       const attivo = u.hotelIds.includes(h.id);
@@ -82,7 +82,7 @@ export function GestioneUtenti({ iniziale }: { iniziale: Dati }) {
                     })}
                   </div>
                 </td>
-                <td className="py-2">
+                <td data-label="Stato" className="py-2">
                   <button
                     className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${u.attivo ? "bg-emerald-50 text-emerald-700" : "bg-stone-200 text-stone-600"}`}
                     onClick={() => eseguendo(() => sbusta(azioneImpostaAttivo(u.id, !u.attivo)))}
@@ -96,30 +96,30 @@ export function GestioneUtenti({ iniziale }: { iniziale: Dati }) {
         </table>
       </section>
 
-      <section className="rounded-xl border border-stone-200 bg-white p-5">
+      <section className="min-w-0 rounded-xl border border-stone-200 bg-white p-4 sm:p-5">
         <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-stone-600">Nuovo utente</h2>
         <div className="flex flex-wrap items-end gap-3">
-          <div>
+          <div className="w-full sm:w-auto">
             <label className="mb-1 block text-xs text-stone-600">Nome</label>
-            <input className="rounded-md border border-stone-300 px-2 py-1.5 text-sm" value={nuovo.nome} onChange={(e) => setNuovo({ ...nuovo, nome: e.target.value })} />
+            <input className="w-full rounded-md border border-stone-300 px-2 py-1.5 text-sm" value={nuovo.nome} onChange={(e) => setNuovo({ ...nuovo, nome: e.target.value })} />
           </div>
-          <div>
+          <div className="w-full sm:w-auto">
             <label className="mb-1 block text-xs text-stone-600">Email</label>
-            <input type="email" className="rounded-md border border-stone-300 px-2 py-1.5 text-sm" value={nuovo.email} onChange={(e) => setNuovo({ ...nuovo, email: e.target.value })} />
+            <input type="email" className="w-full rounded-md border border-stone-300 px-2 py-1.5 text-sm" value={nuovo.email} onChange={(e) => setNuovo({ ...nuovo, email: e.target.value })} />
           </div>
-          <div>
+          <div className="w-full sm:w-auto">
             <label className="mb-1 block text-xs text-stone-600">Password iniziale</label>
-            <input type="text" className="rounded-md border border-stone-300 px-2 py-1.5 text-sm" value={nuovo.password} onChange={(e) => setNuovo({ ...nuovo, password: e.target.value })} />
+            <input type="text" className="w-full rounded-md border border-stone-300 px-2 py-1.5 text-sm" value={nuovo.password} onChange={(e) => setNuovo({ ...nuovo, password: e.target.value })} />
           </div>
-          <div>
+          <div className="w-full sm:w-auto">
             <label className="mb-1 block text-xs text-stone-600">Ruolo</label>
-            <select className="rounded-md border border-stone-300 px-2 py-1.5 text-sm" value={nuovo.ruolo} onChange={(e) => setNuovo({ ...nuovo, ruolo: e.target.value as RuoloUtente })}>
+            <select className="w-full rounded-md border border-stone-300 px-2 py-1.5 text-sm" value={nuovo.ruolo} onChange={(e) => setNuovo({ ...nuovo, ruolo: e.target.value as RuoloUtente })}>
               {RUOLI.map((r) => <option key={r} value={r}>{r === "ADMIN" ? "Amministratore" : "Reception"}</option>)}
             </select>
           </div>
-          <div>
+          <div className="w-full sm:w-auto">
             <label className="mb-1 block text-xs text-stone-600">Hotel</label>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               {dati.hotelsGestibili.map((h) => {
                 const attivo = nuovo.hotelIds.includes(h.id);
                 return (

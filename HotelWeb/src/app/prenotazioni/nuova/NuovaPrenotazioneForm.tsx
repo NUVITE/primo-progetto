@@ -170,7 +170,7 @@ export function NuovaPrenotazioneForm() {
   }
 
   return (
-    <div className="flex w-full flex-col gap-6 p-6">
+    <div className="flex w-full min-w-0 flex-col gap-6 p-3 sm:p-6">
       <h1 className="text-xl font-bold">Nuova prenotazione</h1>
 
       <div className="flex flex-col gap-6 xl:flex-row xl:items-start">
@@ -214,7 +214,7 @@ export function NuovaPrenotazioneForm() {
                 )}
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
                   <label className="mb-1 block text-xs text-stone-600">Camera</label>
                   <select

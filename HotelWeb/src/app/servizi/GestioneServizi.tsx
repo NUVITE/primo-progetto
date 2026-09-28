@@ -51,7 +51,7 @@ export function GestioneServizi({ iniziale }: { iniziale: Dati }) {
   }
 
   return (
-    <div className="flex w-full flex-col gap-6 p-6">
+    <div className="flex w-full min-w-0 flex-col gap-6 p-3 sm:p-6">
       <h1 className="text-xl font-bold">Servizi aggiuntivi</h1>
       <p className="text-sm text-stone-600">
         Catalogo dei servizi extra a listino (es. sala conferenze, pranzo aggiuntivo, colazione extra).
@@ -60,9 +60,9 @@ export function GestioneServizi({ iniziale }: { iniziale: Dati }) {
 
       {errore && <p className="rounded-md bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">{errore}</p>}
 
-      <section className="rounded-xl border border-stone-200 bg-white p-5">
+      <section className="min-w-0 rounded-xl border border-stone-200 bg-white p-4 sm:p-5">
         <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-stone-600">Catalogo</h2>
-        <table className="mb-4 w-full text-sm">
+        <table className="tabella-responsive mb-4 w-full text-sm">
           <thead className="text-left text-xs uppercase text-stone-500">
             <tr><th className="pb-1">Nome</th><th className="pb-1">Prezzo</th><th className="pb-1">Attivo</th><th className="pb-1" /></tr>
           </thead>
@@ -70,7 +70,7 @@ export function GestioneServizi({ iniziale }: { iniziale: Dati }) {
             {dati.servizi.map((s) =>
               inModifica === s.id ? (
                 <tr key={s.id} className="border-t border-stone-100 bg-teal-50/40">
-                  <td className="py-1.5 pr-2">
+                  <td data-label="Nome" className="cella-intera py-1.5 pr-2">
                     <input
                       autoFocus
                       className="w-full rounded-md border border-stone-300 px-2 py-1 text-sm text-stone-900"
@@ -78,7 +78,7 @@ export function GestioneServizi({ iniziale }: { iniziale: Dati }) {
                       onChange={(e) => setModNome(e.target.value)}
                     />
                   </td>
-                  <td className="py-1.5 pr-2">
+                  <td data-label="Prezzo" className="py-1.5 pr-2">
                     <input
                       type="number"
                       min={0}
@@ -88,7 +88,7 @@ export function GestioneServizi({ iniziale }: { iniziale: Dati }) {
                       onChange={(e) => setModPrezzo(e.target.value)}
                     />
                   </td>
-                  <td className="py-1.5" colSpan={2}>
+                  <td className="cella-intera py-1.5" colSpan={2}>
                     <div className="flex justify-end gap-2">
                       <button
                         disabled={busy || !modNome.trim() || modPrezzo === ""}
@@ -107,9 +107,9 @@ export function GestioneServizi({ iniziale }: { iniziale: Dati }) {
                 </tr>
               ) : (
                 <tr key={s.id} className="border-t border-stone-100">
-                  <td className="py-1.5 font-semibold">{s.nome}</td>
-                  <td className="py-1.5 font-mono">{eur(s.prezzo)}</td>
-                  <td className="py-1.5">
+                  <td className="cella-intera py-1.5 font-semibold">{s.nome}</td>
+                  <td data-label="Prezzo" className="py-1.5 font-mono">{eur(s.prezzo)}</td>
+                  <td data-label="Stato" className="py-1.5">
                     <button
                       className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${s.attivo ? "bg-emerald-50 text-emerald-700" : "bg-stone-200 text-stone-600"}`}
                       onClick={() => eseguendo(() => sbusta(azioneImpostaAttivoServizio(s.id, !s.attivo)))}
@@ -117,7 +117,7 @@ export function GestioneServizi({ iniziale }: { iniziale: Dati }) {
                       {s.attivo ? "Attivo" : "Disattivato"}
                     </button>
                   </td>
-                  <td className="py-1.5">
+                  <td className="cella-intera py-1.5">
                     {daEliminare === s.id ? (
                       <div className="flex items-center justify-end gap-2">
                         <span className="text-xs text-stone-600">Eliminare &quot;{s.nome}&quot;?</span>
@@ -154,13 +154,13 @@ export function GestioneServizi({ iniziale }: { iniziale: Dati }) {
               ),
             )}
             {dati.servizi.length === 0 && (
-              <tr><td colSpan={4} className="py-2 text-stone-500">Nessun servizio a catalogo.</td></tr>
+              <tr><td colSpan={4} className="cella-intera py-2 text-stone-500">Nessun servizio a catalogo.</td></tr>
             )}
           </tbody>
         </table>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <input
-            className="flex-1 rounded-md border border-stone-300 px-2 py-1.5 text-sm text-stone-900"
+            className="min-w-[12rem] flex-1 rounded-md border border-stone-300 px-2 py-1.5 text-sm text-stone-900"
             placeholder="Nome (es. Sala conferenze)"
             value={nuovoNome}
             onChange={(e) => setNuovoNome(e.target.value)}

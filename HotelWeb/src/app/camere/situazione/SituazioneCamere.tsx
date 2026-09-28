@@ -112,6 +112,22 @@ export function SituazioneCamere() {
   const [trascinamento, setTrascinamento] = useState<{ inizioIdx: number; fineIdx: number } | null>(null);
   const [periodoConfermato, setPeriodoConfermato] = useState<{ dal: string; al: string } | null>(null);
   const stoTrascinando = useRef(false);
+  const pannelloVeloceRef = useRef<HTMLDivElement>(null);
+  const periodoAperto = periodoConfermato !== null;
+
+  // Su schermi stretti il pannello sta sotto la griglia: quando si apre lo si porta in vista.
+  useEffect(() => {
+    if (periodoAperto && window.matchMedia("(max-width: 1023px)").matches) {
+      pannelloVeloceRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [periodoAperto]);
+
+  function cambiaDatePeriodo(dal: string, al: string) {
+    if (!dal) return;
+    // Partenza mancante o non successiva all'arrivo: si riporta a una notte.
+    const alValido = al && al > dal ? al : isoGiorno(addDays(new Date(dal), 1));
+    setPeriodoConfermato({ dal, al: alValido });
+  }
 
   const [quantita, setQuantita] = useState<Record<number, number>>({});
   const [ospitePren, setOspitePren] = useState<OspiteValue>({ mode: "vuoto" });
@@ -413,15 +429,15 @@ export function SituazioneCamere() {
   }
 
   return (
-    <div className="flex w-full flex-col gap-4 p-6">
+    <div className="flex w-full min-w-0 flex-col gap-4 p-3 sm:p-6">
       <div className="flex items-center justify-between">
-        <div className="flex items-baseline gap-3">
+        <div className="flex flex-wrap items-baseline gap-x-3">
           <h1 className="text-xl font-bold">Situazione camere</h1>
           <span className="text-sm text-stone-600">{rangeLabel()}</span>
         </div>
       </div>
 
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex overflow-hidden rounded-md border border-stone-300">
           {(["giorno", "settimana", "quindicina", "mese"] as ViewMode[]).map((m) => (
             <button
@@ -449,11 +465,12 @@ export function SituazioneCamere() {
             {ETICHETTA[s]}
           </span>
         ))}
-        <span className="ml-auto text-stone-600">Trascina sulle date per selezionare un periodo e prenotare velocemente.</span>
+        <span className="ml-auto text-stone-600">Trascina sulle date (o tocca il giorno di arrivo) per prenotare velocemente.</span>
       </div>
 
-      <div className="flex gap-4">
-        <div className="flex-grow overflow-x-auto rounded-xl border border-stone-200 bg-white p-4 select-none">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+        {/* Su schermi stretti la griglia scorre in orizzontale con la colonna dei nomi fissa a sinistra. */}
+        <div className="min-w-0 flex-grow overflow-x-auto rounded-xl border border-stone-200 bg-white p-2 select-none [--col-etichetta:92px] sm:p-4 sm:[--col-etichetta:140px]">
           {caricando ? (
             <p className="text-sm text-stone-600">Caricamento...</p>
           ) : erroreCaricamento ? (
@@ -467,11 +484,11 @@ export function SituazioneCamere() {
               </button>
             </div>
           ) : (
-            <div style={{ minWidth: giorni.length * 44 + 140 }}>
+            <div style={{ minWidth: `calc(var(--col-etichetta) + ${giorni.length * 44}px)` }}>
               {/* Header giorni: solo visualizzazione (nessun contesto di tipo camera, quindi non
                   avviabile da qui un trascinamento — si seleziona un periodo dalle righe sotto). */}
-              <div className="mb-1 grid gap-1" style={{ gridTemplateColumns: `140px repeat(${giorni.length}, minmax(36px, 1fr))` }}>
-                <div />
+              <div className="mb-1 grid gap-1" style={{ gridTemplateColumns: `var(--col-etichetta) repeat(${giorni.length}, minmax(36px, 1fr))` }}>
+                <div className="sticky left-0 z-10 bg-white" />
                 {giorni.map((g, idx) => {
                   const d = new Date(g);
                   const evidenziato = giornoEvidenziato(idx);
@@ -495,11 +512,11 @@ export function SituazioneCamere() {
                   const espanso = tipiEspansi.has(t.id);
                   return (
                     <div key={t.id}>
-                      <div className="mb-0.5 grid items-center gap-1" style={{ gridTemplateColumns: `140px repeat(${giorni.length}, minmax(36px, 1fr))` }}>
+                      <div className="mb-0.5 grid items-center gap-1" style={{ gridTemplateColumns: `var(--col-etichetta) repeat(${giorni.length}, minmax(36px, 1fr))` }}>
                         <button
                           type="button"
                           onClick={() => toggleTipo(t.id)}
-                          className="flex items-center gap-1 truncate text-left text-xs font-semibold text-stone-700 hover:text-teal-700"
+                          className="sticky left-0 z-10 flex h-full items-center gap-1 truncate bg-white text-left text-xs font-semibold text-stone-700 hover:text-teal-700"
                           title={espanso ? "Nascondi le camere di questo tipo" : "Mostra le camere fisiche di questo tipo"}
                         >
                           <span className="inline-block w-3 text-[9px]">{espanso ? "▾" : "▸"}</span>
@@ -534,8 +551,8 @@ export function SituazioneCamere() {
                           <div key={piano} className="pl-4">
                             <div className="py-1 text-[10px] font-bold uppercase tracking-wide text-stone-500">{piano}</div>
                             {righe.map((c) => (
-                              <div key={c.id} className="mb-1 grid gap-1" style={{ gridTemplateColumns: `140px repeat(${giorni.length}, minmax(36px, 1fr))` }}>
-                                <div className="flex items-center gap-1.5 truncate text-sm">
+                              <div key={c.id} className="mb-1 grid gap-1" style={{ gridTemplateColumns: `var(--col-etichetta) repeat(${giorni.length}, minmax(36px, 1fr))` }}>
+                                <div className="sticky left-0 z-10 flex items-center gap-1.5 truncate bg-white text-sm">
                                   <span className="font-bold">{c.codice}</span>
                                 </div>
                                 {giorni.map((g) => {
@@ -577,12 +594,34 @@ export function SituazioneCamere() {
 
         {/* Colonna destra: la nuova prenotazione si apre SOPRA il dettaglio, senza sostituirlo —
             chi prenota deve continuare a vedere chi c'e' gia' in quelle date (feedback 2026-09-28). */}
-        <div className="flex w-80 flex-shrink-0 flex-col gap-4">
+        <div className="flex w-full flex-col gap-4 lg:w-80 lg:flex-shrink-0">
           {periodoConfermato && (
-            <div className="flex flex-col gap-3 rounded-xl border-2 border-teal-600 bg-white p-5">
+            <div ref={pannelloVeloceRef} className="flex scroll-mt-4 flex-col gap-3 rounded-xl border-2 border-teal-600 bg-white p-4 sm:p-5">
               <div>
                 <h2 className="text-xs font-semibold uppercase tracking-wide text-stone-600">Nuova prenotazione veloce</h2>
-                <p className="text-sm font-bold">{formattaIt(periodoConfermato.dal)} → {formattaIt(periodoConfermato.al)}</p>
+                {/* Date modificabili: su touch non si puo' trascinare (il dito scorre la griglia),
+                    quindi si tocca il giorno di arrivo e qui si sistema la partenza. */}
+                <div className="mt-1 grid grid-cols-2 gap-2">
+                  <label className="flex flex-col text-[11px] text-stone-600">
+                    Arrivo
+                    <input
+                      type="date"
+                      className="rounded-md border border-stone-300 px-2 py-1 text-sm font-bold text-stone-900"
+                      value={periodoConfermato.dal}
+                      onChange={(e) => cambiaDatePeriodo(e.target.value, periodoConfermato.al)}
+                    />
+                  </label>
+                  <label className="flex flex-col text-[11px] text-stone-600">
+                    Partenza
+                    <input
+                      type="date"
+                      min={isoGiorno(addDays(new Date(periodoConfermato.dal), 1))}
+                      className="rounded-md border border-stone-300 px-2 py-1 text-sm font-bold text-stone-900"
+                      value={periodoConfermato.al}
+                      onChange={(e) => cambiaDatePeriodo(periodoConfermato.dal, e.target.value)}
+                    />
+                  </label>
+                </div>
               </div>
 
               <div className="flex flex-col gap-1.5">
@@ -716,7 +755,7 @@ export function SituazioneCamere() {
               <p className="text-[11px] text-stone-500">Le camere fisiche specifiche si assegnano più avanti, dal dettaglio della prenotazione.</p>
             </div>
           )}
-          <div className="rounded-xl border border-stone-200 bg-white p-5">
+          <div className="rounded-xl border border-stone-200 bg-white p-4 sm:p-5">
             <div className="mb-3 flex items-center justify-between gap-2">
               <h2 className="text-xs font-semibold uppercase tracking-wide text-stone-600">Dettaglio</h2>
               {selezionata && (

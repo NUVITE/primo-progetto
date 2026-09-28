@@ -53,14 +53,14 @@ export function GestioneCamere({ iniziale }: { iniziale: Dati }) {
   }
 
   return (
-    <div className="flex w-full flex-col gap-6 p-6">
+    <div className="flex w-full min-w-0 flex-col gap-6 p-3 sm:p-6">
       <h1 className="text-xl font-bold">Gestione camere</h1>
 
       {errore && <p className="rounded-md bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">{errore}</p>}
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         {/* Tipi camera */}
-        <section className="rounded-xl border border-stone-200 bg-white p-5">
+        <section className="min-w-0 rounded-xl border border-stone-200 bg-white p-4 sm:p-5">
           <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-stone-600">Tipi camera</h2>
           <table className="mb-4 w-full text-sm">
             <thead className="text-left text-xs uppercase text-stone-500">
@@ -75,9 +75,9 @@ export function GestioneCamere({ iniziale }: { iniziale: Dati }) {
               ))}
             </tbody>
           </table>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <input className="w-24 rounded-md border border-stone-300 px-2 py-1.5 text-sm" placeholder="Codice" value={nuovoTipoCodice} onChange={(e) => setNuovoTipoCodice(e.target.value)} />
-            <input className="flex-1 rounded-md border border-stone-300 px-2 py-1.5 text-sm" placeholder="Descrizione (es. Tripla)" value={nuovoTipoDescrizione} onChange={(e) => setNuovoTipoDescrizione(e.target.value)} />
+            <input className="min-w-0 flex-1 rounded-md border border-stone-300 px-2 py-1.5 text-sm" placeholder="Descrizione (es. Tripla)" value={nuovoTipoDescrizione} onChange={(e) => setNuovoTipoDescrizione(e.target.value)} />
             <button
               disabled={busy || !nuovoTipoCodice || !nuovoTipoDescrizione}
               className="rounded-md bg-teal-700 px-3 py-1.5 text-sm font-bold text-white disabled:opacity-40"
@@ -96,20 +96,20 @@ export function GestioneCamere({ iniziale }: { iniziale: Dati }) {
         </section>
 
         {/* Manutenzione */}
-        <section className="rounded-xl border border-stone-200 bg-white p-5">
+        <section className="min-w-0 rounded-xl border border-stone-200 bg-white p-4 sm:p-5">
           <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-stone-600">Fuori servizio / manutenzione</h2>
-          <table className="mb-4 w-full text-sm">
+          <table className="tabella-responsive mb-4 w-full text-sm">
             <thead className="text-left text-xs uppercase text-stone-500">
               <tr><th className="pb-1">Camera</th><th className="pb-1">Dal</th><th className="pb-1">Al</th><th className="pb-1">Motivo</th><th /></tr>
             </thead>
             <tbody>
               {dati.indisponibilita.map((i) => (
                 <tr key={i.id} className="border-t border-stone-100">
-                  <td className="py-1.5 font-semibold">{i.cameraCodice}</td>
-                  <td className="py-1.5 font-mono">{formattaIt(i.dal)}</td>
-                  <td className="py-1.5 font-mono">{formattaIt(i.al)}</td>
-                  <td className="py-1.5">{i.motivo}</td>
-                  <td className="py-1.5 text-right">
+                  <td data-label="Camera" className="py-1.5 font-semibold">{i.cameraCodice}</td>
+                  <td data-label="Dal" className="py-1.5 font-mono">{formattaIt(i.dal)}</td>
+                  <td data-label="Al" className="py-1.5 font-mono">{formattaIt(i.al)}</td>
+                  <td data-label="Motivo" className="py-1.5">{i.motivo}</td>
+                  <td className="cella-intera py-1.5 md:text-right">
                     <button className="text-xs font-semibold text-red-600" onClick={() => eseguendo(() => sbusta(azioneEliminaIndisponibilita(i.id)))}>
                       Rimuovi
                     </button>
@@ -117,7 +117,7 @@ export function GestioneCamere({ iniziale }: { iniziale: Dati }) {
                 </tr>
               ))}
               {dati.indisponibilita.length === 0 && (
-                <tr><td colSpan={5} className="py-2 text-stone-500">Nessuna camera fuori servizio in programma.</td></tr>
+                <tr><td colSpan={5} className="cella-intera py-2 text-stone-500">Nessuna camera fuori servizio in programma.</td></tr>
               )}
             </tbody>
           </table>
@@ -136,7 +136,7 @@ export function GestioneCamere({ iniziale }: { iniziale: Dati }) {
               <label className="mb-1 block text-xs text-stone-600">Al</label>
               <input type="date" className="rounded-md border border-stone-300 px-2 py-1.5 text-sm" value={nuovaIndisp.al} onChange={(e) => setNuovaIndisp({ ...nuovaIndisp, al: e.target.value })} />
             </div>
-            <input className="flex-1 rounded-md border border-stone-300 px-2 py-1.5 text-sm" placeholder="Motivo (es. rifacimento bagno)" value={nuovaIndisp.motivo} onChange={(e) => setNuovaIndisp({ ...nuovaIndisp, motivo: e.target.value })} />
+            <input className="min-w-[12rem] flex-1 rounded-md border border-stone-300 px-2 py-1.5 text-sm" placeholder="Motivo (es. rifacimento bagno)" value={nuovaIndisp.motivo} onChange={(e) => setNuovaIndisp({ ...nuovaIndisp, motivo: e.target.value })} />
             <button
               disabled={busy || !nuovaIndisp.dal || !nuovaIndisp.al || !nuovaIndisp.motivo}
               className="rounded-md bg-teal-700 px-3 py-1.5 text-sm font-bold text-white disabled:opacity-40"
@@ -155,18 +155,18 @@ export function GestioneCamere({ iniziale }: { iniziale: Dati }) {
       </div>
 
       {/* Camere */}
-      <section className="rounded-xl border border-stone-200 bg-white p-5">
+      <section className="min-w-0 rounded-xl border border-stone-200 bg-white p-4 sm:p-5">
         <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-stone-600">Camere</h2>
-        <table className="mb-4 w-full text-sm">
+        <table className="tabella-responsive mb-4 w-full text-sm">
           <thead className="text-left text-xs uppercase text-stone-500">
             <tr><th className="pb-1">Codice</th><th className="pb-1">Piano</th><th className="pb-1">Tipo</th><th className="pb-1">Cap. adulti</th><th className="pb-1">Cap. bambini</th><th className="pb-1">Attiva</th></tr>
           </thead>
           <tbody>
             {dati.camere.map((c) => (
               <tr key={c.id} className="border-t border-stone-100">
-                <td className="py-1.5 font-bold">{c.codice}</td>
-                <td className="py-1.5">{c.piano ?? "—"}</td>
-                <td className="py-1.5">
+                <td data-label="Codice" className="py-1.5 font-bold">{c.codice}</td>
+                <td data-label="Piano" className="py-1.5">{c.piano ?? "—"}</td>
+                <td data-label="Tipo" className="cella-intera py-1.5">
                   <select
                     className="rounded-md border border-stone-300 px-2 py-1 text-sm"
                     value={c.tipoCameraId}
@@ -175,9 +175,9 @@ export function GestioneCamere({ iniziale }: { iniziale: Dati }) {
                     {dati.tipiCamera.map((t) => <option key={t.id} value={t.id}>{t.descrizione}</option>)}
                   </select>
                 </td>
-                <td className="py-1.5">{c.capienzaAdulti}</td>
-                <td className="py-1.5">{c.capienzaBambini}</td>
-                <td className="py-1.5">
+                <td data-label="Cap. adulti" className="py-1.5">{c.capienzaAdulti}</td>
+                <td data-label="Cap. bambini" className="py-1.5">{c.capienzaBambini}</td>
+                <td data-label="Stato" className="py-1.5">
                   <button
                     className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${c.attivo ? "bg-emerald-50 text-emerald-700" : "bg-stone-200 text-stone-600"}`}
                     onClick={() => eseguendo(() => sbusta(azioneImpostaCameraAttiva(c.id, !c.attivo)))}
