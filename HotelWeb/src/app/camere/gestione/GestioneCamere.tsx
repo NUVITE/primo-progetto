@@ -1,5 +1,6 @@
 "use client";
 
+import { sbusta } from "@/lib/esito";
 import { useEffect, useState } from "react";
 import {
   azioneCambiaTipoCamera,
@@ -82,7 +83,7 @@ export function GestioneCamere({ iniziale }: { iniziale: Dati }) {
               className="rounded-md bg-teal-700 px-3 py-1.5 text-sm font-bold text-white disabled:opacity-40"
               onClick={() =>
                 eseguendo(async () => {
-                  const r = await azioneCreaTipoCamera(nuovoTipoCodice, nuovoTipoDescrizione);
+                  const r = await sbusta(azioneCreaTipoCamera(nuovoTipoCodice, nuovoTipoDescrizione));
                   setNuovoTipoCodice("");
                   setNuovoTipoDescrizione("");
                   return r;
@@ -109,7 +110,7 @@ export function GestioneCamere({ iniziale }: { iniziale: Dati }) {
                   <td className="py-1.5 font-mono">{formattaIt(i.al)}</td>
                   <td className="py-1.5">{i.motivo}</td>
                   <td className="py-1.5 text-right">
-                    <button className="text-xs font-semibold text-red-600" onClick={() => eseguendo(() => azioneEliminaIndisponibilita(i.id))}>
+                    <button className="text-xs font-semibold text-red-600" onClick={() => eseguendo(() => sbusta(azioneEliminaIndisponibilita(i.id)))}>
                       Rimuovi
                     </button>
                   </td>
@@ -141,7 +142,7 @@ export function GestioneCamere({ iniziale }: { iniziale: Dati }) {
               className="rounded-md bg-teal-700 px-3 py-1.5 text-sm font-bold text-white disabled:opacity-40"
               onClick={() =>
                 eseguendo(async () => {
-                  const r = await azioneCreaIndisponibilita(nuovaIndisp);
+                  const r = await sbusta(azioneCreaIndisponibilita(nuovaIndisp));
                   setNuovaIndisp({ ...nuovaIndisp, dal: "", al: "", motivo: "" });
                   return r;
                 })
@@ -169,7 +170,7 @@ export function GestioneCamere({ iniziale }: { iniziale: Dati }) {
                   <select
                     className="rounded-md border border-stone-300 px-2 py-1 text-sm"
                     value={c.tipoCameraId}
-                    onChange={(e) => eseguendo(() => azioneCambiaTipoCamera(c.id, Number(e.target.value)))}
+                    onChange={(e) => eseguendo(() => sbusta(azioneCambiaTipoCamera(c.id, Number(e.target.value))))}
                   >
                     {dati.tipiCamera.map((t) => <option key={t.id} value={t.id}>{t.descrizione}</option>)}
                   </select>
@@ -179,7 +180,7 @@ export function GestioneCamere({ iniziale }: { iniziale: Dati }) {
                 <td className="py-1.5">
                   <button
                     className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${c.attivo ? "bg-emerald-50 text-emerald-700" : "bg-stone-200 text-stone-600"}`}
-                    onClick={() => eseguendo(() => azioneImpostaCameraAttiva(c.id, !c.attivo))}
+                    onClick={() => eseguendo(() => sbusta(azioneImpostaCameraAttiva(c.id, !c.attivo)))}
                   >
                     {c.attivo ? "Attiva" : "Disattivata"}
                   </button>
@@ -217,7 +218,7 @@ export function GestioneCamere({ iniziale }: { iniziale: Dati }) {
             className="rounded-md bg-teal-700 px-3 py-1.5 text-sm font-bold text-white disabled:opacity-40"
             onClick={() =>
               eseguendo(async () => {
-                const r = await azioneCreaCamera(nuovaCamera);
+                const r = await sbusta(azioneCreaCamera(nuovaCamera));
                 setNuovaCamera({ ...nuovaCamera, codice: "" });
                 return r;
               })

@@ -1,5 +1,6 @@
 "use client";
 
+import { sbusta, type ValoreDi } from "@/lib/esito";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -119,7 +120,7 @@ export function SituazioneCamere() {
   const [trattamento, setTrattamento] = useState(TRATTAMENTI[0]);
   const [numeroPersone, setNumeroPersone] = useState("");
   const [note, setNote] = useState("");
-  const [anteprima, setAnteprima] = useState<Awaited<ReturnType<typeof anteprimaGenerica>>>(null);
+  const [anteprima, setAnteprima] = useState<ValoreDi<typeof anteprimaGenerica>>(null);
   const [salvando, setSalvando] = useState(false);
   const [errore, setErrore] = useState<string | null>(null);
   const [refreshTick, setRefreshTick] = useState(0);
@@ -183,12 +184,12 @@ export function SituazioneCamere() {
       return;
     }
     const timer = setTimeout(() => {
-      anteprimaGenerica({
+      sbusta(anteprimaGenerica({
         richieste,
         listinoId: listini[0].id,
         dataInizio: periodoConfermato.dal,
         dataFine: periodoConfermato.al,
-      })
+      }))
         .then(setAnteprima)
         .catch(() => setAnteprima(null));
     }, 200);
@@ -255,7 +256,7 @@ export function SituazioneCamere() {
     setAssegnando(true);
     setErroreAssegnazione(null);
     try {
-      await assegnaCameraASegmento(candidato.segmentoId, cameraId);
+      await sbusta(assegnaCameraASegmento(candidato.segmentoId, cameraId));
       setSelezionata(null);
       setRefreshTick((t) => t + 1);
     } catch (e) {
@@ -391,7 +392,7 @@ export function SituazioneCamere() {
         ospitePren.mode === "esistente"
           ? { id: ospitePren.id }
           : { nome: ospitePren.nome, cognome: ospitePren.cognome, telefono: telefono || undefined, email: email || undefined };
-      const risultato = await salvaPrenotazioneGenerica({
+      const risultato = await sbusta(salvaPrenotazioneGenerica({
         ospitePrenotante: ospite,
         listinoId: listini[0].id,
         trattamento,
@@ -400,7 +401,7 @@ export function SituazioneCamere() {
         richieste,
         numeroPersone: numeroPersone ? Number(numeroPersone) : undefined,
         note: note || undefined,
-      });
+      }));
       chiudiPannelloVeloce();
       // Si va alla scheda della prenotazione (non si resta sulla griglia): e' li' che si
       // completano subito eventuali servizi aggiuntivi (feedback utente 2026-09-26).

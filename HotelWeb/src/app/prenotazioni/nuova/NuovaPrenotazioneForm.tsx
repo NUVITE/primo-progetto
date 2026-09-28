@@ -1,5 +1,6 @@
 "use client";
 
+import { sbusta, type ValoreDi } from "@/lib/esito";
 import { useEffect, useMemo, useState } from "react";
 import { OspiteSearch, type OspiteValue } from "./OspiteSearch";
 import { anteprimaSegmento, datiIniziali, salvaPrenotazione } from "./actions";
@@ -7,7 +8,7 @@ import { anteprimaSegmento, datiIniziali, salvaPrenotazione } from "./actions";
 type Camera = { id: number; codice: string; tipoCameraId: number; tipoCameraNome: string };
 type Listino = { id: number; descrizione: string; tipo: string };
 
-type Anteprima = Awaited<ReturnType<typeof anteprimaSegmento>>;
+type Anteprima = ValoreDi<typeof anteprimaSegmento>;
 
 type Segmento = {
   chiave: string;
@@ -49,7 +50,7 @@ export function NuovaPrenotazioneForm() {
 
   const [salvando, setSalvando] = useState(false);
   const [errore, setErrore] = useState<string | null>(null);
-  const [esito, setEsito] = useState<Awaited<ReturnType<typeof salvaPrenotazione>> | null>(null);
+  const [esito, setEsito] = useState<ValoreDi<typeof salvaPrenotazione> | null>(null);
 
   useEffect(() => {
     datiIniziali()
@@ -69,12 +70,12 @@ export function NuovaPrenotazioneForm() {
     segmenti.forEach((seg, idx) => {
       if (!seg.cameraId || !seg.listinoId || !seg.dataInizio || !seg.dataFine) return;
       const timer = setTimeout(async () => {
-        const anteprima = await anteprimaSegmento({
+        const anteprima = await sbusta(anteprimaSegmento({
           cameraId: seg.cameraId!,
           listinoId: seg.listinoId!,
           dataInizio: seg.dataInizio,
           dataFine: seg.dataFine,
-        });
+        }));
         setSegmenti((prev) => {
           const next = [...prev];
           if (next[idx] && next[idx].chiave === seg.chiave) next[idx] = { ...next[idx], anteprima };
@@ -117,7 +118,7 @@ export function NuovaPrenotazioneForm() {
     setErrore(null);
     setSalvando(true);
     try {
-      const risultato = await salvaPrenotazione({
+      const risultato = await sbusta(salvaPrenotazione({
         ospitePrenotante: ospiteValueToInput(ospitePrenotante),
         gruppoNome: gruppoAttivo && gruppoNome.trim() ? gruppoNome.trim() : undefined,
         accontoRichiesto: accontoRichiesto ? Number(accontoRichiesto) : undefined,
@@ -130,7 +131,7 @@ export function NuovaPrenotazioneForm() {
           dataInizio: s.dataInizio,
           dataFine: s.dataFine,
         })),
-      });
+      }));
       setEsito(risultato);
     } catch (e) {
       setErrore(e instanceof Error ? e.message : "Errore imprevisto durante il salvataggio.");

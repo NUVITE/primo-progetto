@@ -1,5 +1,6 @@
 "use client";
 
+import { sbusta } from "@/lib/esito";
 import { useState } from "react";
 import {
   azioneCreaServizio,
@@ -35,30 +36,13 @@ export function GestioneServizi({ iniziale }: { iniziale: Dati }) {
     setModPrezzo(String(s.prezzo));
   }
 
-  async function conEsito(fn: () => Promise<{ dati: Dati } | { errore: string }>) {
-    setErrore(null);
-    setBusy(true);
-    try {
-      const r = await fn();
-      if ("errore" in r) {
-        setErrore(r.errore);
-      } else {
-        setDati(r.dati);
-        setInModifica(null);
-        setDaEliminare(null);
-      }
-    } catch (e) {
-      setErrore(e instanceof Error ? e.message : "Errore imprevisto.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
   async function eseguendo(fn: () => Promise<Dati>) {
     setErrore(null);
     setBusy(true);
     try {
       setDati(await fn());
+      setInModifica(null);
+      setDaEliminare(null);
     } catch (e) {
       setErrore(e instanceof Error ? e.message : "Errore imprevisto.");
     } finally {
@@ -110,7 +94,7 @@ export function GestioneServizi({ iniziale }: { iniziale: Dati }) {
                         disabled={busy || !modNome.trim() || modPrezzo === ""}
                         className="rounded-md bg-teal-700 px-2.5 py-1 text-xs font-bold text-white disabled:opacity-40"
                         onClick={() =>
-                          conEsito(() => azioneModificaServizioCatalogo(s.id, { nome: modNome.trim(), prezzo: Number(modPrezzo) }))
+                          eseguendo(() => sbusta(azioneModificaServizioCatalogo(s.id, { nome: modNome.trim(), prezzo: Number(modPrezzo) })))
                         }
                       >
                         Salva
@@ -128,7 +112,7 @@ export function GestioneServizi({ iniziale }: { iniziale: Dati }) {
                   <td className="py-1.5">
                     <button
                       className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${s.attivo ? "bg-emerald-50 text-emerald-700" : "bg-stone-200 text-stone-600"}`}
-                      onClick={() => eseguendo(() => azioneImpostaAttivoServizio(s.id, !s.attivo))}
+                      onClick={() => eseguendo(() => sbusta(azioneImpostaAttivoServizio(s.id, !s.attivo)))}
                     >
                       {s.attivo ? "Attivo" : "Disattivato"}
                     </button>
@@ -140,7 +124,7 @@ export function GestioneServizi({ iniziale }: { iniziale: Dati }) {
                         <button
                           disabled={busy}
                           className="rounded-md bg-red-600 px-2.5 py-1 text-xs font-bold text-white disabled:opacity-40"
-                          onClick={() => conEsito(() => azioneEliminaServizioCatalogo(s.id))}
+                          onClick={() => eseguendo(() => sbusta(azioneEliminaServizioCatalogo(s.id)))}
                         >
                           Elimina
                         </button>
@@ -195,7 +179,7 @@ export function GestioneServizi({ iniziale }: { iniziale: Dati }) {
             className="rounded-md bg-teal-700 px-3 py-1.5 text-sm font-bold text-white disabled:opacity-40"
             onClick={() =>
               eseguendo(async () => {
-                const r = await azioneCreaServizio({ nome: nuovoNome.trim(), prezzo: Number(nuovoPrezzo) });
+                const r = await sbusta(azioneCreaServizio({ nome: nuovoNome.trim(), prezzo: Number(nuovoPrezzo) }));
                 setNuovoNome("");
                 setNuovoPrezzo("");
                 return r;

@@ -1,5 +1,6 @@
 "use client";
 
+import { sbusta } from "@/lib/esito";
 import { useState } from "react";
 import type { RuoloUtente } from "@/generated/prisma/enums";
 import { azioneCreaUtente, azioneImpostaAccessoHotel, azioneImpostaAttivo, azioneImpostaRuolo, datiUtenti } from "./actions";
@@ -60,7 +61,7 @@ export function GestioneUtenti({ iniziale }: { iniziale: Dati }) {
                   <select
                     className="rounded-md border border-stone-300 px-2 py-1 text-sm"
                     value={u.ruolo}
-                    onChange={(e) => eseguendo(() => azioneImpostaRuolo(u.id, e.target.value as RuoloUtente))}
+                    onChange={(e) => eseguendo(() => sbusta(azioneImpostaRuolo(u.id, e.target.value as RuoloUtente)))}
                   >
                     {RUOLI.map((r) => <option key={r} value={r}>{r === "ADMIN" ? "Amministratore" : "Reception"}</option>)}
                   </select>
@@ -73,7 +74,7 @@ export function GestioneUtenti({ iniziale }: { iniziale: Dati }) {
                         <button
                           key={h.id}
                           className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${attivo ? "bg-teal-50 text-teal-700 border border-teal-700" : "bg-stone-100 text-stone-500 border border-stone-300"}`}
-                          onClick={() => eseguendo(() => azioneImpostaAccessoHotel(u.id, h.id, !attivo))}
+                          onClick={() => eseguendo(() => sbusta(azioneImpostaAccessoHotel(u.id, h.id, !attivo)))}
                         >
                           {h.nome}
                         </button>
@@ -84,7 +85,7 @@ export function GestioneUtenti({ iniziale }: { iniziale: Dati }) {
                 <td className="py-2">
                   <button
                     className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${u.attivo ? "bg-emerald-50 text-emerald-700" : "bg-stone-200 text-stone-600"}`}
-                    onClick={() => eseguendo(() => azioneImpostaAttivo(u.id, !u.attivo))}
+                    onClick={() => eseguendo(() => sbusta(azioneImpostaAttivo(u.id, !u.attivo)))}
                   >
                     {u.attivo ? "Attivo" : "Disattivato"}
                   </button>
@@ -144,7 +145,7 @@ export function GestioneUtenti({ iniziale }: { iniziale: Dati }) {
             className="rounded-md bg-teal-700 px-3 py-1.5 text-sm font-bold text-white disabled:opacity-40"
             onClick={() =>
               eseguendo(async () => {
-                const r = await azioneCreaUtente(nuovo);
+                const r = await sbusta(azioneCreaUtente(nuovo));
                 setNuovo({ nome: "", email: "", password: "", ruolo: "RECEZIONE", hotelIds: dati.hotelsGestibili.map((h) => h.id) });
                 return r;
               })

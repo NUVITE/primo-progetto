@@ -1,5 +1,6 @@
 "use server";
 
+import { conEsito } from "@/lib/esito";
 import { prisma } from "@/lib/prisma";
 import { calcolaTotaliPrenotazione, creaPrenotazione, type CreaPrenotazioneInput } from "@/lib/prenotazioni";
 import { nottiTraDate, trovaPrezzoNotte } from "@/lib/pricing";
@@ -42,36 +43,38 @@ export async function anteprimaSegmento(input: {
   dataInizio: string;
   dataFine: string;
 }) {
-  const { hotelId } = await richiediUtente();
+  return conEsito(async () => {
+    const { hotelId } = await richiediUtente();
 
-  const camera = await prisma.camera.findFirstOrThrow({
-    where: { id: input.cameraId, hotelId },
-    include: { hotel: { include: { comune: true } } },
+    const camera = await prisma.camera.findFirstOrThrow({
+      where: { id: input.cameraId, hotelId },
+      include: { hotel: { include: { comune: true } } },
+    });
+
+    const dataInizio = new Date(input.dataInizio);
+    const dataFine = new Date(input.dataFine);
+    if (dataFine <= dataInizio) return null;
+
+    const notti = nottiTraDate(dataInizio, dataFine);
+    let subtotale = 0;
+    for (const notte of notti) {
+      const p = await trovaPrezzoNotte(prisma, input.listinoId, camera.tipoCameraId, notte);
+      if (p) subtotale += p.prezzo;
+    }
+
+    const regolamento = await trovaRegolamentoAttivo(prisma, camera.hotel.comuneId, dataInizio, camera.hotel.categoria);
+    const nottiTassabili = regolamento ? Math.min(notti.length, regolamento.tettoNotti) : 0;
+    const tassaStimata = regolamento ? nottiTassabili * Number(regolamento.aliquota) : 0;
+
+    return {
+      notti: notti.length,
+      subtotale,
+      tassaStimata,
+      regolamento: regolamento
+        ? { comune: camera.hotel.comune.nome, aliquota: Number(regolamento.aliquota), tettoNotti: regolamento.tettoNotti }
+        : null,
+    };
   });
-
-  const dataInizio = new Date(input.dataInizio);
-  const dataFine = new Date(input.dataFine);
-  if (dataFine <= dataInizio) return null;
-
-  const notti = nottiTraDate(dataInizio, dataFine);
-  let subtotale = 0;
-  for (const notte of notti) {
-    const p = await trovaPrezzoNotte(prisma, input.listinoId, camera.tipoCameraId, notte);
-    if (p) subtotale += p.prezzo;
-  }
-
-  const regolamento = await trovaRegolamentoAttivo(prisma, camera.hotel.comuneId, dataInizio, camera.hotel.categoria);
-  const nottiTassabili = regolamento ? Math.min(notti.length, regolamento.tettoNotti) : 0;
-  const tassaStimata = regolamento ? nottiTassabili * Number(regolamento.aliquota) : 0;
-
-  return {
-    notti: notti.length,
-    subtotale,
-    tassaStimata,
-    regolamento: regolamento
-      ? { comune: camera.hotel.comune.nome, aliquota: Number(regolamento.aliquota), tettoNotti: regolamento.tettoNotti }
-      : null,
-  };
 }
 
 /**
@@ -85,70 +88,74 @@ export async function anteprimaGenerica(input: {
   dataInizio: string;
   dataFine: string;
 }) {
-  const { hotelId } = await richiediUtente();
+  return conEsito(async () => {
+    const { hotelId } = await richiediUtente();
 
-  const hotel = await prisma.hotel.findFirstOrThrow({
-    where: { id: hotelId },
-    include: { comune: true },
-  });
-
-  const dataInizio = new Date(input.dataInizio);
-  const dataFine = new Date(input.dataFine);
-  if (dataFine <= dataInizio) return null;
-
-  const notti = nottiTraDate(dataInizio, dataFine);
-  const regolamento = await trovaRegolamentoAttivo(prisma, hotel.comuneId, dataInizio, hotel.categoria);
-  const nottiTassabili = regolamento ? Math.min(notti.length, regolamento.tettoNotti) : 0;
-
-  const tipiRichiesti = await prisma.tipoCamera.findMany({
-    where: { id: { in: input.richieste.filter((r) => r.quantita > 0).map((r) => r.tipoCameraId) } },
-  });
-
-  let subtotale = 0;
-  let tassaStimata = 0;
-  const tipiSenzaTariffa = new Set<string>();
-  const dettaglio: { tipoCameraId: number; descrizione: string; quantita: number; notti: number; prezzoNotte: number; subtotale: number }[] = [];
-  for (const richiesta of input.richieste) {
-    if (richiesta.quantita <= 0) continue;
-    const descrizioneTipo = tipiRichiesti.find((t) => t.id === richiesta.tipoCameraId)?.descrizione ?? "?";
-    let subtotaleCamera = 0;
-    for (const notte of notti) {
-      const p = await trovaPrezzoNotte(prisma, input.listinoId, richiesta.tipoCameraId, notte);
-      if (p) subtotaleCamera += p.prezzo;
-      else tipiSenzaTariffa.add(descrizioneTipo);
-    }
-    subtotale += subtotaleCamera * richiesta.quantita;
-    if (regolamento) tassaStimata += nottiTassabili * Number(regolamento.aliquota) * richiesta.quantita;
-    dettaglio.push({
-      tipoCameraId: richiesta.tipoCameraId,
-      descrizione: descrizioneTipo,
-      quantita: richiesta.quantita,
-      notti: notti.length,
-      prezzoNotte: notti.length > 0 ? subtotaleCamera / notti.length : 0,
-      subtotale: subtotaleCamera * richiesta.quantita,
+    const hotel = await prisma.hotel.findFirstOrThrow({
+      where: { id: hotelId },
+      include: { comune: true },
     });
-  }
 
-  return {
-    notti: notti.length,
-    subtotale,
-    tassaStimata,
-    totale: subtotale + tassaStimata,
-    dettaglio,
-    nottiTassabili,
-    tipiSenzaTariffa: Array.from(tipiSenzaTariffa),
-    regolamento: regolamento
-      ? { comune: hotel.comune.nome, aliquota: Number(regolamento.aliquota), tettoNotti: regolamento.tettoNotti }
-      : null,
-  };
+    const dataInizio = new Date(input.dataInizio);
+    const dataFine = new Date(input.dataFine);
+    if (dataFine <= dataInizio) return null;
+
+    const notti = nottiTraDate(dataInizio, dataFine);
+    const regolamento = await trovaRegolamentoAttivo(prisma, hotel.comuneId, dataInizio, hotel.categoria);
+    const nottiTassabili = regolamento ? Math.min(notti.length, regolamento.tettoNotti) : 0;
+
+    const tipiRichiesti = await prisma.tipoCamera.findMany({
+      where: { id: { in: input.richieste.filter((r) => r.quantita > 0).map((r) => r.tipoCameraId) } },
+    });
+
+    let subtotale = 0;
+    let tassaStimata = 0;
+    const tipiSenzaTariffa = new Set<string>();
+    const dettaglio: { tipoCameraId: number; descrizione: string; quantita: number; notti: number; prezzoNotte: number; subtotale: number }[] = [];
+    for (const richiesta of input.richieste) {
+      if (richiesta.quantita <= 0) continue;
+      const descrizioneTipo = tipiRichiesti.find((t) => t.id === richiesta.tipoCameraId)?.descrizione ?? "?";
+      let subtotaleCamera = 0;
+      for (const notte of notti) {
+        const p = await trovaPrezzoNotte(prisma, input.listinoId, richiesta.tipoCameraId, notte);
+        if (p) subtotaleCamera += p.prezzo;
+        else tipiSenzaTariffa.add(descrizioneTipo);
+      }
+      subtotale += subtotaleCamera * richiesta.quantita;
+      if (regolamento) tassaStimata += nottiTassabili * Number(regolamento.aliquota) * richiesta.quantita;
+      dettaglio.push({
+        tipoCameraId: richiesta.tipoCameraId,
+        descrizione: descrizioneTipo,
+        quantita: richiesta.quantita,
+        notti: notti.length,
+        prezzoNotte: notti.length > 0 ? subtotaleCamera / notti.length : 0,
+        subtotale: subtotaleCamera * richiesta.quantita,
+      });
+    }
+
+    return {
+      notti: notti.length,
+      subtotale,
+      tassaStimata,
+      totale: subtotale + tassaStimata,
+      dettaglio,
+      nottiTassabili,
+      tipiSenzaTariffa: Array.from(tipiSenzaTariffa),
+      regolamento: regolamento
+        ? { comune: hotel.comune.nome, aliquota: Number(regolamento.aliquota), tettoNotti: regolamento.tettoNotti }
+        : null,
+    };
+  });
 }
 
 export async function salvaPrenotazione(input: CreaPrenotazioneInput) {
-  const { hotelId } = await richiediUtente();
-  const prenotazione = await creaPrenotazione(hotelId, input);
-  return {
-    id: prenotazione.id,
-    ospitePrenotante: `${prenotazione.ospitePrenotante.nome} ${prenotazione.ospitePrenotante.cognome}`,
-    ...calcolaTotaliPrenotazione(prenotazione),
-  };
+  return conEsito(async () => {
+    const { hotelId } = await richiediUtente();
+    const prenotazione = await creaPrenotazione(hotelId, input);
+    return {
+      id: prenotazione.id,
+      ospitePrenotante: `${prenotazione.ospitePrenotante.nome} ${prenotazione.ospitePrenotante.cognome}`,
+      ...calcolaTotaliPrenotazione(prenotazione),
+    };
+  });
 }

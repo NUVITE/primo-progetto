@@ -1,5 +1,6 @@
 "use server";
 
+import { conEsito } from "@/lib/esito";
 import {
   aggiungiSegmentoAPrenotazione,
   assegnaCamera,
@@ -78,43 +79,57 @@ export async function caricaPrenotazione(id: number) {
 }
 
 export async function azioneAccorciaEstendi(segmentoId: number, nuovaDataFine: string) {
-  const { hotelId } = await richiediUtente();
-  const prenotazione = await cambiaDataFineSegmento(hotelId, segmentoId, nuovaDataFine);
-  return serializza(prenotazione);
+  return conEsito(async () => {
+    const { hotelId } = await richiediUtente();
+    const prenotazione = await cambiaDataFineSegmento(hotelId, segmentoId, nuovaDataFine);
+    return serializza(prenotazione);
+  });
 }
 
 export async function azioneCambiaCamera(segmentoId: number, dataCambio: string, nuovaCameraId: number) {
-  const { hotelId } = await richiediUtente();
-  const prenotazione = await cambiaCameraSegmento(hotelId, segmentoId, dataCambio, nuovaCameraId);
-  return serializza(prenotazione);
+  return conEsito(async () => {
+    const { hotelId } = await richiediUtente();
+    const prenotazione = await cambiaCameraSegmento(hotelId, segmentoId, dataCambio, nuovaCameraId);
+    return serializza(prenotazione);
+  });
 }
 
 export async function azioneAggiungiSegmento(prenotazioneId: number, input: NuovoSegmentoInput) {
-  const { hotelId } = await richiediUtente();
-  const prenotazione = await aggiungiSegmentoAPrenotazione(hotelId, prenotazioneId, input);
-  return serializza(prenotazione);
+  return conEsito(async () => {
+    const { hotelId } = await richiediUtente();
+    const prenotazione = await aggiungiSegmentoAPrenotazione(hotelId, prenotazioneId, input);
+    return serializza(prenotazione);
+  });
 }
 
 export async function azioneAssegnaCamera(segmentoId: number, cameraId: number) {
-  const { hotelId } = await richiediUtente();
-  const prenotazione = await assegnaCamera(hotelId, segmentoId, cameraId);
-  return serializza(prenotazione);
+  return conEsito(async () => {
+    const { hotelId } = await richiediUtente();
+    const prenotazione = await assegnaCamera(hotelId, segmentoId, cameraId);
+    return serializza(prenotazione);
+  });
 }
 
 export async function azioneAggiungiServizio(prenotazioneId: number, input: AggiungiServizioInput) {
-  const { hotelId } = await richiediUtente();
-  await aggiungiServizioAPrenotazione(hotelId, prenotazioneId, input);
-  return serializza(await trovaPrenotazione(hotelId, prenotazioneId));
+  return conEsito(async () => {
+    const { hotelId } = await richiediUtente();
+    await aggiungiServizioAPrenotazione(hotelId, prenotazioneId, input);
+    return serializza(await trovaPrenotazione(hotelId, prenotazioneId));
+  });
 }
 
 export async function azioneRimuoviServizio(prenotazioneId: number, servizioAggiuntoId: number) {
-  const { hotelId } = await richiediUtente();
-  await rimuoviServizioDaPrenotazione(hotelId, servizioAggiuntoId);
-  return serializza(await trovaPrenotazione(hotelId, prenotazioneId));
+  return conEsito(async () => {
+    const { hotelId } = await richiediUtente();
+    await rimuoviServizioDaPrenotazione(hotelId, servizioAggiuntoId);
+    return serializza(await trovaPrenotazione(hotelId, prenotazioneId));
+  });
 }
 
 export async function azioneModificaServizio(prenotazioneId: number, servizioAggiuntoId: number, input: ModificaServizioInput) {
-  const { hotelId } = await richiediUtente();
-  await modificaServizio(hotelId, servizioAggiuntoId, input);
-  return serializza(await trovaPrenotazione(hotelId, prenotazioneId));
+  return conEsito(async () => {
+    const { hotelId } = await richiediUtente();
+    await modificaServizio(hotelId, servizioAggiuntoId, input);
+    return serializza(await trovaPrenotazione(hotelId, prenotazioneId));
+  });
 }

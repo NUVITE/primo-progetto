@@ -1,5 +1,6 @@
 "use server";
 
+import { conEsito } from "@/lib/esito";
 import { richiediRuolo } from "@/lib/auth";
 import { creaUtente, datiGestioneUtenti, impostaAccessoHotel, impostaAttivoUtente, impostaRuoloUtente } from "@/lib/utenti";
 import type { RuoloUtente } from "@/generated/prisma/enums";
@@ -26,25 +27,33 @@ export async function datiUtenti() {
 }
 
 export async function azioneCreaUtente(input: { nome: string; email: string; password: string; ruolo: RuoloUtente; hotelIds: number[] }) {
-  const hotelIdsAmmin = await hotelIdsAmministrati();
-  await creaUtente(hotelIdsAmmin, input);
-  return datiUtenti();
+  return conEsito(async () => {
+    const hotelIdsAmmin = await hotelIdsAmministrati();
+    await creaUtente(hotelIdsAmmin, input);
+    return datiUtenti();
+  });
 }
 
 export async function azioneImpostaRuolo(utenteId: number, ruolo: RuoloUtente) {
-  const hotelIdsAmmin = await hotelIdsAmministrati();
-  await impostaRuoloUtente(hotelIdsAmmin, utenteId, ruolo);
-  return datiUtenti();
+  return conEsito(async () => {
+    const hotelIdsAmmin = await hotelIdsAmministrati();
+    await impostaRuoloUtente(hotelIdsAmmin, utenteId, ruolo);
+    return datiUtenti();
+  });
 }
 
 export async function azioneImpostaAttivo(utenteId: number, attivo: boolean) {
-  const hotelIdsAmmin = await hotelIdsAmministrati();
-  await impostaAttivoUtente(hotelIdsAmmin, utenteId, attivo);
-  return datiUtenti();
+  return conEsito(async () => {
+    const hotelIdsAmmin = await hotelIdsAmministrati();
+    await impostaAttivoUtente(hotelIdsAmmin, utenteId, attivo);
+    return datiUtenti();
+  });
 }
 
 export async function azioneImpostaAccessoHotel(utenteId: number, hotelId: number, concesso: boolean) {
-  const hotelIdsAmmin = await hotelIdsAmministrati();
-  await impostaAccessoHotel(hotelIdsAmmin, utenteId, hotelId, concesso);
-  return datiUtenti();
+  return conEsito(async () => {
+    const hotelIdsAmmin = await hotelIdsAmministrati();
+    await impostaAccessoHotel(hotelIdsAmmin, utenteId, hotelId, concesso);
+    return datiUtenti();
+  });
 }

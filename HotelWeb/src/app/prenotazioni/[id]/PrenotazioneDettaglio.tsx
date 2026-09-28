@@ -1,5 +1,6 @@
 "use client";
 
+import { sbusta } from "@/lib/esito";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { OspiteSearch, type OspiteValue } from "../nuova/OspiteSearch";
@@ -95,19 +96,19 @@ export function PrenotazioneDettaglio({ iniziale }: { iniziale: Prenotazione }) 
     if (!prezzo || prezzo <= 0) return;
     const risultato = await eseguendo(() =>
       servizioInModifica !== null
-        ? azioneModificaServizio(prenotazione.id, servizioInModifica, {
+        ? sbusta(azioneModificaServizio(prenotazione.id, servizioInModifica, {
             descrizione: servizioEditDaCatalogo ? undefined : servizioDescrizione.trim(),
             prezzoUnitario: prezzo,
             quantita: Number(servizioQuantita) || 1,
             segmentoIds: servizioAmbito === "specifici" ? Array.from(servizioSegmenti) : undefined,
-          })
-        : azioneAggiungiServizio(prenotazione.id, {
+          }))
+        : sbusta(azioneAggiungiServizio(prenotazione.id, {
             servizioCatalogoId: servizioCatalogoId === "libero" ? undefined : servizioCatalogoId,
             descrizione: servizioCatalogoId === "libero" ? servizioDescrizione.trim() : undefined,
             prezzoUnitario: prezzo,
             quantita: Number(servizioQuantita) || 1,
             segmentoIds: servizioAmbito === "specifici" ? Array.from(servizioSegmenti) : undefined,
-          })
+          }))
     );
     if (risultato) {
       setPrenotazione(risultato);
@@ -116,7 +117,7 @@ export function PrenotazioneDettaglio({ iniziale }: { iniziale: Prenotazione }) 
   }
 
   async function rimuoviServizio(servizioAggiuntoId: number) {
-    const risultato = await eseguendo(() => azioneRimuoviServizio(prenotazione.id, servizioAggiuntoId));
+    const risultato = await eseguendo(() => sbusta(azioneRimuoviServizio(prenotazione.id, servizioAggiuntoId)));
     if (risultato) setPrenotazione(risultato);
   }
 
@@ -134,7 +135,7 @@ export function PrenotazioneDettaglio({ iniziale }: { iniziale: Prenotazione }) 
   }
 
   async function salvaNuovaFine(segmentoId: number, valore: string) {
-    const risultato = await eseguendo(() => azioneAccorciaEstendi(segmentoId, valore));
+    const risultato = await eseguendo(() => sbusta(azioneAccorciaEstendi(segmentoId, valore)));
     if (risultato) {
       setPrenotazione(risultato);
       setModificaFine(null);
@@ -144,7 +145,7 @@ export function PrenotazioneDettaglio({ iniziale }: { iniziale: Prenotazione }) 
   async function confermaCambioCamera() {
     if (!cambioCamera || !cambioCamera.nuovaCameraId) return;
     const risultato = await eseguendo(() =>
-      azioneCambiaCamera(cambioCamera.segmentoId, cambioCamera.dataCambio, cambioCamera.nuovaCameraId!)
+      sbusta(azioneCambiaCamera(cambioCamera.segmentoId, cambioCamera.dataCambio, cambioCamera.nuovaCameraId!))
     );
     if (risultato) {
       setPrenotazione(risultato);
@@ -154,7 +155,7 @@ export function PrenotazioneDettaglio({ iniziale }: { iniziale: Prenotazione }) 
 
   async function confermaAssegnaCamera() {
     if (!assegnaCameraState || !assegnaCameraState.cameraId) return;
-    const risultato = await eseguendo(() => azioneAssegnaCamera(assegnaCameraState.segmentoId, assegnaCameraState.cameraId!));
+    const risultato = await eseguendo(() => sbusta(azioneAssegnaCamera(assegnaCameraState.segmentoId, assegnaCameraState.cameraId!)));
     if (risultato) {
       setPrenotazione(risultato);
       setAssegnaCameraState(null);
@@ -165,7 +166,7 @@ export function PrenotazioneDettaglio({ iniziale }: { iniziale: Prenotazione }) 
     if (!nuovaCameraId || !nuovoDal || !nuovoAl || nuovoOspite.mode === "vuoto" || !listini[0]) return;
     const ospite = nuovoOspite.mode === "esistente" ? { id: nuovoOspite.id } : { nome: nuovoOspite.nome, cognome: nuovoOspite.cognome };
     const risultato = await eseguendo(() =>
-      azioneAggiungiSegmento(prenotazione.id, {
+      sbusta(azioneAggiungiSegmento(prenotazione.id, {
         cameraId: nuovaCameraId,
         tipoCameraId: camere.find((c) => c.id === nuovaCameraId)!.tipoCameraId,
         ospite,
@@ -173,7 +174,7 @@ export function PrenotazioneDettaglio({ iniziale }: { iniziale: Prenotazione }) 
         listinoId: listini[0].id,
         dataInizio: nuovoDal,
         dataFine: nuovoAl,
-      })
+      }))
     );
     if (risultato) {
       setPrenotazione(risultato);
