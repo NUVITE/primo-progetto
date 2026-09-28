@@ -17,7 +17,8 @@ import {
   type AggiungiServizioInput,
   type ModificaServizioInput,
 } from "@/lib/servizi";
-import { richiediUtente } from "@/lib/auth";
+import { puo, richiediPermesso, type UtenteSessione } from "@/lib/auth";
+import { PERMESSI } from "@/lib/permessi";
 
 import { datiIniziali as _datiIniziali } from "@/app/prenotazioni/nuova/actions";
 
@@ -25,14 +26,22 @@ export async function datiIniziali() {
   return _datiIniziali();
 }
 
-function serializza(prenotazione: Awaited<ReturnType<typeof trovaPrenotazione>>) {
+/**
+ * Senza il permesso "Vedere importi" gli importi non lasciano il server: arrivano a zero e
+ * importiVisibili=false dice all'interfaccia di nasconderli (nasconderli solo a video non basta).
+ */
+function serializza(prenotazione: Awaited<ReturnType<typeof trovaPrenotazione>>, utente: UtenteSessione) {
+  const importiVisibili = puo(utente, PERMESSI.IMPORTI_VEDI);
+  const imp = (n: number) => (importiVisibili ? n : 0);
+  const totali = calcolaTotaliPrenotazione(prenotazione);
   return {
+    importiVisibili,
     id: prenotazione.id,
     stato: prenotazione.stato,
     ospitePrenotante: `${prenotazione.ospitePrenotante.nome} ${prenotazione.ospitePrenotante.cognome}`,
     gruppoNome: prenotazione.gruppo?.nome ?? null,
-    accontoRichiesto: prenotazione.accontoRichiesto ? Number(prenotazione.accontoRichiesto) : null,
-    totali: calcolaTotaliPrenotazione(prenotazione),
+    accontoRichiesto: importiVisibili && prenotazione.accontoRichiesto ? Number(prenotazione.accontoRichiesto) : null,
+    totali: { subtotale: imp(totali.subtotale), tassa: imp(totali.tassa), servizi: imp(totali.servizi), totale: imp(totali.totale) },
     segmenti: prenotazione.segmenti.map((s) => ({
       id: s.id,
       cameraId: s.cameraId,
@@ -48,8 +57,8 @@ function serializza(prenotazione: Awaited<ReturnType<typeof trovaPrenotazione>>)
       stato: s.stato,
       segmentoPrecedenteId: s.segmentoPrecedenteId,
       notti: s.notti.length,
-      subtotale: s.notti.reduce((t, n) => t + Number(n.prezzo), 0),
-      tassa: s.notti.reduce((t, n) => t + (n.tassa ? Number(n.tassa.importo) : 0), 0),
+      subtotale: imp(s.notti.reduce((t, n) => t + Number(n.prezzo), 0)),
+      tassa: imp(s.notti.reduce((t, n) => t + (n.tassa ? Number(n.tassa.importo) : 0), 0)),
       // Notti create senza trovare una tariffa (prenotazione bloccata comunque, da sistemare
       // aggiungendo il listino mancante) — vedi generaNottiETasse in src/lib/prenotazioni.ts.
       tariffaIncompleta: s.notti.some((n) => n.motivoPrezzo === "mancante"),
@@ -59,9 +68,9 @@ function serializza(prenotazione: Awaited<ReturnType<typeof trovaPrenotazione>>)
       nome: s.servizioCatalogo?.nome ?? s.descrizione ?? "Servizio",
       daCatalogo: s.servizioCatalogoId !== null,
       descrizione: s.descrizione,
-      prezzoUnitario: Number(s.prezzoUnitario),
+      prezzoUnitario: imp(Number(s.prezzoUnitario)),
       quantita: s.quantita,
-      totale: Number(s.prezzoUnitario) * s.quantita,
+      totale: imp(Number(s.prezzoUnitario) * s.quantita),
       data: s.data ? s.data.toISOString().slice(0, 10) : null,
       note: s.note,
       // Vuoto = si applica a tutta la prenotazione.
@@ -74,62 +83,62 @@ function serializza(prenotazione: Awaited<ReturnType<typeof trovaPrenotazione>>)
 }
 
 export async function caricaPrenotazione(id: number) {
-  const { hotelId } = await richiediUtente();
-  return serializza(await trovaPrenotazione(hotelId, id));
+  const utente = await richiediPermesso(PERMESSI.PRENOTAZIONI_VEDI);
+  return serializza(await trovaPrenotazione(utente.hotelId, id), utente);
 }
 
 export async function azioneAccorciaEstendi(segmentoId: number, nuovaDataFine: string) {
   return conEsito(async () => {
-    const { hotelId } = await richiediUtente();
-    const prenotazione = await cambiaDataFineSegmento(hotelId, segmentoId, nuovaDataFine);
-    return serializza(prenotazione);
+    const utente = await richiediPermesso(PERMESSI.PRENOTAZIONI_GESTISCI);
+    const prenotazione = await cambiaDataFineSegmento(utente.hotelId, segmentoId, nuovaDataFine);
+    return serializza(prenotazione, utente);
   });
 }
 
 export async function azioneCambiaCamera(segmentoId: number, dataCambio: string, nuovaCameraId: number) {
   return conEsito(async () => {
-    const { hotelId } = await richiediUtente();
-    const prenotazione = await cambiaCameraSegmento(hotelId, segmentoId, dataCambio, nuovaCameraId);
-    return serializza(prenotazione);
+    const utente = await richiediPermesso(PERMESSI.PRENOTAZIONI_GESTISCI);
+    const prenotazione = await cambiaCameraSegmento(utente.hotelId, segmentoId, dataCambio, nuovaCameraId);
+    return serializza(prenotazione, utente);
   });
 }
 
 export async function azioneAggiungiSegmento(prenotazioneId: number, input: NuovoSegmentoInput) {
   return conEsito(async () => {
-    const { hotelId } = await richiediUtente();
-    const prenotazione = await aggiungiSegmentoAPrenotazione(hotelId, prenotazioneId, input);
-    return serializza(prenotazione);
+    const utente = await richiediPermesso(PERMESSI.PRENOTAZIONI_GESTISCI);
+    const prenotazione = await aggiungiSegmentoAPrenotazione(utente.hotelId, prenotazioneId, input);
+    return serializza(prenotazione, utente);
   });
 }
 
 export async function azioneAssegnaCamera(segmentoId: number, cameraId: number) {
   return conEsito(async () => {
-    const { hotelId } = await richiediUtente();
-    const prenotazione = await assegnaCamera(hotelId, segmentoId, cameraId);
-    return serializza(prenotazione);
+    const utente = await richiediPermesso(PERMESSI.PRENOTAZIONI_GESTISCI);
+    const prenotazione = await assegnaCamera(utente.hotelId, segmentoId, cameraId);
+    return serializza(prenotazione, utente);
   });
 }
 
 export async function azioneAggiungiServizio(prenotazioneId: number, input: AggiungiServizioInput) {
   return conEsito(async () => {
-    const { hotelId } = await richiediUtente();
-    await aggiungiServizioAPrenotazione(hotelId, prenotazioneId, input);
-    return serializza(await trovaPrenotazione(hotelId, prenotazioneId));
+    const utente = await richiediPermesso(PERMESSI.PRENOTAZIONI_GESTISCI);
+    await aggiungiServizioAPrenotazione(utente.hotelId, prenotazioneId, input);
+    return serializza(await trovaPrenotazione(utente.hotelId, prenotazioneId), utente);
   });
 }
 
 export async function azioneRimuoviServizio(prenotazioneId: number, servizioAggiuntoId: number) {
   return conEsito(async () => {
-    const { hotelId } = await richiediUtente();
-    await rimuoviServizioDaPrenotazione(hotelId, servizioAggiuntoId);
-    return serializza(await trovaPrenotazione(hotelId, prenotazioneId));
+    const utente = await richiediPermesso(PERMESSI.PRENOTAZIONI_GESTISCI);
+    await rimuoviServizioDaPrenotazione(utente.hotelId, servizioAggiuntoId);
+    return serializza(await trovaPrenotazione(utente.hotelId, prenotazioneId), utente);
   });
 }
 
 export async function azioneModificaServizio(prenotazioneId: number, servizioAggiuntoId: number, input: ModificaServizioInput) {
   return conEsito(async () => {
-    const { hotelId } = await richiediUtente();
-    await modificaServizio(hotelId, servizioAggiuntoId, input);
-    return serializza(await trovaPrenotazione(hotelId, prenotazioneId));
+    const utente = await richiediPermesso(PERMESSI.PRENOTAZIONI_GESTISCI);
+    await modificaServizio(utente.hotelId, servizioAggiuntoId, input);
+    return serializza(await trovaPrenotazione(utente.hotelId, prenotazioneId), utente);
   });
 }

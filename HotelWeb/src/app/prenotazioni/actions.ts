@@ -1,7 +1,8 @@
 "use server";
 
 import { cercaPrenotazioni } from "@/lib/prenotazioni";
-import { richiediUtente } from "@/lib/auth";
+import { richiediPermesso } from "@/lib/auth";
+import { PERMESSI } from "@/lib/permessi";
 
 function isoGiorno(d: Date) {
   return d.toISOString().slice(0, 10).split("-").reverse().join("/");
@@ -23,6 +24,6 @@ function serializza(prenotazioni: Awaited<ReturnType<typeof cercaPrenotazioni>>)
 }
 
 export async function azioneCercaPrenotazioni(query: string) {
-  const { hotelId } = await richiediUtente();
+  const { hotelId } = await richiediPermesso(PERMESSI.PRENOTAZIONI_VEDI);
   return serializza(await cercaPrenotazioni(hotelId, query));
 }

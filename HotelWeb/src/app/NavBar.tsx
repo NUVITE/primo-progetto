@@ -1,20 +1,22 @@
 import Link from "next/link";
-import type { UtenteSessione } from "@/lib/auth";
+import { puo, type UtenteSessione } from "@/lib/auth";
+import { PERMESSI, type Permesso } from "@/lib/permessi";
 import { effettuaLogout } from "./logout-action";
 import { HotelSwitcher } from "./HotelSwitcher";
 import { MenuMobile } from "./MenuMobile";
 
-const VOCI = [
-  { href: "/", label: "Situazione camere", ruoli: ["ADMIN", "RECEZIONE"] as const },
-  { href: "/prenotazioni", label: "Prenotazioni", ruoli: ["ADMIN", "RECEZIONE"] as const },
-  { href: "/camere/gestione", label: "Gestione camere", ruoli: ["ADMIN"] as const },
-  { href: "/servizi", label: "Servizi", ruoli: ["ADMIN"] as const },
-  { href: "/utenti", label: "Utenti", ruoli: ["ADMIN"] as const },
+const VOCI: { href: string; label: string; permesso: Permesso }[] = [
+  { href: "/", label: "Situazione camere", permesso: PERMESSI.PRENOTAZIONI_VEDI },
+  { href: "/prenotazioni", label: "Prenotazioni", permesso: PERMESSI.PRENOTAZIONI_VEDI },
+  { href: "/camere/gestione", label: "Gestione camere", permesso: PERMESSI.CAMERE_GESTISCI },
+  { href: "/servizi", label: "Servizi", permesso: PERMESSI.LISTINI_GESTISCI },
+  { href: "/utenti", label: "Utenti", permesso: PERMESSI.UTENTI_GESTISCI },
+  { href: "/ruoli", label: "Ruoli", permesso: PERMESSI.RUOLI_GESTISCI },
 ];
 
 export function NavBar({ utente }: { utente: UtenteSessione }) {
-  const voci = VOCI.filter((v) => (v.ruoli as readonly string[]).includes(utente.ruolo)).map(({ href, label }) => ({ href, label }));
-  const ruolo = utente.ruolo === "ADMIN" ? "Amministratore" : "Reception";
+  const voci = VOCI.filter((v) => puo(utente, v.permesso)).map(({ href, label }) => ({ href, label }));
+  const ruolo = utente.ruoloNome;
 
   return (
     <div className="relative flex h-14 flex-shrink-0 items-center justify-between gap-2 border-b border-stone-200 bg-white px-3 sm:px-6">

@@ -1,68 +1,157 @@
 import { prisma } from "@/lib/prisma";
-import type { RuoloUtente } from "@/generated/prisma/enums";
+import type { UtenteSessione } from "@/lib/auth";
+import { PERMESSI, permessiEffettivi, type Permesso } from "@/lib/permessi";
+
+type Tx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
 
 /**
- * Un amministratore vede e gestisce solo gli utenti che condividono almeno un hotel con lui,
- * e può assegnare/togliere solo gli hotel che lui stesso amministra — non può toccare l'accesso
- * a un hotel che non è tra i suoi, anche se in teoria esistesse (evita scalate di privilegio).
+ * Regole di sicurezza comuni a Utenti e Ruoli (tutte valgono nell'hotel attivo di chi opera;
+ * il superadmin le supera tutte tranne l'ultima):
+ * - non si concede un permesso che non si ha (niente scalate di privilegio);
+ * - non si toccano utenti/ruoli che hanno più poteri di chi opera (un Direttore non declassa l'Amministratore);
+ * - l'hotel non può restare senza nessuno che gestisca gli utenti (vedi conservaGestoreUtenti).
  */
-export async function datiGestioneUtenti(hotelIdsAmmin: number[]) {
-  const utenti = await prisma.utente.findMany({
-    where: { hotels: { some: { id: { in: hotelIdsAmmin } } } },
-    include: { hotels: { select: { id: true, nome: true } } },
-    orderBy: { nome: "asc" },
-  });
-  const hotels = await prisma.hotel.findMany({ where: { id: { in: hotelIdsAmmin } }, select: { id: true, nome: true } });
-  return { utenti, hotelsGestibili: hotels };
+export function contenutoIn(permessi: Permesso[], disponibili: Permesso[]) {
+  return permessi.every((p) => disponibili.includes(p));
 }
 
-export async function creaUtente(
-  hotelIdsAmmin: number[],
-  input: { nome: string; email: string; password: string; ruolo: RuoloUtente; hotelIds: number[] }
-) {
-  const bcrypt = await import("bcryptjs");
-  const hotelIds = input.hotelIds.filter((id) => hotelIdsAmmin.includes(id));
-  if (hotelIds.length === 0) {
-    throw new Error("Seleziona almeno un hotel tra quelli che amministri.");
+export function verificaPuoConcedere(chi: UtenteSessione, permessi: unknown) {
+  if (chi.superAdmin) return;
+  if (!contenutoIn(permessiEffettivi(permessi), chi.permessi)) {
+    throw new Error("Non puoi assegnare permessi che tu stesso non hai.");
   }
-  const passwordHash = await bcrypt.hash(input.password, 10);
-  return prisma.utente.create({
+}
+
+async function gestoriUtenti(tx: Tx, hotelId: number) {
+  const accessi = await tx.utenteHotel.findMany({
+    where: { hotelId, utente: { attivo: true, superAdmin: false } },
+    include: { ruolo: true },
+  });
+  return accessi.filter((a) => permessiEffettivi(a.ruolo.permessi).includes(PERMESSI.UTENTI_GESTISCI)).length;
+}
+
+/** Esegue la modifica in transazione e la annulla se l'hotel resterebbe senza gestori utenti. */
+export async function conservaGestoreUtenti<T>(hotelId: number, modifica: (tx: Tx) => Promise<T>) {
+  return prisma.$transaction(async (tx) => {
+    const prima = await gestoriUtenti(tx, hotelId);
+    const risultato = await modifica(tx);
+    if (prima > 0 && (await gestoriUtenti(tx, hotelId)) === 0) {
+      throw new Error("Operazione annullata: l'hotel resterebbe senza nessun utente in grado di gestire gli utenti.");
+    }
+    return risultato;
+  });
+}
+
+export async function datiGestioneUtenti(chi: UtenteSessione) {
+  const [accessi, ruoli, superAdmin] = await Promise.all([
+    prisma.utenteHotel.findMany({
+      where: { hotelId: chi.hotelId, utente: { superAdmin: false } },
+      include: { utente: true, ruolo: true },
+      orderBy: { utente: { nome: "asc" } },
+    }),
+    prisma.ruolo.findMany({ where: { hotelId: chi.hotelId }, orderBy: { nome: "asc" } }),
+    chi.superAdmin
+      ? prisma.utente.findMany({ where: { superAdmin: true }, orderBy: { nome: "asc" } })
+      : Promise.resolve([]),
+  ]);
+  return { accessi, ruoli, superAdmin };
+}
+
+/** Accesso di un utente all'hotel attivo, verificando che chi opera possa toccarlo. */
+async function accessoGestibile(chi: UtenteSessione, utenteId: number) {
+  const accesso = await prisma.utenteHotel.findUnique({
+    where: { utenteId_hotelId: { utenteId, hotelId: chi.hotelId } },
+    include: { utente: true, ruolo: true },
+  });
+  if (!accesso) throw new Error("Questo utente non ha accesso all'hotel.");
+  if (!chi.superAdmin) {
+    if (accesso.utente.superAdmin) throw new Error("Solo un superadmin può modificare un superadmin.");
+    if (!contenutoIn(permessiEffettivi(accesso.ruolo.permessi), chi.permessi)) {
+      throw new Error("Non puoi modificare un utente con più permessi dei tuoi.");
+    }
+  }
+  return accesso;
+}
+
+async function ruoloDellHotel(chi: UtenteSessione, ruoloId: number) {
+  const ruolo = await prisma.ruolo.findFirst({ where: { id: ruoloId, hotelId: chi.hotelId } });
+  if (!ruolo) throw new Error("Ruolo non trovato in questo hotel.");
+  verificaPuoConcedere(chi, ruolo.permessi);
+  return ruolo;
+}
+
+/**
+ * Crea un utente con accesso all'hotel attivo. Un'email già registrata può essere collegata a
+ * un altro hotel solo dal superadmin: un amministratore d'hotel non deve poter "agganciare"
+ * account di altre strutture.
+ */
+export async function aggiungiUtente(
+  chi: UtenteSessione,
+  input: { nome: string; email: string; password: string; ruoloId: number },
+) {
+  const email = input.email.trim().toLowerCase();
+  if (!email) throw new Error("Indica l'email.");
+  const ruolo = await ruoloDellHotel(chi, input.ruoloId);
+
+  const esistente = await prisma.utente.findUnique({ where: { email } });
+  if (esistente) {
+    if (!chi.superAdmin) {
+      throw new Error("Esiste già un utente con questa email: per collegarlo a questo hotel contatta il gestore della piattaforma.");
+    }
+    const giaPresente = await prisma.utenteHotel.findUnique({
+      where: { utenteId_hotelId: { utenteId: esistente.id, hotelId: chi.hotelId } },
+    });
+    if (giaPresente) throw new Error("Questo utente ha già accesso all'hotel.");
+    await prisma.utenteHotel.create({ data: { utenteId: esistente.id, hotelId: chi.hotelId, ruoloId: ruolo.id } });
+    return;
+  }
+
+  if (!input.nome.trim()) throw new Error("Indica il nome.");
+  if (input.password.length < 8) throw new Error("La password iniziale deve avere almeno 8 caratteri.");
+  const bcrypt = await import("bcryptjs");
+  await prisma.utente.create({
     data: {
-      nome: input.nome,
-      email: input.email,
-      passwordHash,
-      ruolo: input.ruolo,
-      hotels: { connect: hotelIds.map((id) => ({ id })) },
+      nome: input.nome.trim(),
+      email,
+      passwordHash: await bcrypt.hash(input.password, 10),
+      accessi: { create: { hotelId: chi.hotelId, ruoloId: ruolo.id } },
     },
   });
 }
 
-export async function impostaRuoloUtente(hotelIdsAmmin: number[], utenteId: number, ruolo: RuoloUtente) {
-  await verificaUtenteGestibile(hotelIdsAmmin, utenteId);
-  return prisma.utente.update({ where: { id: utenteId }, data: { ruolo } });
+export async function cambiaRuoloUtente(chi: UtenteSessione, utenteId: number, ruoloId: number) {
+  await accessoGestibile(chi, utenteId);
+  await ruoloDellHotel(chi, ruoloId);
+  await conservaGestoreUtenti(chi.hotelId, (tx) =>
+    tx.utenteHotel.update({ where: { utenteId_hotelId: { utenteId, hotelId: chi.hotelId } }, data: { ruoloId } }),
+  );
 }
 
-export async function impostaAttivoUtente(hotelIdsAmmin: number[], utenteId: number, attivo: boolean) {
-  await verificaUtenteGestibile(hotelIdsAmmin, utenteId);
-  return prisma.utente.update({ where: { id: utenteId }, data: { attivo } });
+/** Toglie l'accesso all'hotel attivo (l'account resta, per eventuali altri hotel). */
+export async function rimuoviDaHotel(chi: UtenteSessione, utenteId: number) {
+  await accessoGestibile(chi, utenteId);
+  await conservaGestoreUtenti(chi.hotelId, (tx) =>
+    tx.utenteHotel.delete({ where: { utenteId_hotelId: { utenteId, hotelId: chi.hotelId } } }),
+  );
 }
 
-/** Aggiunge o toglie l'accesso di un utente a UNO degli hotel amministrati da chi chiama. */
-export async function impostaAccessoHotel(hotelIdsAmmin: number[], utenteId: number, hotelId: number, concesso: boolean) {
-  await verificaUtenteGestibile(hotelIdsAmmin, utenteId);
-  if (!hotelIdsAmmin.includes(hotelId)) {
-    throw new Error("Non amministri questo hotel.");
+// --- Solo superadmin: operazioni sull'account intero, che valgono per tutti gli hotel ---
+
+function soloSuperAdmin(chi: UtenteSessione) {
+  if (!chi.superAdmin) throw new Error("Operazione riservata al gestore della piattaforma.");
+}
+
+export async function impostaAttivoUtente(chi: UtenteSessione, utenteId: number, attivo: boolean) {
+  soloSuperAdmin(chi);
+  if (utenteId === chi.id && !attivo) throw new Error("Non puoi disattivare il tuo stesso account.");
+  await conservaGestoreUtenti(chi.hotelId, (tx) => tx.utente.update({ where: { id: utenteId }, data: { attivo } }));
+}
+
+export async function impostaSuperAdmin(chi: UtenteSessione, utenteId: number, superAdmin: boolean) {
+  soloSuperAdmin(chi);
+  if (!superAdmin) {
+    const altri = await prisma.utente.count({ where: { superAdmin: true, attivo: true, id: { not: utenteId } } });
+    if (altri === 0) throw new Error("Deve restare almeno un superadmin attivo.");
   }
-  return prisma.utente.update({
-    where: { id: utenteId },
-    data: { hotels: concesso ? { connect: { id: hotelId } } : { disconnect: { id: hotelId } } },
-  });
-}
-
-async function verificaUtenteGestibile(hotelIdsAmmin: number[], utenteId: number) {
-  const utente = await prisma.utente.findFirst({
-    where: { id: utenteId, hotels: { some: { id: { in: hotelIdsAmmin } } } },
-  });
-  if (!utente) throw new Error("Utente non gestibile.");
-  return utente;
+  await prisma.utente.update({ where: { id: utenteId }, data: { superAdmin } });
 }

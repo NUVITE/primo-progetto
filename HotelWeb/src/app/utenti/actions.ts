@@ -1,59 +1,67 @@
 "use server";
 
 import { conEsito } from "@/lib/esito";
-import { richiediRuolo } from "@/lib/auth";
-import { creaUtente, datiGestioneUtenti, impostaAccessoHotel, impostaAttivoUtente, impostaRuoloUtente } from "@/lib/utenti";
-import type { RuoloUtente } from "@/generated/prisma/enums";
-
-async function hotelIdsAmministrati() {
-  const utente = await richiediRuolo(["ADMIN"]);
-  return utente.hotels.map((h) => h.id);
-}
+import { richiediPermesso } from "@/lib/auth";
+import { PERMESSI } from "@/lib/permessi";
+import {
+  aggiungiUtente,
+  cambiaRuoloUtente,
+  datiGestioneUtenti,
+  impostaAttivoUtente,
+  impostaSuperAdmin,
+  rimuoviDaHotel,
+} from "@/lib/utenti";
 
 export async function datiUtenti() {
-  const hotelIdsAmmin = await hotelIdsAmministrati();
-  const { utenti, hotelsGestibili } = await datiGestioneUtenti(hotelIdsAmmin);
+  const chi = await richiediPermesso(PERMESSI.UTENTI_GESTISCI);
+  const { accessi, ruoli, superAdmin } = await datiGestioneUtenti(chi);
   return {
-    hotelsGestibili,
-    utenti: utenti.map((u) => ({
-      id: u.id,
-      nome: u.nome,
-      email: u.email,
-      ruolo: u.ruolo,
-      attivo: u.attivo,
-      hotelIds: u.hotels.map((h) => h.id),
+    hotelNome: chi.hotelNome,
+    ioId: chi.id,
+    sonoSuperAdmin: chi.superAdmin,
+    ruoli: ruoli.map((r) => ({ id: r.id, nome: r.nome })),
+    utenti: accessi.map((a) => ({
+      id: a.utente.id,
+      nome: a.utente.nome,
+      email: a.utente.email,
+      attivo: a.utente.attivo,
+      ruoloId: a.ruoloId,
     })),
+    superAdmin: superAdmin.map((u) => ({ id: u.id, nome: u.nome, email: u.email, attivo: u.attivo })),
   };
 }
 
-export async function azioneCreaUtente(input: { nome: string; email: string; password: string; ruolo: RuoloUtente; hotelIds: number[] }) {
+export async function azioneAggiungiUtente(input: { nome: string; email: string; password: string; ruoloId: number }) {
   return conEsito(async () => {
-    const hotelIdsAmmin = await hotelIdsAmministrati();
-    await creaUtente(hotelIdsAmmin, input);
+    await aggiungiUtente(await richiediPermesso(PERMESSI.UTENTI_GESTISCI), input);
     return datiUtenti();
   });
 }
 
-export async function azioneImpostaRuolo(utenteId: number, ruolo: RuoloUtente) {
+export async function azioneCambiaRuolo(utenteId: number, ruoloId: number) {
   return conEsito(async () => {
-    const hotelIdsAmmin = await hotelIdsAmministrati();
-    await impostaRuoloUtente(hotelIdsAmmin, utenteId, ruolo);
+    await cambiaRuoloUtente(await richiediPermesso(PERMESSI.UTENTI_GESTISCI), utenteId, ruoloId);
+    return datiUtenti();
+  });
+}
+
+export async function azioneRimuoviDaHotel(utenteId: number) {
+  return conEsito(async () => {
+    await rimuoviDaHotel(await richiediPermesso(PERMESSI.UTENTI_GESTISCI), utenteId);
     return datiUtenti();
   });
 }
 
 export async function azioneImpostaAttivo(utenteId: number, attivo: boolean) {
   return conEsito(async () => {
-    const hotelIdsAmmin = await hotelIdsAmministrati();
-    await impostaAttivoUtente(hotelIdsAmmin, utenteId, attivo);
+    await impostaAttivoUtente(await richiediPermesso(PERMESSI.UTENTI_GESTISCI), utenteId, attivo);
     return datiUtenti();
   });
 }
 
-export async function azioneImpostaAccessoHotel(utenteId: number, hotelId: number, concesso: boolean) {
+export async function azioneImpostaSuperAdmin(utenteId: number, superAdmin: boolean) {
   return conEsito(async () => {
-    const hotelIdsAmmin = await hotelIdsAmministrati();
-    await impostaAccessoHotel(hotelIdsAmmin, utenteId, hotelId, concesso);
+    await impostaSuperAdmin(await richiediPermesso(PERMESSI.UTENTI_GESTISCI), utenteId, superAdmin);
     return datiUtenti();
   });
 }

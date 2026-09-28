@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { elencoPrenotazioni } from "@/lib/prenotazioni";
-import { richiediUtente } from "@/lib/auth";
+import { richiediPermesso } from "@/lib/auth";
+import { PERMESSI } from "@/lib/permessi";
 import { PrenotazioniLista } from "./PrenotazioniLista";
 
 function isoGiorno(d: Date) {
@@ -8,7 +9,7 @@ function isoGiorno(d: Date) {
 }
 
 export default async function ElencoPrenotazioniPage() {
-  const { hotelId } = await richiediUtente();
+  const { hotelId } = await richiediPermesso(PERMESSI.PRENOTAZIONI_VEDI);
   const prenotazioni = await elencoPrenotazioni(hotelId);
 
   const iniziale = prenotazioni.map((p) => {

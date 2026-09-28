@@ -2,6 +2,7 @@ import "dotenv/config";
 import bcrypt from "bcryptjs";
 import { PrismaMariaDb } from "@prisma/adapter-mariadb";
 import { PrismaClient } from "../src/generated/prisma/client";
+import { RUOLI_PREDEFINITI } from "../src/lib/permessi";
 
 const adapter = new PrismaMariaDb({
   host: process.env.DATABASE_HOST,
@@ -370,54 +371,50 @@ async function main() {
     }
   }
 
-  const passwordBarbantini = await bcrypt.hash("barbantini1234", 10);
-  await prisma.utente.upsert({
-    where: { email: "info@casaperferiemdbarbantini.it" },
-    update: { hotels: { connect: [{ id: hotel3.id }] } },
-    create: {
-      nome: "Casa Barbantini",
-      email: "info@casaperferiemdbarbantini.it",
-      passwordHash: passwordBarbantini,
-      ruolo: "ADMIN",
-      hotels: { connect: [{ id: hotel3.id }] },
-    },
-  });
+  console.log("Seed: ruoli e utenti...");
 
-  console.log("Seed: utenti...");
+  // Ruoli predefiniti per ogni hotel: creati solo se mancano (update vuoto), così un reseed non
+  // sovrascrive i permessi che l'amministratore dell'hotel ha personalizzato.
+  const ruoloDi: Record<number, Record<string, number>> = {};
+  for (const h of [hotel, hotel2, hotel3]) {
+    ruoloDi[h.id] = {};
+    for (const r of RUOLI_PREDEFINITI) {
+      const ruolo = await prisma.ruolo.upsert({
+        where: { hotelId_nome: { hotelId: h.id, nome: r.nome } },
+        update: {},
+        create: { hotelId: h.id, nome: r.nome, permessi: r.permessi },
+      });
+      ruoloDi[h.id][r.nome] = ruolo.id;
+    }
+  }
 
-  const passwordAdmin = await bcrypt.hash("admin1234", 10);
-  const passwordReception = await bcrypt.hash("reception1234", 10);
+  async function utenteDemo(email: string, nome: string, password: string, accessi: { hotelId: number; ruolo: string }[], superAdmin = false) {
+    const passwordHash = await bcrypt.hash(password, 10);
+    const utente = await prisma.utente.upsert({
+      where: { email },
+      update: { superAdmin },
+      create: { nome, email, passwordHash, superAdmin },
+    });
+    for (const a of accessi) {
+      await prisma.utenteHotel.upsert({
+        where: { utenteId_hotelId: { utenteId: utente.id, hotelId: a.hotelId } },
+        update: {},
+        create: { utenteId: utente.id, hotelId: a.hotelId, ruoloId: ruoloDi[a.hotelId][a.ruolo] },
+      });
+    }
+  }
 
-  // Amministratore multi-struttura: vede ed edita entrambi gli hotel, con selettore in alto.
-  await prisma.utente.upsert({
-    where: { email: "admin@nuvite.it" },
-    update: { hotels: { connect: [{ id: hotel.id }, { id: hotel2.id }, { id: hotel3.id }] } },
-    create: {
-      nome: "Amministratore",
-      email: "admin@nuvite.it",
-      passwordHash: passwordAdmin,
-      ruolo: "ADMIN",
-      hotels: { connect: [{ id: hotel.id }, { id: hotel2.id }, { id: hotel3.id }] },
-    },
-  });
-
+  // Gestore della piattaforma: superadmin, vede tutti gli hotel (anche futuri) senza accessi espliciti.
+  await utenteDemo("admin@nuvite.it", "Amministratore", "admin1234", [], true);
   // Reception: un solo hotel, nessun selettore, nessun accesso a gestione camere/utenti.
-  await prisma.utente.upsert({
-    where: { email: "reception@hotelmeridiana.it" },
-    update: { hotels: { connect: [{ id: hotel.id }] } },
-    create: {
-      nome: "Reception Meridiana",
-      email: "reception@hotelmeridiana.it",
-      passwordHash: passwordReception,
-      ruolo: "RECEZIONE",
-      hotels: { connect: [{ id: hotel.id }] },
-    },
-  });
+  await utenteDemo("reception@hotelmeridiana.it", "Reception Meridiana", "reception1234", [{ hotelId: hotel.id, ruolo: "Reception" }]);
+  // Utente dedicato del cliente reale Casa Barbantini: amministratore solo del suo hotel.
+  await utenteDemo("info@casaperferiemdbarbantini.it", "Casa Barbantini", "barbantini1234", [{ hotelId: hotel3.id, ruolo: "Amministratore" }]);
 
   console.log("Seed completato.");
   console.log("Credenziali di prova:");
-  console.log("  admin@nuvite.it / admin1234              (ADMIN, vede tutti e 3 gli hotel demo)");
-  console.log("  reception@hotelmeridiana.it / reception1234  (RECEZIONE, solo Hotel Meridiana)");
+  console.log("  admin@nuvite.it / admin1234              (superadmin, vede tutti gli hotel)");
+  console.log("  reception@hotelmeridiana.it / reception1234  (Reception, solo Hotel Meridiana)");
   console.log("  info@casaperferiemdbarbantini.it / barbantini1234  (ADMIN, solo Casa Barbantini)");
 }
 

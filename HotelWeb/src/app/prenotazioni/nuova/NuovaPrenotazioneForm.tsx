@@ -153,11 +153,11 @@ export function NuovaPrenotazioneForm() {
       <div className="mx-auto max-w-lg rounded-xl border border-emerald-200 bg-emerald-50 p-6">
         <h2 className="text-lg font-bold text-emerald-800">Prenotazione #{esito.id} creata</h2>
         <p className="mt-1 text-sm text-emerald-900">Ospite prenotante: {esito.ospitePrenotante}</p>
-        <div className="mt-4 space-y-1 text-sm">
+        {esito.importiVisibili && <div className="mt-4 space-y-1 text-sm">
           <div className="flex justify-between"><span>Subtotale soggiorno</span><span className="font-mono">€ {esito.subtotale.toFixed(2)}</span></div>
           <div className="flex justify-between"><span>Tassa di soggiorno</span><span className="font-mono">€ {esito.tassa.toFixed(2)}</span></div>
           <div className="flex justify-between text-base font-bold"><span>Totale</span><span className="font-mono">€ {esito.totale.toFixed(2)}</span></div>
-        </div>
+        </div>}
         <button
           type="button"
           className="mt-6 rounded-md border border-emerald-700 px-4 py-2 text-sm font-semibold text-emerald-800"

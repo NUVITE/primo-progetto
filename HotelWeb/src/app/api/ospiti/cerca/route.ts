@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getUtenteCorrente } from "@/lib/auth";
+import { getUtenteCorrente, puo } from "@/lib/auth";
+import { PERMESSI } from "@/lib/permessi";
 
 /**
  * Ricerca ospiti per frammento di nome/cognome (in qualunque ordine), usata dalla
@@ -11,6 +12,9 @@ export async function GET(request: NextRequest) {
   const utente = await getUtenteCorrente();
   if (!utente) {
     return NextResponse.json({ error: "Non autenticato." }, { status: 401 });
+  }
+  if (!puo(utente, PERMESSI.PRENOTAZIONI_GESTISCI)) {
+    return NextResponse.json({ error: "Permesso negato." }, { status: 403 });
   }
 
   const q = request.nextUrl.searchParams.get("q")?.trim() ?? "";

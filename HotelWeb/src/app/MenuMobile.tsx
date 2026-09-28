@@ -2,20 +2,16 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { effettuaLogout } from "./logout-action";
 
 /**
- * Menu a tendina per schermi stretti. È un client component perché il layout resta montato
- * tra una pagina e l'altra: senza chiuderlo al cambio di percorso resterebbe aperto dopo il click.
+ * Menu a tendina per schermi stretti. Il layout resta montato tra una pagina e l'altra, quindi
+ * il menu va chiuso esplicitamente al click su una voce, altrimenti resterebbe aperto.
  */
 export function MenuMobile({ voci, descrizioneUtente }: { voci: { href: string; label: string }[]; descrizioneUtente: string }) {
   const [aperto, setAperto] = useState(false);
   const pathname = usePathname();
-
-  useEffect(() => {
-    setAperto(false);
-  }, [pathname]);
 
   return (
     <div className="lg:hidden">
@@ -37,6 +33,7 @@ export function MenuMobile({ voci, descrizioneUtente }: { voci: { href: string; 
                 <Link
                   key={v.href}
                   href={v.href}
+                  onClick={() => setAperto(false)}
                   className={`rounded-md px-3 py-2.5 text-sm font-semibold ${attiva ? "bg-teal-50 text-teal-800" : "text-stone-700"}`}
                 >
                   {v.label}

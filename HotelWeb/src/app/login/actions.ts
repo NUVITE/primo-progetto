@@ -25,6 +25,13 @@ export async function effettuaLogin(formData: FormData) {
     redirect(`/login${parametriErrore}`);
   }
 
+  // Account senza più nessun hotel (es. rimosso dall'ultimo): stesso messaggio di credenziali
+  // errate, invece di un errore generico da eccezione.
+  const haHotel = utente.superAdmin || (await prisma.utenteHotel.count({ where: { utenteId: utente.id } })) > 0;
+  if (!haHotel) {
+    redirect(`/login${parametriErrore}`);
+  }
+
   await creaSessione(utente.id);
   redirect(destinazione);
 }

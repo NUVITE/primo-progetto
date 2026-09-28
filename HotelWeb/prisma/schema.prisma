@@ -27,30 +27,58 @@ model Hotel {
   gruppi           Gruppo[]
   prenotazioni     Prenotazione[]
   listini          Listino[]
-  utenti           Utente[]
+  accessi          UtenteHotel[]
+  ruoli            Ruolo[]
   serviziCatalogo  ServizioCatalogo[]
 }
 
-enum RuoloUtente {
-  ADMIN
-  RECEZIONE
+/**
+ * superAdmin = gestore della piattaforma: vede tutti gli hotel (anche quelli creati dopo) con
+ * tutti i permessi, senza bisogno di righe in UtenteHotel. Gli altri utenti accedono solo agli
+ * hotel in cui hanno una riga UtenteHotel, con il ruolo indicato li' (ruoli diversi per hotel).
+ */
+model Utente {
+  id           Int           @id @default(autoincrement())
+  nome         String
+  email        String        @unique
+  passwordHash String
+  superAdmin   Boolean       @default(false)
+  attivo       Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  accessi UtenteHotel[]
 }
 
 /**
- * Relazione molti-a-molti con Hotel: la maggior parte degli utenti avra' un solo hotel,
- * ma un account "proprietario multi-struttura" puo' vedere ed operare su piu' hotel,
- * passando dall'uno all'altro (vedi src/lib/auth.ts, hotel attivo nella sessione).
+ * Ruolo configurabile per hotel: un nome e un elenco di codici permesso (vedi src/lib/permessi.ts,
+ * unica fonte dei codici validi — quelli sconosciuti vengono ignorati in lettura).
  */
-model Utente {
-  id           Int         @id @default(autoincrement())
-  hotels       Hotel[]
-  nome         String
-  email        String      @unique
-  passwordHash String
-  ruolo        RuoloUtente @default(RECEZIONE)
-  attivo       Boolean     @default(true)
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+model Ruolo {
+  id        Int      @id @default(autoincrement())
+  hotelId   Int
+  hotel     Hotel    @relation(fields: [hotelId], references: [id])
+  nome      String
+  permessi  Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  accessi UtenteHotel[]
+
+  @@unique([hotelId, nome])
+}
+
+model UtenteHotel {
+  utenteId Int
+  utente   Utente @relation(fields: [utenteId], references: [id], onDelete: Cascade)
+  hotelId  Int
+  hotel    Hotel  @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  ruoloId  Int
+  ruolo    Ruolo  @relation(fields: [ruoloId], references: [id])
+
+  @@id([utenteId, hotelId])
+  @@index([hotelId])
+  @@index([ruoloId])
 }
 
 model Comune {

@@ -10,10 +10,11 @@ import {
   eliminaIndisponibilita,
   impostaCameraAttiva,
 } from "@/lib/camere";
-import { richiediRuolo } from "@/lib/auth";
+import { richiediPermesso } from "@/lib/auth";
+import { PERMESSI } from "@/lib/permessi";
 
 async function hotelAmministrato() {
-  const utente = await richiediRuolo(["ADMIN"]);
+  const utente = await richiediPermesso(PERMESSI.CAMERE_GESTISCI);
   return utente.hotelId;
 }
 

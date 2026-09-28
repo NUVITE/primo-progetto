@@ -5,7 +5,7 @@ import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import type { RuoloUtente } from "@/generated/prisma/enums";
+import { permessiEffettivi, TUTTI_I_PERMESSI, type Permesso } from "@/lib/permessi";
 
 const COOKIE_SESSIONE = "hotelweb_sessione";
 const DURATA_SESSIONE_SECONDI = 60 * 60 * 24 * 7; // 7 giorni
@@ -46,16 +46,25 @@ async function firmaSessione(utenteId: number, hotelId: number) {
   });
 }
 
-/** Da chiamare al login: sceglie il primo hotel dell'utente come hotel attivo iniziale. */
+/** Hotel accessibili: tutti per il superadmin, altrimenti quelli con una riga UtenteHotel. */
+async function hotelAccessibili(utente: { superAdmin: boolean; accessi: { hotel: { id: number; nome: string } }[] }) {
+  if (utente.superAdmin) {
+    return prisma.hotel.findMany({ select: { id: true, nome: true }, orderBy: { nome: "asc" } });
+  }
+  return utente.accessi.map((a) => a.hotel).sort((x, y) => x.nome.localeCompare(y.nome));
+}
+
+/** Da chiamare al login: sceglie il primo hotel accessibile come hotel attivo iniziale. */
 export async function creaSessione(utenteId: number) {
   const utente = await prisma.utente.findUniqueOrThrow({
     where: { id: utenteId },
-    include: { hotels: true },
+    include: { accessi: { include: { hotel: { select: { id: true, nome: true } } } } },
   });
-  if (utente.hotels.length === 0) {
+  const hotels = await hotelAccessibili(utente);
+  if (hotels.length === 0) {
     throw new Error(`L'utente ${utente.email} non è associato a nessun hotel.`);
   }
-  await firmaSessione(utenteId, utente.hotels[0].id);
+  await firmaSessione(utenteId, hotels[0].id);
 }
 
 /** Cambia l'hotel attivo di un account con accesso a più strutture, senza rifare login. */
@@ -63,9 +72,10 @@ export async function cambiaHotelAttivo(nuovoHotelId: number) {
   const sessione = await leggiSessioneDaCookie();
   if (!sessione) redirect("/login");
 
-  const haAccesso = await prisma.utente.findFirst({
-    where: { id: sessione.utenteId, hotels: { some: { id: nuovoHotelId } } },
-  });
+  const utente = await prisma.utente.findUnique({ where: { id: sessione.utenteId } });
+  const haAccesso = utente?.superAdmin
+    ? await prisma.hotel.findUnique({ where: { id: nuovoHotelId } })
+    : await prisma.utenteHotel.findUnique({ where: { utenteId_hotelId: { utenteId: sessione.utenteId, hotelId: nuovoHotelId } } });
   if (!haAccesso) {
     throw new Error("Non hai accesso a questo hotel.");
   }
@@ -95,10 +105,14 @@ export type UtenteSessione = {
   id: number;
   nome: string;
   email: string;
-  ruolo: RuoloUtente;
+  superAdmin: boolean;
   hotelId: number;
   hotelNome: string;
   hotels: { id: number; nome: string }[];
+  /** Nome del ruolo nell'hotel attivo ("Superadmin" per il gestore della piattaforma). */
+  ruoloNome: string;
+  /** Permessi effettivi nell'hotel attivo (implicazioni già applicate). */
+  permessi: Permesso[];
 };
 
 /** Utente loggato, o null. Non reindirizza: usarla dove l'assenza di sessione è un caso normale. */
@@ -108,23 +122,33 @@ export async function getUtenteCorrente(): Promise<UtenteSessione | null> {
 
   const utente = await prisma.utente.findUnique({
     where: { id: sessione.utenteId },
-    include: { hotels: true },
+    include: { accessi: { include: { hotel: { select: { id: true, nome: true } }, ruolo: true } } },
   });
-  if (!utente || !utente.attivo || utente.hotels.length === 0) return null;
+  if (!utente || !utente.attivo) return null;
+
+  const hotels = await hotelAccessibili(utente);
+  if (hotels.length === 0) return null;
 
   // L'hotel attivo nel cookie non è più tra quelli dell'utente (es. accesso revocato
   // dopo il login): si ripiega silenziosamente sul primo disponibile.
-  const hotelAttivo = utente.hotels.find((h) => h.id === sessione.hotelId) ?? utente.hotels[0];
+  const hotelAttivo = hotels.find((h) => h.id === sessione.hotelId) ?? hotels[0];
+  const accesso = utente.accessi.find((a) => a.hotelId === hotelAttivo.id);
 
   return {
     id: utente.id,
     nome: utente.nome,
     email: utente.email,
-    ruolo: utente.ruolo,
+    superAdmin: utente.superAdmin,
     hotelId: hotelAttivo.id,
     hotelNome: hotelAttivo.nome,
-    hotels: utente.hotels.map((h) => ({ id: h.id, nome: h.nome })),
+    hotels,
+    ruoloNome: utente.superAdmin ? "Superadmin" : (accesso?.ruolo.nome ?? ""),
+    permessi: utente.superAdmin ? TUTTI_I_PERMESSI : permessiEffettivi(accesso?.ruolo.permessi),
   };
+}
+
+export function puo(utente: Pick<UtenteSessione, "permessi">, permesso: Permesso) {
+  return utente.permessi.includes(permesso);
 }
 
 /** Come getUtenteCorrente, ma manda a /login se non c'è sessione — da usare in cima alle pagine protette. */
@@ -134,9 +158,13 @@ export async function richiediUtente(): Promise<UtenteSessione> {
   return utente;
 }
 
-/** Come richiediUtente, ma in piu' verifica il ruolo — pagine riservate (es. gestione camere/utenti). */
-export async function richiediRuolo(ruoli: RuoloUtente[]): Promise<UtenteSessione> {
+/**
+ * Come richiediUtente, ma in più verifica un permesso nell'hotel attivo. Senza permesso si torna
+ * alla home, che per chi non vede nemmeno le prenotazioni mostra un messaggio invece di rimandare
+ * di nuovo altrove (niente redirect in loop).
+ */
+export async function richiediPermesso(permesso: Permesso): Promise<UtenteSessione> {
   const utente = await richiediUtente();
-  if (!ruoli.includes(utente.ruolo)) redirect("/");
+  if (!puo(utente, permesso)) redirect("/");
   return utente;
 }

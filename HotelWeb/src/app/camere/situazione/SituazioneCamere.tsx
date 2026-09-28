@@ -86,7 +86,8 @@ function oggi() {
   return d;
 }
 
-export function SituazioneCamere() {
+/** puoGestire=false: planning in sola lettura (niente prenotazione veloce né assegnazione camere). */
+export function SituazioneCamere({ puoGestire }: { puoGestire: boolean }) {
   const router = useRouter();
   const [viewMode, setViewMode] = useState<ViewMode>("quindicina");
   const [anchor, setAnchor] = useState(oggi);
@@ -230,6 +231,7 @@ export function SituazioneCamere() {
   }, [trascinamento, giorni]);
 
   function iniziaTrascinamento(idx: number) {
+    if (!puoGestire) return;
     stoTrascinando.current = true;
     setTrascinamento({ inizioIdx: idx, fineIdx: idx });
   }
@@ -465,7 +467,9 @@ export function SituazioneCamere() {
             {ETICHETTA[s]}
           </span>
         ))}
-        <span className="ml-auto text-stone-600">Trascina sulle date (o tocca il giorno di arrivo) per prenotare velocemente.</span>
+        {puoGestire && (
+          <span className="ml-auto text-stone-600">Trascina sulle date (o tocca il giorno di arrivo) per prenotare velocemente.</span>
+        )}
       </div>
 
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
@@ -532,7 +536,7 @@ export function SituazioneCamere() {
                               key={g}
                               onMouseDown={() => iniziaTrascinamento(idx)}
                               onMouseEnter={() => estendiTrascinamento(idx)}
-                              className="h-7 cursor-pointer rounded text-center text-[11px] font-mono font-bold leading-7"
+                              className={`h-7 rounded text-center ${puoGestire ? "cursor-pointer" : ""} text-[11px] font-mono font-bold leading-7`}
                               style={{
                                 background: stile?.bg ?? "#EDEBE6",
                                 color: stile?.text ?? "#6B6759",
@@ -802,13 +806,13 @@ export function SituazioneCamere() {
                             Apri prenotazione #{cand.prenotazioneId}
                           </Link>
                         </div>
-                        <button
+                        {puoGestire && <button
                           disabled={assegnando}
                           onClick={() => assegnaQuestaCamera(cameraSelezionata.id, cand)}
                           className="rounded-md bg-teal-700 px-2.5 py-1.5 text-xs font-bold text-white disabled:opacity-40"
                         >
                           Assegna questa camera
-                        </button>
+                        </button>}
                       </div>
                     ))}
                     {erroreAssegnazione && <p className="text-sm font-semibold text-red-700">{erroreAssegnazione}</p>}
@@ -817,7 +821,9 @@ export function SituazioneCamere() {
               </div>
             ) : (
               <div className="flex flex-col gap-3">
-                <p className="text-sm text-stone-600">Clicca una cella per i dettagli, oppure trascina sulle date per prenotare un periodo.</p>
+                <p className="text-sm text-stone-600">
+                  {puoGestire ? "Clicca una cella per i dettagli, oppure trascina sulle date per prenotare un periodo." : "Clicca una cella per i dettagli."}
+                </p>
                 <div className="border-t border-stone-200 pt-3">
                   <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-stone-600">
                     Prenotazioni in questo periodo

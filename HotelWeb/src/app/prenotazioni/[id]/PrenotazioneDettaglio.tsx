@@ -27,7 +27,8 @@ function eur(n: number) {
   return `€ ${n.toFixed(2)}`;
 }
 
-export function PrenotazioneDettaglio({ iniziale }: { iniziale: Prenotazione }) {
+/** puoGestire=false: sola lettura. Gli importi arrivano già azzerati dal server se non visibili. */
+export function PrenotazioneDettaglio({ iniziale, puoGestire }: { iniziale: Prenotazione; puoGestire: boolean }) {
   const [prenotazione, setPrenotazione] = useState(iniziale);
   const [camere, setCamere] = useState<Camera[]>([]);
   const [listini, setListini] = useState<Listino[]>([]);
@@ -186,6 +187,8 @@ export function PrenotazioneDettaglio({ iniziale }: { iniziale: Prenotazione }) 
     }
   }
 
+  const importi = prenotazione.importiVisibili;
+
   return (
     <div className="flex w-full min-w-0 flex-col gap-6 p-3 sm:p-6">
       <div className="flex items-center justify-between">
@@ -211,9 +214,9 @@ export function PrenotazioneDettaglio({ iniziale }: { iniziale: Prenotazione }) 
                   <th className="px-3 py-2">Check-in</th>
                   <th className="px-3 py-2">Check-out</th>
                   <th className="px-3 py-2">Notti</th>
-                  <th className="px-3 py-2">Subtot.</th>
-                  <th className="px-3 py-2">Tassa</th>
-                  <th className="px-3 py-2">Azioni</th>
+                  {importi && <th className="px-3 py-2">Subtot.</th>}
+                  {importi && <th className="px-3 py-2">Tassa</th>}
+                  {puoGestire && <th className="px-3 py-2">Azioni</th>}
                 </tr>
               </thead>
               <tbody>
@@ -243,6 +246,8 @@ export function PrenotazioneDettaglio({ iniziale }: { iniziale: Prenotazione }) 
                           </button>
                           <button onClick={() => setModificaFine(null)} className="text-xs text-stone-500">Annulla</button>
                         </div>
+                      ) : !puoGestire ? (
+                        <span className="font-mono">{s.dataFine.split("-").reverse().join("/")}</span>
                       ) : (
                         <button
                           className="font-mono underline decoration-dotted"
@@ -254,16 +259,16 @@ export function PrenotazioneDettaglio({ iniziale }: { iniziale: Prenotazione }) 
                       )}
                     </td>
                     <td data-label="Notti" className="px-3 py-2 font-mono">{s.notti}</td>
-                    <td data-label="Subtotale" className="px-3 py-2 font-mono">
+                    {importi && <td data-label="Subtotale" className="px-3 py-2 font-mono">
                       {eur(s.subtotale)}
                       {s.tariffaIncompleta && (
                         <div className="mt-0.5 text-[11px] font-semibold text-amber-700" title="Manca la tariffa per una o più notti: il subtotale non è completo.">
                           ⚠ tariffa mancante
                         </div>
                       )}
-                    </td>
-                    <td data-label="Tassa" className="px-3 py-2 font-mono">{eur(s.tassa)}</td>
-                    <td className="cella-intera px-3 py-2">
+                    </td>}
+                    {importi && <td data-label="Tassa" className="px-3 py-2 font-mono">{eur(s.tassa)}</td>}
+                    {puoGestire && <td className="cella-intera px-3 py-2">
                       {!s.cameraId && (
                         assegnaCameraState?.segmentoId === s.id ? (
                           <div className="flex flex-col gap-1 rounded-md border border-stone-200 p-2">
@@ -331,13 +336,14 @@ export function PrenotazioneDettaglio({ iniziale }: { iniziale: Prenotazione }) 
                           Cambia camera
                         </button>
                       ))}
-                    </td>
+                    </td>}
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
 
+          {puoGestire && (
           <div className="rounded-xl border border-stone-200 bg-white p-4">
             {aggiungiAperto ? (
               <div className="flex flex-col gap-3">
@@ -385,13 +391,14 @@ export function PrenotazioneDettaglio({ iniziale }: { iniziale: Prenotazione }) 
               </button>
             )}
           </div>
+          )}
 
           <div className="rounded-xl border border-stone-200 bg-white p-4">
             <h3 className="mb-2 text-sm font-bold">Servizi aggiuntivi</h3>
             {prenotazione.serviziAggiunti.length > 0 && (
               <table className="tabella-responsive mb-3 w-full text-sm">
                 <thead className="text-left text-xs uppercase text-stone-500">
-                  <tr><th className="pb-1">Servizio</th><th className="pb-1">Ambito</th><th className="pb-1">Importo</th><th /></tr>
+                  <tr><th className="pb-1">Servizio</th><th className="pb-1">Ambito</th>{importi && <th className="pb-1">Importo</th>}{puoGestire && <th />}</tr>
                 </thead>
                 <tbody>
                   {prenotazione.serviziAggiunti.map((s) => (
@@ -403,24 +410,25 @@ export function PrenotazioneDettaglio({ iniziale }: { iniziale: Prenotazione }) 
                       <td data-label="Ambito" className="py-1.5 text-xs text-stone-600">
                         {s.segmenti.length === 0 ? "Tutta la prenotazione" : s.segmenti.map((sg) => sg.etichetta).join(", ")}
                       </td>
-                      <td data-label="Importo" className="py-1.5 font-mono">
+                      {importi && <td data-label="Importo" className="py-1.5 font-mono">
                         {s.quantita > 1 ? `${s.quantita} × ${eur(s.prezzoUnitario)} = ` : ""}
                         {eur(s.totale)}
-                      </td>
-                      <td className="cella-intera py-1.5 md:text-right">
+                      </td>}
+                      {puoGestire && <td className="cella-intera py-1.5 md:text-right">
                         <button className="mr-3 text-xs font-semibold text-teal-700" onClick={() => iniziaModificaServizio(s)}>
                           Modifica
                         </button>
                         <button className="text-xs font-semibold text-red-600" onClick={() => rimuoviServizio(s.id)}>
                           Rimuovi
                         </button>
-                      </td>
+                      </td>}
                     </tr>
                   ))}
                 </tbody>
               </table>
             )}
-            {servizioAperto ? (
+            {prenotazione.serviziAggiunti.length === 0 && !puoGestire && <p className="text-sm text-stone-500">Nessun servizio aggiunto.</p>}
+            {puoGestire && (servizioAperto ? (
               <div className="flex flex-col gap-3">
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   {servizioInModifica !== null ? (
@@ -548,11 +556,11 @@ export function PrenotazioneDettaglio({ iniziale }: { iniziale: Prenotazione }) 
               <button onClick={() => setServizioAperto(true)} className="rounded-md border border-teal-700 px-3 py-1.5 text-sm font-semibold text-teal-700">
                 + Aggiungi servizio
               </button>
-            )}
+            ))}
           </div>
         </div>
 
-        <div className="rounded-xl border border-stone-200 bg-white p-5 xl:w-80 xl:flex-shrink-0">
+        {importi && <div className="rounded-xl border border-stone-200 bg-white p-5 xl:w-80 xl:flex-shrink-0">
           <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-stone-600">Riepilogo</h2>
           <div className="space-y-1 text-sm">
             <div className="flex justify-between"><span>Subtotale soggiorno</span><span className="font-mono">{eur(prenotazione.totali.subtotale)}</span></div>
@@ -590,7 +598,7 @@ export function PrenotazioneDettaglio({ iniziale }: { iniziale: Prenotazione }) 
               </div>
             )}
           </div>
-        </div>
+        </div>}
       </div>
     </div>
   );

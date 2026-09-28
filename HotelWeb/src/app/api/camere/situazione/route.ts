@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getUtenteCorrente } from "@/lib/auth";
+import { getUtenteCorrente, puo } from "@/lib/auth";
+import { PERMESSI } from "@/lib/permessi";
 
 function isoGiorno(d: Date) {
   return d.toISOString().slice(0, 10);
@@ -13,6 +14,9 @@ export async function GET(request: NextRequest) {
   const utente = await getUtenteCorrente();
   if (!utente) {
     return NextResponse.json({ error: "Non autenticato." }, { status: 401 });
+  }
+  if (!puo(utente, PERMESSI.PRENOTAZIONI_VEDI)) {
+    return NextResponse.json({ error: "Permesso negato." }, { status: 403 });
   }
   const HOTEL_ID = utente.hotelId;
 

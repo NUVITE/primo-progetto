@@ -5,11 +5,12 @@ import { prisma } from "@/lib/prisma";
 import { calcolaTotaliPrenotazione, creaPrenotazione, type CreaPrenotazioneInput } from "@/lib/prenotazioni";
 import { nottiTraDate, trovaPrezzoNotte } from "@/lib/pricing";
 import { trovaRegolamentoAttivo } from "@/lib/tassaSoggiorno";
-import { richiediUtente } from "@/lib/auth";
+import { puo, richiediPermesso } from "@/lib/auth";
+import { PERMESSI } from "@/lib/permessi";
 import { elencoServiziCatalogo } from "@/lib/servizi";
 
 export async function datiIniziali() {
-  const { hotelId } = await richiediUtente();
+  const { hotelId } = await richiediPermesso(PERMESSI.PRENOTAZIONI_VEDI);
   const [camere, tipiCamera, listini, serviziCatalogo] = await Promise.all([
     prisma.camera.findMany({ where: { hotelId, attivo: true }, include: { tipoCamera: true }, orderBy: { codice: "asc" } }),
     prisma.tipoCamera.findMany({ where: { hotelId } }),
@@ -44,7 +45,10 @@ export async function anteprimaSegmento(input: {
   dataFine: string;
 }) {
   return conEsito(async () => {
-    const { hotelId } = await richiediUtente();
+    const utente = await richiediPermesso(PERMESSI.PRENOTAZIONI_GESTISCI);
+    // Stima prezzi: senza "Vedere importi" non si calcola nemmeno (il riquadro non compare).
+    if (!puo(utente, PERMESSI.IMPORTI_VEDI)) return null;
+    const { hotelId } = utente;
 
     const camera = await prisma.camera.findFirstOrThrow({
       where: { id: input.cameraId, hotelId },
@@ -89,7 +93,10 @@ export async function anteprimaGenerica(input: {
   dataFine: string;
 }) {
   return conEsito(async () => {
-    const { hotelId } = await richiediUtente();
+    const utente = await richiediPermesso(PERMESSI.PRENOTAZIONI_GESTISCI);
+    // Stima prezzi: senza "Vedere importi" non si calcola nemmeno (il riquadro non compare).
+    if (!puo(utente, PERMESSI.IMPORTI_VEDI)) return null;
+    const { hotelId } = utente;
 
     const hotel = await prisma.hotel.findFirstOrThrow({
       where: { id: hotelId },
@@ -150,12 +157,16 @@ export async function anteprimaGenerica(input: {
 
 export async function salvaPrenotazione(input: CreaPrenotazioneInput) {
   return conEsito(async () => {
-    const { hotelId } = await richiediUtente();
+    const utente = await richiediPermesso(PERMESSI.PRENOTAZIONI_GESTISCI);
+    const { hotelId } = utente;
     const prenotazione = await creaPrenotazione(hotelId, input);
+    const totali = calcolaTotaliPrenotazione(prenotazione);
+    const importiVisibili = puo(utente, PERMESSI.IMPORTI_VEDI);
     return {
       id: prenotazione.id,
       ospitePrenotante: `${prenotazione.ospitePrenotante.nome} ${prenotazione.ospitePrenotante.cognome}`,
-      ...calcolaTotaliPrenotazione(prenotazione),
+      importiVisibili,
+      ...(importiVisibili ? totali : { subtotale: 0, tassa: 0, servizi: 0, totale: 0 }),
     };
   });
 }
