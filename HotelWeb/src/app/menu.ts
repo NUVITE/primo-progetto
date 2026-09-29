@@ -46,6 +46,7 @@ export const MENU: GruppoMenu[] = [
     voci: [
       { href: "/piattaforma/hotel", label: "Hotel" },
       { href: "/piattaforma/tassa", label: "Tassa di soggiorno" },
+      { href: "/piattaforma/tabelle-polizia", label: "Tabelle Polizia" },
     ],
   },
 ];
