@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { RUOLI_PREDEFINITI } from "@/lib/permessi";
 import { CATALOGO_MODULI, moduliAttivi, type Modulo } from "@/lib/moduli";
+import { sistemaIstatValido } from "@/lib/istat";
 
 /**
  * Gestione degli hotel dalla sezione Piattaforma (solo superadmin: il controllo è nelle action).
@@ -17,6 +18,7 @@ export type DatiHotel = {
   telefono: string;
   email: string;
   pec: string;
+  sistemaIstat: string;
 };
 
 /** Stringhe vuote -> null, spazi tolti: nel database niente campi "vuoti ma non null". */
@@ -38,6 +40,7 @@ function normalizza(d: DatiHotel) {
     telefono: v(d.telefono),
     email: v(d.email)?.toLowerCase() ?? null,
     pec: v(d.pec)?.toLowerCase() ?? null,
+    sistemaIstat: sistemaIstatValido(d.sistemaIstat),
   };
 }
 

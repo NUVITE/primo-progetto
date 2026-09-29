@@ -251,6 +251,18 @@ async function verificaCameraAperta(db: Db, prenotazioneId: number, segmentoId: 
   for (const ospiteId of await occupanti(db, segmentoId)) await verificaPosizioneAperta(db, prenotazioneId, ospiteId);
 }
 
+/**
+ * Come verificaCameraAperta, ma solo per chi è ancora nella camera dopo la data indicata: chi è già
+ * partito prima (soggiorno chiuso) non viene toccato dall'accorciamento o allungamento.
+ */
+async function verificaOccupantiDopo(db: Db, prenotazioneId: number, segmento: { id: number; dataFine: Date }, data: Date) {
+  const presenze = await db.presenza.findMany({ where: { segmentoId: segmento.id } });
+  for (const p of presenze) {
+    const fine = p.al ?? segmento.dataFine;
+    if (fine > data || !p.al) await verificaPosizioneAperta(db, prenotazioneId, p.ospiteId);
+  }
+}
+
 async function ricalcolaOccupanti(db: Db, prenotazioneId: number, ospiti: number[]) {
   for (const ospiteId of new Set(ospiti)) await ricalcolaTassaPosizione(db, prenotazioneId, ospiteId);
 }
@@ -429,10 +441,10 @@ export async function aggiungiSegmentoAPrenotazione(hotelId: number, prenotazion
 export async function cambiaDataFineSegmento(hotelId: number, segmentoId: number, nuovaDataFineIso: string) {
   return prisma.$transaction(async (tx) => {
     const segmento = await trovaSegmentoDelHotel(tx, hotelId, segmentoId);
-    await verificaCameraAperta(tx, segmento.prenotazioneId, segmentoId);
+    const nuovaDataFine = new Date(nuovaDataFineIso);
+    await verificaOccupantiDopo(tx, segmento.prenotazioneId, segmento, nuovaDataFine < segmento.dataFine ? nuovaDataFine : segmento.dataFine);
     const ospiti = await occupanti(tx, segmentoId);
 
-    const nuovaDataFine = new Date(nuovaDataFineIso);
     if (nuovaDataFine <= segmento.dataInizio) {
       throw new Error("La nuova data di partenza deve essere dopo l'arrivo.");
     }

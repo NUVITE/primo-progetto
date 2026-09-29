@@ -36,6 +36,7 @@ export default async function DettaglioHotelPage({ params }: { params: Promise<{
           telefono: t(hotel.telefono),
           email: t(hotel.email),
           pec: t(hotel.pec),
+          sistemaIstat: t(hotel.sistemaIstat),
         }}
       />
     </div>

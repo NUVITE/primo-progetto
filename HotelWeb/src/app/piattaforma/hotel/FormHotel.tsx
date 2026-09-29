@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { sbusta } from "@/lib/esito";
 import type { DatiHotel } from "@/lib/hotel";
+import { SISTEMI_ISTAT } from "@/lib/istat";
 import { azioneAggiornaHotel, azioneCreaComune, azioneCreaHotel, datiModulo } from "./actions";
 
 type Riferimenti = Awaited<ReturnType<typeof datiModulo>>;
@@ -23,6 +24,7 @@ export const HOTEL_VUOTO: DatiHotel = {
   telefono: "",
   email: "",
   pec: "",
+  sistemaIstat: "",
 };
 
 /** hotelId assente = creazione (con eventuale primo amministratore), altrimenti modifica. */
@@ -159,6 +161,18 @@ export function FormHotel({ riferimenti, iniziale, hotelId }: { riferimenti: Rif
           <label className={ETICHETTA}>
             Email
             <input type="email" className={INPUT} {...campo("email")} />
+          </label>
+          <label className={ETICHETTA}>
+            Sistema per la statistica ISTAT
+            <select className={INPUT} value={dati.sistemaIstat} onChange={(e) => setDati({ ...dati, sistemaIstat: e.target.value })}>
+              <option value="">Nessuno / non ancora configurato</option>
+              {SISTEMI_ISTAT.map((s) => (
+                <option key={s.valore} value={s.valore}>
+                  {s.nome}
+                </option>
+              ))}
+            </select>
+            <span className="mt-1 text-[11px] text-stone-500">Decide quali voci di motivo del viaggio e mezzo di trasporto compaiono al check-in.</span>
           </label>
         </div>
       </section>

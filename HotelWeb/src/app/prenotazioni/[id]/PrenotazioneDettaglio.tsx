@@ -211,7 +211,7 @@ export function PrenotazioneDettaglio({ iniziale, puoGestire, puoRiaprire }: { i
               <thead className="border-b border-stone-200 bg-stone-50 text-left text-xs uppercase tracking-wide text-stone-600">
                 <tr>
                   <th className="px-3 py-2">Camera</th>
-                  <th className="px-3 py-2">Ospite</th>
+                  <th className="px-3 py-2">Ospiti</th>
                   <th className="px-3 py-2">Check-in</th>
                   <th className="px-3 py-2">Check-out</th>
                   <th className="px-3 py-2">Notti</th>
@@ -231,7 +231,21 @@ export function PrenotazioneDettaglio({ iniziale, puoGestire, puoRiaprire }: { i
                       )}
                       <div className="text-xs text-stone-600">{s.tipoCameraNome}</div>
                     </td>
-                    <td data-label="Ospite" className="px-3 py-2">{s.ospiteNome}</td>
+                    <td data-label="Ospiti" className="px-3 py-2">
+                      {s.occupanti.map((o) => (
+                        <div key={o.presenzaId}>
+                          {o.nome}
+                          {o.stato !== "attesa" && (
+                            <span className={`ml-1 text-[10px] font-semibold uppercase ${o.stato === "partito" ? "text-emerald-700" : "text-teal-700"}`}>
+                              {o.stato === "partito" ? "partito" : "arrivato"}
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                      <Link href={`/prenotazioni/${prenotazione.id}/checkin/${s.id}`} className="text-xs font-semibold text-teal-700 underline">
+                        {s.occupanti.every((o) => o.stato === "attesa") ? "Check-in" : "Ospiti e check-out"}
+                      </Link>
+                    </td>
                     <td data-label="Check-in" className="px-3 py-2 font-mono">{s.dataInizio.split("-").reverse().join("/")}</td>
                     <td data-label="Check-out" className="px-3 py-2">
                       {modificaFine?.segmentoId === s.id ? (

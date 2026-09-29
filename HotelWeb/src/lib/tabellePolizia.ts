@@ -14,16 +14,7 @@ const FONTI = {
   documenti: `${BASE}?ID=2&N=DOCUMENTI`,
 };
 
-/** Tipi di alloggiato: 5 codici fissi del tracciato (tabella ufficiale TIPO_ALLOGGIATO). */
-export const TIPI_ALLOGGIATO: { codice: number; descrizione: string; documento: boolean }[] = [
-  { codice: 16, descrizione: "Ospite singolo", documento: true },
-  { codice: 17, descrizione: "Capofamiglia", documento: true },
-  { codice: 18, descrizione: "Capogruppo", documento: true },
-  { codice: 19, descrizione: "Familiare", documento: false },
-  { codice: 20, descrizione: "Membro del gruppo", documento: false },
-];
-
-export const CODICE_ITALIA = "100000100";
+export { CODICE_ITALIA, TIPI_ALLOGGIATO } from "@/lib/codiciPolizia";
 
 async function scarica(url: string) {
   const risposta = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(60_000) });
