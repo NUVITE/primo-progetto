@@ -20,10 +20,8 @@ const prisma = new PrismaClient({
 });
 
 async function main() {
-  const coppie = await prisma.segmentoSoggiorno.findMany({
-    select: { prenotazioneId: true, ospiteId: true },
-    distinct: ["prenotazioneId", "ospiteId"],
-  });
+  const presenze = await prisma.presenza.findMany({ select: { ospiteId: true, segmento: { select: { prenotazioneId: true } } } });
+  const coppie = [...new Map(presenze.map((p) => [`${p.segmento.prenotazioneId}-${p.ospiteId}`, { prenotazioneId: p.segmento.prenotazioneId, ospiteId: p.ospiteId }])).values()];
   let ricalcolate = 0;
   for (const { prenotazioneId, ospiteId } of coppie) {
     await prisma.$transaction((tx) => ricalcolaTassaPosizione(tx, prenotazioneId, ospiteId));

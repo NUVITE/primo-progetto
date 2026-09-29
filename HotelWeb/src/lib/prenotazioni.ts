@@ -128,7 +128,7 @@ export async function creaPrenotazioneGenerica(hotelId: number, input: CreaPreno
 export async function assegnaCamera(hotelId: number, segmentoId: number, cameraId: number) {
   return prisma.$transaction(async (tx) => {
     const segmento = await trovaSegmentoDelHotel(tx, hotelId, segmentoId);
-    await verificaPosizioneAperta(tx, segmento.prenotazioneId, segmento.ospiteId);
+    await verificaCameraAperta(tx, segmento.prenotazioneId, segmentoId);
     if (segmento.cameraId) {
       throw new Error("Questo segmento ha già una camera assegnata: usa Cambia camera per sostituirla.");
     }
@@ -159,7 +159,7 @@ export function calcolaTotaliPrenotazione(prenotazione: PrenotazioneCompleta) {
     0
   );
   const tassa = prenotazione.segmenti.reduce(
-    (tot, seg) => tot + seg.notti.reduce((s, n) => s + (n.tassa ? Number(n.tassa.importo) : 0), 0),
+    (tot, seg) => tot + seg.notti.reduce((s, n) => s + n.tasse.reduce((t, x) => t + Number(x.importo), 0), 0),
     0
   );
   const servizi = prenotazione.serviziAggiunti.reduce((tot, s) => tot + Number(s.prezzoUnitario) * s.quantita, 0);
@@ -194,6 +194,7 @@ export async function cercaPrenotazioni(hotelId: number, query: string) {
       OR: [
         { ospitePrenotante: { OR: [{ nome: { contains: q } }, { cognome: { contains: q } }] } },
         { segmenti: { some: { ospite: { OR: [{ nome: { contains: q } }, { cognome: { contains: q } }] } } } },
+        { segmenti: { some: { presenze: { some: { ospite: { OR: [{ nome: { contains: q } }, { cognome: { contains: q } }] } } } } } },
       ],
     },
     include: {
@@ -215,7 +216,13 @@ async function caricaPrenotazioneCompleta(db: Db, hotelId: number, id: number) {
       gruppo: true,
       segmenti: {
         orderBy: { dataInizio: "asc" },
-        include: { camera: true, tipoCamera: true, ospite: true, notti: { include: { tassa: true } } },
+        include: {
+          camera: true,
+          tipoCamera: true,
+          ospite: true,
+          notti: { include: { tasse: true } },
+          presenze: { include: { ospite: true }, orderBy: { id: "asc" } },
+        },
       },
       serviziAggiunti: {
         orderBy: { createdAt: "asc" },
@@ -231,6 +238,21 @@ async function trovaSegmentoDelHotel(db: Db, hotelId: number, segmentoId: number
     include: { camera: true, tipoCamera: true, ospite: true },
   });
   return segmento;
+}
+
+/** Ospiti che occupano una camera prenotata (le sue Presenze). */
+async function occupanti(db: Db, segmentoId: number) {
+  const presenze = await db.presenza.findMany({ where: { segmentoId }, select: { ospiteId: true } });
+  return [...new Set(presenze.map((p) => p.ospiteId))];
+}
+
+/** Nessuna modifica a una camera se uno dei suoi occupanti ha già chiuso il soggiorno. */
+async function verificaCameraAperta(db: Db, prenotazioneId: number, segmentoId: number) {
+  for (const ospiteId of await occupanti(db, segmentoId)) await verificaPosizioneAperta(db, prenotazioneId, ospiteId);
+}
+
+async function ricalcolaOccupanti(db: Db, prenotazioneId: number, ospiti: number[]) {
+  for (const ospiteId of new Set(ospiti)) await ricalcolaTassaPosizione(db, prenotazioneId, ospiteId);
 }
 
 async function trovaCameraDelHotel(db: Db, hotelId: number, cameraId: number) {
@@ -354,6 +376,8 @@ async function creaSegmento(
   });
 
   await generaNotti(db, segmento.id, listino, segInput.tipoCameraId, dataInizio, dataFine);
+  // L'intestatario è anche il primo occupante; gli altri si aggiungono al check-in.
+  await db.presenza.create({ data: { segmentoId: segmento.id, ospiteId: ospite.id } });
   await ricalcolaTassaPosizione(db, prenotazioneId, ospite.id);
 
   return segmento;
@@ -405,11 +429,16 @@ export async function aggiungiSegmentoAPrenotazione(hotelId: number, prenotazion
 export async function cambiaDataFineSegmento(hotelId: number, segmentoId: number, nuovaDataFineIso: string) {
   return prisma.$transaction(async (tx) => {
     const segmento = await trovaSegmentoDelHotel(tx, hotelId, segmentoId);
-    await verificaPosizioneAperta(tx, segmento.prenotazioneId, segmento.ospiteId);
+    await verificaCameraAperta(tx, segmento.prenotazioneId, segmentoId);
+    const ospiti = await occupanti(tx, segmentoId);
 
     const nuovaDataFine = new Date(nuovaDataFineIso);
     if (nuovaDataFine <= segmento.dataInizio) {
       throw new Error("La nuova data di partenza deve essere dopo l'arrivo.");
+    }
+    const arrivaDopo = await tx.presenza.findFirst({ where: { segmentoId, dal: { gte: nuovaDataFine } }, include: { ospite: true } });
+    if (arrivaDopo) {
+      throw new Error(`${arrivaDopo.ospite.nome} ${arrivaDopo.ospite.cognome} arriva dopo la nuova data di partenza: toglilo prima dalla camera.`);
     }
 
     if (nuovaDataFine < segmento.dataFine) {
@@ -420,6 +449,8 @@ export async function cambiaDataFineSegmento(hotelId: number, segmentoId: number
       });
       await tx.tassaNotte.deleteMany({ where: { notteId: { in: notti.map((n) => n.id) } } });
       await tx.notteSoggiorno.deleteMany({ where: { id: { in: notti.map((n) => n.id) } } });
+      // Chi partiva dopo la nuova data ora parte con la camera.
+      await tx.presenza.updateMany({ where: { segmentoId, al: { gte: nuovaDataFine } }, data: { al: null } });
     } else if (nuovaDataFine > segmento.dataFine) {
       // Allunga: verifica disponibilità e genera le notti aggiuntive.
       if (segmento.cameraId) {
@@ -438,7 +469,7 @@ export async function cambiaDataFineSegmento(hotelId: number, segmentoId: number
     }
 
     await tx.segmentoSoggiorno.update({ where: { id: segmentoId }, data: { dataFine: nuovaDataFine } });
-    await ricalcolaTassaPosizione(tx, segmento.prenotazioneId, segmento.ospiteId);
+    await ricalcolaOccupanti(tx, segmento.prenotazioneId, ospiti);
 
     return caricaPrenotazioneCompleta(tx, hotelId, segmento.prenotazioneId);
   });
@@ -452,7 +483,7 @@ export async function cambiaDataFineSegmento(hotelId: number, segmentoId: number
 export async function cambiaCameraSegmento(hotelId: number, segmentoId: number, dataCambioIso: string, nuovaCameraId: number) {
   return prisma.$transaction(async (tx) => {
     const segmento = await trovaSegmentoDelHotel(tx, hotelId, segmentoId);
-    await verificaPosizioneAperta(tx, segmento.prenotazioneId, segmento.ospiteId);
+    await verificaCameraAperta(tx, segmento.prenotazioneId, segmentoId);
 
     const dataCambio = new Date(dataCambioIso);
     if (dataCambio <= segmento.dataInizio || dataCambio >= segmento.dataFine) {
@@ -477,7 +508,7 @@ export async function cambiaCameraSegmento(hotelId: number, segmentoId: number, 
     await tx.notteSoggiorno.deleteMany({ where: { id: { in: nottiDaRimuovere.map((n) => n.id) } } });
     await tx.segmentoSoggiorno.update({ where: { id: segmentoId }, data: { dataFine: dataCambio } });
 
-    await creaSegmento(
+    const nuovo = await creaSegmento(
       tx,
       hotelId,
       segmento.prenotazioneId,
@@ -492,6 +523,22 @@ export async function cambiaCameraSegmento(hotelId: number, segmentoId: number, 
       },
       segmentoId
     );
+
+    // Gli occupanti ancora presenti alla data del cambio passano nella nuova camera con i loro dati
+    // di check-in; chi arriva dopo il cambio si sposta del tutto.
+    const presenze = await tx.presenza.findMany({ where: { segmentoId } });
+    for (const p of presenze) {
+      if (p.al && p.al <= dataCambio) continue; // già partito prima del cambio
+      const { id, segmentoId: _vecchio, createdAt: _c, updatedAt: _u, ...dati } = p;
+      await tx.presenza.upsert({
+        where: { segmentoId_ospiteId: { segmentoId: nuovo.id, ospiteId: p.ospiteId } },
+        update: { ...dati, dal: p.dal && p.dal > dataCambio ? p.dal : null },
+        create: { ...dati, segmentoId: nuovo.id, dal: p.dal && p.dal > dataCambio ? p.dal : null },
+      });
+      if (p.dal && p.dal >= dataCambio) await tx.presenza.delete({ where: { id } });
+      else if (p.al) await tx.presenza.update({ where: { id }, data: { al: null } });
+    }
+    await ricalcolaOccupanti(tx, segmento.prenotazioneId, presenze.map((p) => p.ospiteId));
 
     return caricaPrenotazioneCompleta(tx, hotelId, segmento.prenotazioneId);
   });

@@ -71,11 +71,13 @@ async function verificaNessunaSovrapposizione(comuneId: number, dal: Date, al: D
 
 /** Ricalcola le posizioni aperte con notti negli hotel del comune (quelle chiuse restano come sono). */
 async function ricalcolaComune(comuneId: number) {
-  const coppie = await prisma.segmentoSoggiorno.findMany({
-    where: { prenotazione: { hotel: { comuneId } } },
-    select: { prenotazioneId: true, ospiteId: true },
-    distinct: ["prenotazioneId", "ospiteId"],
+  const presenze = await prisma.presenza.findMany({
+    where: { segmento: { prenotazione: { hotel: { comuneId } } } },
+    select: { ospiteId: true, segmento: { select: { prenotazioneId: true } } },
   });
+  const coppie = [
+    ...new Map(presenze.map((p) => [`${p.segmento.prenotazioneId}-${p.ospiteId}`, { prenotazioneId: p.segmento.prenotazioneId, ospiteId: p.ospiteId }])).values(),
+  ];
   for (const c of coppie) {
     await prisma.$transaction((tx) => ricalcolaTassaPosizione(tx, c.prenotazioneId, c.ospiteId));
   }

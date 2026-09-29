@@ -32,6 +32,9 @@ model Hotel {
   attivo         Boolean  @default(true)
   // Codici dei moduli opzionali attivi (vedi src/lib/moduli.ts). Null = nessuno.
   moduli         Json?
+  // Sistema regionale per la statistica ISTAT: "ROSS1000" (es. Lazio) | "SPOT" (Puglia) | null.
+  // Decide quali liste di motivo/mezzo compaiono al check-in (valori nativi, vedi src/lib/istat.ts).
+  sistemaIstat   String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -153,19 +156,34 @@ model CameraIndisponibilita {
 }
 
 model Ospite {
-  id          Int       @id @default(autoincrement())
-  hotelId     Int
-  hotel       Hotel     @relation(fields: [hotelId], references: [id])
-  nome        String
-  cognome     String
-  telefono    String?
-  email       String?
-  dataNascita DateTime? @db.Date
-  note        String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id                      Int       @id @default(autoincrement())
+  hotelId                 Int
+  hotel                   Hotel     @relation(fields: [hotelId], references: [id])
+  nome                    String
+  cognome                 String
+  telefono                String?
+  email                   String?
+  dataNascita             DateTime? @db.Date
+  // Anagrafica per schedina PS (Alloggiati Web) e ISTAT. I luoghi sono codici delle tabelle
+  // ufficiali Polizia (LuogoPolizia, 9 cifre); niente FK: le tabelle si reimportano e i codici
+  // cessati restano validi per lo storico (es. comune di nascita soppresso).
+  sesso                   String?   @db.Char(1)
+  statoNascitaCodice      String?   @db.VarChar(9)
+  comuneNascitaCodice     String?   @db.VarChar(9)
+  cittadinanzaCodice      String?   @db.VarChar(9)
+  residenzaStatoCodice    String?   @db.VarChar(9)
+  residenzaComuneCodice   String?   @db.VarChar(9)
+  // Documento dell'ultimo check-in (riusato al soggiorno successivo). Per intero solo a chi
+  // gestisce le prenotazioni: altrove si mostra mascherato.
+  documentoTipoCodice     String?   @db.VarChar(5)
+  documentoNumero         String?   @db.VarChar(20)
+  documentoRilascioCodice String?   @db.VarChar(9)
+  note                    String?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
 
   segmenti               SegmentoSoggiorno[]
+  presenze               Presenza[]
   prenotazioniPrenotante Prenotazione[]      @relation("prenotante")
   prenotazioniPagante    Prenotazione[]      @relation("pagante")
   posizioniTassa         PosizioneTassa[]
@@ -234,6 +252,8 @@ model SegmentoSoggiorno {
   // di disponibilita' per tipo. Congelato al momento della creazione del segmento.
   tipoCameraId   Int
   tipoCamera     TipoCamera    @relation(fields: [tipoCameraId], references: [id])
+  // Intestatario della camera (riferimento per planning ed elenchi). Le PERSONE che occupano la
+  // camera sono le Presenze: il prezzo è per camera (notti), la tassa per persona.
   ospiteId       Int
   ospite         Ospite        @relation(fields: [ospiteId], references: [id])
   // Trattamento semplificato a stringa libera per questa fetta (niente tabella dedicata ancora).
@@ -250,6 +270,7 @@ model SegmentoSoggiorno {
   segmentoSuccessivo   SegmentoSoggiorno? @relation("catena")
 
   notti     NotteSoggiorno[]
+  presenze  Presenza[]
   createdAt DateTime         @default(now())
   updatedAt DateTime         @updatedAt
 
@@ -317,7 +338,8 @@ model NotteSoggiorno {
   // "base" | "personalizzato" | "gruppo" -- quale regola ha determinato il prezzo.
   motivoPrezzo String
 
-  tassa TassaNotte?
+  // Una riga di tassa per ogni persona presente quella notte (vedi Presenza).
+  tasse TassaNotte[]
 
   @@unique([segmentoId, data])
 }
@@ -493,7 +515,9 @@ model EventoTassa {
  */
 model TassaNotte {
   id            Int              @id @default(autoincrement())
-  notteId       Int              @unique
+  presenzaId    Int
+  presenza      Presenza         @relation(fields: [presenzaId], references: [id], onDelete: Cascade)
+  notteId       Int
   notte         NotteSoggiorno   @relation(fields: [notteId], references: [id])
   regolamentoId Int
   regolamento   RegolamentoTassa @relation(fields: [regolamentoId], references: [id])
@@ -503,4 +527,66 @@ model TassaNotte {
   regola        RegolaTassa?     @relation(fields: [regolaId], references: [id])
   esito         String
   importo       Decimal          @db.Decimal(6, 2)
+
+  @@unique([presenzaId, notteId])
+  @@index([notteId])
+}
+
+/**
+ * Persona che occupa una camera prenotata (SegmentoSoggiorno). dal/al null = stesso periodo della
+ * camera; valorizzati se la persona arriva dopo o parte prima (al = giorno di partenza, notte esclusa).
+ * tipoAlloggiato: codici Polizia 16 singolo, 17 capofamiglia, 18 capogruppo, 19 familiare, 20 membro;
+ * per 19/20 capoOspiteId indica il capo. stato: "attesa" | "arrivato" | "partito".
+ * L'id è anche l'identificativo stabile per ISTAT (idswh / codiceclientesr): non cambia mai.
+ */
+model Presenza {
+  id               Int               @id @default(autoincrement())
+  segmentoId       Int
+  segmento         SegmentoSoggiorno @relation(fields: [segmentoId], references: [id], onDelete: Cascade)
+  ospiteId         Int
+  ospite           Ospite            @relation(fields: [ospiteId], references: [id])
+  dal              DateTime?         @db.Date
+  al               DateTime?         @db.Date
+  tipoAlloggiato   Int?
+  capoOspiteId     Int?
+  stato            String            @default("attesa")
+  arrivoIl         DateTime?
+  partenzaIl       DateTime?
+  // Dati ISTAT con i valori nativi del sistema dell'hotel (Ross1000 o SPOT).
+  occupaPostoLetto Boolean           @default(true)
+  motivoViaggio    String?
+  mezzoArrivo      String?
+  mezzoMovimento   String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  tasse TassaNotte[]
+
+  @@unique([segmentoId, ospiteId])
+}
+
+/**
+ * Tabella ufficiale Polizia dei luoghi (comuni italiani e stati esteri), da Alloggiati Web.
+ */
+model LuogoPolizia {
+  codice       String    @id @db.VarChar(9)
+  descrizione  String
+  // Sigla provincia per i comuni; "ES" per gli stati esteri.
+  provincia    String?   @db.VarChar(2)
+  // "comune" | "stato"
+  tipo         String
+  // Codice cessato da questa data (resta valido per le date precedenti, es. luogo di nascita).
+  dataFineVal  DateTime?
+  aggiornatoIl DateTime  @updatedAt
+
+  @@index([descrizione])
+}
+
+/**
+ * Tabella ufficiale Polizia dei tipi di documento di identità.
+ */
+model DocumentoPolizia {
+  codice       String   @id @db.VarChar(5)
+  descrizione  String
+  aggiornatoIl DateTime @updatedAt
 }

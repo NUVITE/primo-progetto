@@ -12,19 +12,21 @@ async function prenotazioneDelHotel(hotelId: number, prenotazioneId: number) {
 }
 
 async function ospiteNellaPrenotazione(prenotazioneId: number, ospiteId: number) {
-  const c = await prisma.segmentoSoggiorno.count({ where: { prenotazioneId, ospiteId } });
+  const c = await prisma.presenza.count({ where: { ospiteId, segmento: { prenotazioneId } } });
   if (!c) throw new Error("Questo ospite non fa parte della prenotazione.");
 }
 
 /** Quadro tassa della prenotazione, un blocco per ospite. */
 export async function datiTassaPrenotazione(hotelId: number, prenotazioneId: number) {
   const prenotazione = await prenotazioneDelHotel(hotelId, prenotazioneId);
-  const segmenti = await prisma.segmentoSoggiorno.findMany({
-    where: { prenotazioneId },
+  const presenze = await prisma.presenza.findMany({
+    where: { segmento: { prenotazioneId } },
     include: {
       ospite: true,
-      notti: { include: { tassa: { include: { regola: true, tariffa: true } } }, orderBy: { data: "asc" } },
+      segmento: { select: { dataInizio: true } },
+      tasse: { include: { notte: true, regola: true } },
     },
+    orderBy: { id: "asc" },
   });
   const posizioni = await prisma.posizioneTassa.findMany({
     where: { prenotazioneId },
@@ -35,7 +37,10 @@ export async function datiTassaPrenotazione(hotelId: number, prenotazioneId: num
   });
 
   // Regole della versione in vigore all'arrivo: quelle che la reception può dichiarare.
-  const arrivo = segmenti.reduce<Date | null>((m, s) => (!m || s.dataInizio < m ? s.dataInizio : m), null);
+  const arrivo = presenze.reduce<Date | null>((m, p) => {
+    const d = p.dal ?? p.segmento.dataInizio;
+    return !m || d < m ? d : m;
+  }, null);
   const versione = arrivo
     ? await prisma.regolamentoTassa.findFirst({
         where: { comuneId: prenotazione.hotel.comuneId, validoDal: { lte: arrivo }, OR: [{ validoAl: null }, { validoAl: { gte: arrivo } }] },
@@ -43,7 +48,7 @@ export async function datiTassaPrenotazione(hotelId: number, prenotazioneId: num
       })
     : null;
 
-  const ospiti = [...new Map(segmenti.map((s) => [s.ospiteId, s.ospite])).values()];
+  const ospiti = [...new Map(presenze.map((p) => [p.ospiteId, p.ospite])).values()];
   return {
     regolamento: versione
       ? {
@@ -57,10 +62,11 @@ export async function datiTassaPrenotazione(hotelId: number, prenotazioneId: num
       : null,
     ospiti: ospiti.map((o) => {
       const pos = posizioni.find((p) => p.ospiteId === o.id);
-      const notti = segmenti
-        .filter((s) => s.ospiteId === o.id)
-        .flatMap((s) => s.notti)
-        .sort((a, b) => a.data.getTime() - b.data.getTime());
+      // Righe di tassa della persona (una per notte trascorsa, anche su più camere).
+      const notti = presenze
+        .filter((p) => p.ospiteId === o.id)
+        .flatMap((p) => p.tasse)
+        .sort((a, b) => a.notte.data.getTime() - b.notte.data.getTime());
       return {
         ospiteId: o.id,
         nome: `${o.nome} ${o.cognome}`,
@@ -72,12 +78,12 @@ export async function datiTassaPrenotazione(hotelId: number, prenotazioneId: num
         nottiAnnoDichiarate: pos?.nottiAnnoDichiarate ?? 0,
         rifiutoPagamento: pos?.rifiutoPagamento ?? false,
         notaRifiuto: pos?.notaRifiuto ?? "",
-        notti: notti.map((n) => ({
-          data: n.data.toISOString().slice(0, 10),
-          esito: (n.tassa?.esito ?? null) as EsitoTassa | null,
-          etichetta: n.tassa ? ETICHETTA_ESITO[n.tassa.esito as EsitoTassa] : "Nessuna tassa in vigore",
-          importo: n.tassa ? Number(n.tassa.importo) : 0,
-          motivo: n.tassa?.regola?.descrizione ?? null,
+        notti: notti.map((t) => ({
+          data: t.notte.data.toISOString().slice(0, 10),
+          esito: t.esito as EsitoTassa,
+          etichetta: ETICHETTA_ESITO[t.esito as EsitoTassa],
+          importo: Number(t.importo),
+          motivo: t.regola?.descrizione ?? null,
         })),
         dichiarazioni: (pos?.dichiarazioni ?? []).map((d) => ({
           id: d.id,

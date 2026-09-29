@@ -73,7 +73,17 @@ async function serializza(prenotazione: Awaited<ReturnType<typeof trovaPrenotazi
       segmentoPrecedenteId: s.segmentoPrecedenteId,
       notti: s.notti.length,
       subtotale: imp(s.notti.reduce((t, n) => t + Number(n.prezzo), 0)),
-      tassa: imp(s.notti.reduce((t, n) => t + (n.tassa ? Number(n.tassa.importo) : 0), 0)),
+      tassa: imp(s.notti.reduce((t, n) => t + n.tasse.reduce((x, r) => x + Number(r.importo), 0), 0)),
+      // Persone nella camera (la tassa è per persona, il prezzo per camera).
+      occupanti: s.presenze.map((p) => ({
+        presenzaId: p.id,
+        ospiteId: p.ospiteId,
+        nome: `${p.ospite.nome} ${p.ospite.cognome}`,
+        tipoAlloggiato: p.tipoAlloggiato,
+        stato: p.stato,
+        dal: p.dal?.toISOString().slice(0, 10) ?? null,
+        al: p.al?.toISOString().slice(0, 10) ?? null,
+      })),
       // Notti create senza trovare una tariffa (prenotazione bloccata comunque, da sistemare
       // aggiungendo il listino mancante) — vedi generaNottiETasse in src/lib/prenotazioni.ts.
       tariffaIncompleta: s.notti.some((n) => n.motivoPrezzo === "mancante"),

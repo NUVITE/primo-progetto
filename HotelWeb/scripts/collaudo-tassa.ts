@@ -43,13 +43,14 @@ async function soggiorno(tx: Prisma.TransactionClient, hotelId: number, ospite: 
   for (let t = d(dal).getTime(); t < d(al).getTime(); t += 86400000) {
     await tx.notteSoggiorno.create({ data: { segmentoId: s.id, data: new Date(t), prezzo: 0, motivoPrezzo: "base" } });
   }
+  await tx.presenza.create({ data: { segmentoId: s.id, ospiteId: o.id } });
   await ricalcolaTassaPosizione(tx, p.id, o.id);
-  return { prenotazioneId: p.id, ospiteId: o.id };
+  return { prenotazioneId: p.id, ospiteId: o.id, segmentoId: s.id };
 }
 
 async function esiti(tx: Prisma.TransactionClient, pos: { prenotazioneId: number; ospiteId: number }) {
   const t = await tx.tassaNotte.findMany({
-    where: { notte: { segmento: { prenotazioneId: pos.prenotazioneId, ospiteId: pos.ospiteId } } },
+    where: { presenza: { ospiteId: pos.ospiteId, segmento: { prenotazioneId: pos.prenotazioneId } } },
     include: { notte: true },
     orderBy: { notte: { data: "asc" } },
   });
@@ -59,7 +60,7 @@ async function esiti(tx: Prisma.TransactionClient, pos: { prenotazioneId: number
 }
 
 async function dichiara(tx: Prisma.TransactionClient, pos: { prenotazioneId: number; ospiteId: number }, codice: string, periodo?: { dal: string; al: string }) {
-  const p = await tx.posizioneTassa.findUniqueOrThrow({ where: { prenotazioneId_ospiteId: pos } });
+  const p = await tx.posizioneTassa.findUniqueOrThrow({ where: { prenotazioneId_ospiteId: { prenotazioneId: pos.prenotazioneId, ospiteId: pos.ospiteId } } });
   const pren = await tx.prenotazione.findUniqueOrThrow({ where: { id: pos.prenotazioneId }, include: { hotel: true } });
   const regola = await tx.regolaTassa.findFirstOrThrow({ where: { codice, regolamento: { comuneId: pren.hotel.comuneId } } });
   await tx.dichiarazioneTassa.create({
@@ -88,7 +89,7 @@ async function main() {
 
         // Lavoratore con 8 notti già pagate nell'anno + dichiarazione: tassate solo 2 notti su 5
         const c = await soggiorno(tx, roma.id, { nome: "Lavoratore", dataNascita: "1975-05-05" }, "2026-11-01", "2026-11-06");
-        await tx.posizioneTassa.update({ where: { prenotazioneId_ospiteId: c }, data: { nottiAnnoDichiarate: 8 } });
+        await tx.posizioneTassa.update({ where: { prenotazioneId_ospiteId: { prenotazioneId: c.prenotazioneId, ospiteId: c.ospiteId } }, data: { nottiAnnoDichiarate: 8 } });
         await dichiara(tx, c, "STUDENTI_LAVORATORI");
         verifica("Roma lavoratore (8 notti già nell'anno): 2 tassate + 3 oltre tetto annuo", (await esiti(tx, c)).conta, {
           tassata: 2,
@@ -102,7 +103,7 @@ async function main() {
 
         // Residente a Roma: fuori campo
         const r = await soggiorno(tx, roma.id, { nome: "Residente", dataNascita: "1990-03-03" }, "2026-11-01", "2026-11-03");
-        await tx.posizioneTassa.update({ where: { prenotazioneId_ospiteId: r }, data: { residente: true } });
+        await tx.posizioneTassa.update({ where: { prenotazioneId_ospiteId: { prenotazioneId: r.prenotazioneId, ospiteId: r.ospiteId } }, data: { residente: true } });
         await ricalcolaTassaPosizione(tx, r.prenotazioneId, r.ospiteId);
         verifica("Roma residente: fuori campo", (await esiti(tx, r)).conta, { residente: 2 });
 
@@ -114,13 +115,24 @@ async function main() {
 
         // Bisceglie: tetto 7 consecutive anche tra strutture, 5 notti già pagate altrove
         const x = await soggiorno(tx, bisceglie.id, { nome: "DaAltroHotel", dataNascita: "1985-07-07" }, "2026-11-01", "2026-11-05");
-        await tx.posizioneTassa.update({ where: { prenotazioneId_ospiteId: x }, data: { nottiPrecedentiAltrove: 5 } });
+        await tx.posizioneTassa.update({ where: { prenotazioneId_ospiteId: { prenotazioneId: x.prenotazioneId, ospiteId: x.ospiteId } }, data: { nottiPrecedentiAltrove: 5 } });
         await ricalcolaTassaPosizione(tx, x.prenotazioneId, x.ospiteId);
         verifica("Bisceglie 5 notti già pagate altrove: 2 tassate + 2 oltre tetto", (await esiti(tx, x)).conta, { tassata: 2, oltre_tetto: 2 });
 
         // Bisceglie: minore di 14 anni esente
         const m = await soggiorno(tx, bisceglie.id, { nome: "Minore13", dataNascita: "2013-01-01" }, "2026-11-01", "2026-11-03");
         verifica("Bisceglie minore di 14 anni: esente", (await esiti(tx, m)).conta, { esente: 2 });
+
+        // Due persone nella stessa camera: ciascuna paga la sua tassa (prezzo per camera, tassa per persona)
+        const coppia = await soggiorno(tx, roma.id, { nome: "Titolare", dataNascita: "1980-01-01" }, "2026-11-01", "2026-11-04");
+        const compagna = await tx.ospite.create({ data: { hotelId: roma.id, nome: "Compagna", cognome: "Collaudo", dataNascita: d("1982-02-02") } });
+        // ... che parte un giorno prima
+        await tx.presenza.create({ data: { segmentoId: coppia.segmentoId, ospiteId: compagna.id, al: d("2026-11-03") } });
+        await ricalcolaTassaPosizione(tx, coppia.prenotazioneId, compagna.id);
+        verifica("Roma coppia: titolare 3 notti tassate", (await esiti(tx, coppia)).conta, { tassata: 3 });
+        verifica("Roma coppia: compagna partita prima, 2 notti tassate", (await esiti(tx, { prenotazioneId: coppia.prenotazioneId, ospiteId: compagna.id })).conta, {
+          tassata: 2,
+        });
 
         throw new Annulla();
       },

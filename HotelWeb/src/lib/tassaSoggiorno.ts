@@ -145,36 +145,34 @@ export async function ricalcolaTassaPosizione(
       include: { regola: true },
     }),
   ]);
-  const segmenti = await db.segmentoSoggiorno.findMany({
-    where: { prenotazioneId, ospiteId },
-    include: { notti: { orderBy: { data: "asc" } } },
+  // Le notti di una persona sono quelle delle camere in cui ha una Presenza, limitate al suo periodo
+  // (può arrivare dopo o partire prima degli altri occupanti).
+  const presenze = await db.presenza.findMany({
+    where: { ospiteId, segmento: { prenotazioneId } },
+    include: { segmento: { include: { notti: { orderBy: { data: "asc" } } } } },
   });
-  const notti = segmenti.flatMap((sg) => sg.notti);
+  const nottiDi = (p: (typeof presenze)[number]) =>
+    p.segmento.notti.filter((n) => (!p.dal || n.data >= p.dal) && (!p.al || n.data < p.al)).map((n) => ({ ...n, presenzaId: p.id }));
+  const notti = presenze.flatMap(nottiDi);
 
-  await db.tassaNotte.deleteMany({
-    where: { notteId: { in: notti.map((n) => n.id) } },
-  });
+  await db.tassaNotte.deleteMany({ where: { presenzaId: { in: presenze.map((p) => p.id) } } });
   if (notti.length === 0) return;
 
-  // Ogni catena di segmenti (una camera e i suoi eventuali cambi camera) è la sequenza di notti di
+  // Ogni catena di presenze (una camera e i suoi eventuali cambi camera) è la sequenza di notti di
   // UNA persona. Nelle prenotazioni veloci più camere sono intestate a chi prenota finché al
   // check-in non si indicano gli ospiti: contarle insieme farebbe scattare i tetti troppo presto.
+  const perSegmento = new Map(presenze.map((p) => [p.segmentoId, p]));
   const successore = new Map(
-    segmenti
-      .filter((sg) => sg.segmentoPrecedenteId)
-      .map((sg) => [sg.segmentoPrecedenteId!, sg]),
+    presenze
+      .filter((p) => p.segmento.segmentoPrecedenteId && perSegmento.has(p.segmento.segmentoPrecedenteId))
+      .map((p) => [perSegmento.get(p.segmento.segmentoPrecedenteId!)!.id, p]),
   );
-  const catene = segmenti
-    .filter(
-      (sg) =>
-        !sg.segmentoPrecedenteId ||
-        !segmenti.some((x) => x.id === sg.segmentoPrecedenteId),
-    )
+  const catene = presenze
+    .filter((p) => !p.segmento.segmentoPrecedenteId || !perSegmento.has(p.segmento.segmentoPrecedenteId))
     .map((inizio) => {
-      const nottiCatena = [...inizio.notti];
-      for (let sg = successore.get(inizio.id); sg; sg = successore.get(sg.id))
-        nottiCatena.push(...sg.notti);
-      return nottiCatena.sort((a, b) => a.data.getTime() - b.data.getTime());
+      const nottiCatena = nottiDi(inizio);
+      for (let p = successore.get(inizio.id); p; p = successore.get(p.id)) nottiCatena.push(...nottiDi(p));
+      return nottiCatena.sort((x, y) => x.data.getTime() - y.data.getTime());
     });
 
   const versioni = await versioniDelComune(db, prenotazione.hotel.comuneId);
@@ -191,11 +189,10 @@ export async function ricalcolaTassaPosizione(
             gte: new Date(Date.UTC(anno, 0, 1)),
             lte: new Date(Date.UTC(anno, 11, 31)),
           },
-          segmento: {
-            ospiteId,
-            prenotazione: { hotelId: prenotazione.hotelId },
-            prenotazioneId: { not: prenotazioneId },
-          },
+        },
+        presenza: {
+          ospiteId,
+          segmento: { prenotazione: { hotelId: prenotazione.hotelId }, prenotazioneId: { not: prenotazioneId } },
         },
       },
     });
@@ -257,6 +254,7 @@ export async function ricalcolaTassaPosizione(
         regolaId: number | null = null,
       ) =>
         righe.push({
+          presenzaId: notte.presenzaId,
           notteId: notte.id,
           regolamentoId: versione.id,
           tariffaId: tariffa?.id ?? null,
