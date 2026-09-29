@@ -11,6 +11,7 @@ export const PERMESSI = {
   IMPORTI_VEDI: "importi.vedi",
   SOGGIORNI_RIAPRI: "soggiorni.riapri",
   CAMERE_GESTISCI: "camere.gestisci",
+  HOTEL_CONFIGURA: "hotel.configura",
   LISTINI_GESTISCI: "listini.gestisci",
   SALE_VEDI: "sale.vedi",
   SALE_GESTISCI: "sale.gestisci",
@@ -37,8 +38,9 @@ export const CATALOGO_PERMESSI: { area: string; modulo?: Modulo; voci: { permess
   {
     area: "Configurazione",
     voci: [
+      { permesso: PERMESSI.HOTEL_CONFIGURA, nome: "Configurare l'hotel", descrizione: "Dati della struttura, orari, trattamenti" },
       { permesso: PERMESSI.CAMERE_GESTISCI, nome: "Gestire camere", descrizione: "Tipi camera, camere, fuori servizio" },
-      { permesso: PERMESSI.LISTINI_GESTISCI, nome: "Gestire listini e servizi", descrizione: "Catalogo dei servizi aggiuntivi (e in futuro i listini prezzi)" },
+      { permesso: PERMESSI.LISTINI_GESTISCI, nome: "Gestire listini e servizi", descrizione: "Listini e tariffe delle camere, catalogo dei servizi aggiuntivi" },
     ],
   },
   {

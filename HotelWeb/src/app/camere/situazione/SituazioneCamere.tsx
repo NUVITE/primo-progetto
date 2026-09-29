@@ -35,7 +35,6 @@ const ETICHETTA: Record<Stato, string> = {
   occupata_generica: "Occupata (da assegnare)",
 };
 
-const TRATTAMENTI = ["Mezza pensione", "Pensione completa", "B&B"];
 
 // Heat-map della disponibilita' per tipo/giorno: colore pieno (non solo il numero) per
 // vedere a colpo d'occhio se ci sono molte, poche o nessuna camera libera (feedback utente
@@ -134,7 +133,8 @@ export function SituazioneCamere({ puoGestire }: { puoGestire: boolean }) {
   const [ospitePren, setOspitePren] = useState<OspiteValue>({ mode: "vuoto" });
   const [telefono, setTelefono] = useState("");
   const [email, setEmail] = useState("");
-  const [trattamento, setTrattamento] = useState(TRATTAMENTI[0]);
+  const [trattamenti, setTrattamenti] = useState<string[]>([]);
+  const [trattamento, setTrattamento] = useState("");
   const [numeroPersone, setNumeroPersone] = useState("");
   const [note, setNote] = useState("");
   const [anteprima, setAnteprima] = useState<ValoreDi<typeof anteprimaGenerica>>(null);
@@ -147,6 +147,8 @@ export function SituazioneCamere({ puoGestire }: { puoGestire: boolean }) {
   useEffect(() => {
     datiIniziali().then((d) => {
       setListini(d.listini);
+      setTrattamenti(d.trattamenti);
+      setTrattamento(d.trattamenti[0] ?? "");
       // Capienza di riferimento per tipo camera (usata solo per l'avviso "persone vs camere
       // scelte"): prendo la capienza massima tra le camere dello stesso tipo, assumendo che
       // di norma condividano la stessa capienza.
@@ -374,7 +376,7 @@ export function SituazioneCamere({ puoGestire }: { puoGestire: boolean }) {
     setOspitePren({ mode: "vuoto" });
     setTelefono("");
     setEmail("");
-    setTrattamento(TRATTAMENTI[0]);
+    setTrattamento(trattamenti[0] ?? "");
     setNumeroPersone("");
     setNote("");
     setAnteprima(null);
@@ -653,7 +655,7 @@ export function SituazioneCamere({ puoGestire }: { puoGestire: boolean }) {
               <div>
                 <label className="mb-1 block text-xs text-stone-600">Trattamento</label>
                 <select className="w-full rounded-md border border-stone-300 px-2 py-1.5 text-sm" value={trattamento} onChange={(e) => setTrattamento(e.target.value)}>
-                  {TRATTAMENTI.map((t) => <option key={t} value={t}>{t}</option>)}
+                  {trattamenti.map((t) => <option key={t} value={t}>{t}</option>)}
                 </select>
               </div>
 

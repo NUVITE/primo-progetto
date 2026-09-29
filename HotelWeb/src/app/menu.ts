@@ -33,7 +33,10 @@ export const MENU: GruppoMenu[] = [
     label: "Impostazioni",
     icona: Settings,
     voci: [
+      { href: "/impostazioni/struttura", label: "Struttura", permesso: PERMESSI.HOTEL_CONFIGURA },
       { href: "/camere/gestione", label: "Camere", permesso: PERMESSI.CAMERE_GESTISCI },
+      { href: "/impostazioni/listini", label: "Listini e tariffe", permesso: PERMESSI.LISTINI_GESTISCI },
+      { href: "/impostazioni/trattamenti", label: "Trattamenti", permesso: PERMESSI.HOTEL_CONFIGURA },
       { href: "/utenti", label: "Utenti", permesso: PERMESSI.UTENTI_GESTISCI },
       { href: "/ruoli", label: "Ruoli", permesso: PERMESSI.RUOLI_GESTISCI },
     ],

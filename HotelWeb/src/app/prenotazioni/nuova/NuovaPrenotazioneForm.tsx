@@ -21,14 +21,12 @@ type Segmento = {
   anteprima: Anteprima | null;
 };
 
-const TRATTAMENTI = ["Mezza pensione", "Pensione completa", "B&B"];
-
-function nuovoSegmento(listinoId: number | null): Segmento {
+function nuovoSegmento(listinoId: number | null, trattamento: string): Segmento {
   return {
     chiave: crypto.randomUUID(),
     cameraId: null,
     ospite: { mode: "vuoto" },
-    trattamento: TRATTAMENTI[0],
+    trattamento,
     listinoId,
     dataInizio: "",
     dataFine: "",
@@ -48,6 +46,7 @@ export function NuovaPrenotazioneForm() {
   const [segmenti, setSegmenti] = useState<Segmento[]>([]);
   const [accontoRichiesto, setAccontoRichiesto] = useState("");
 
+  const [trattamenti, setTrattamenti] = useState<string[]>([]);
   const [salvando, setSalvando] = useState(false);
   const [errore, setErrore] = useState<string | null>(null);
   const [esito, setEsito] = useState<ValoreDi<typeof salvaPrenotazione> | null>(null);
@@ -57,7 +56,8 @@ export function NuovaPrenotazioneForm() {
       .then((d) => {
         setCamere(d.camere);
         setListini(d.listini);
-        setSegmenti([nuovoSegmento(d.listini[0]?.id ?? null)]);
+        setTrattamenti(d.trattamenti);
+        setSegmenti([nuovoSegmento(d.listini[0]?.id ?? null, d.trattamenti[0] ?? "")]);
         setCaricato(true);
       })
       .catch((e) => {
@@ -92,7 +92,7 @@ export function NuovaPrenotazioneForm() {
   }
 
   function aggiungiSegmento() {
-    setSegmenti((prev) => [...prev, nuovoSegmento(listini[0]?.id ?? null)]);
+    setSegmenti((prev) => [...prev, nuovoSegmento(listini[0]?.id ?? null, trattamenti[0] ?? "")]);
   }
 
   function rimuoviSegmento(idx: number) {
@@ -235,7 +235,7 @@ export function NuovaPrenotazioneForm() {
                     value={seg.trattamento}
                     onChange={(e) => aggiornaSegmento(idx, { trattamento: e.target.value })}
                   >
-                    {TRATTAMENTI.map((t) => (
+                    {trattamenti.map((t) => (
                       <option key={t} value={t}>{t}</option>
                     ))}
                   </select>

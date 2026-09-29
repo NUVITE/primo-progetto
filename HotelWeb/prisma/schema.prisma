@@ -35,6 +35,9 @@ model Hotel {
   // Sistema regionale per la statistica ISTAT: "ROSS1000" (es. Lazio) | "SPOT" (Puglia) | null.
   // Decide quali liste di motivo/mezzo compaiono al check-in (valori nativi, vedi src/lib/istat.ts).
   sistemaIstat   String?
+  // Orari mostrati a reception e ospiti ("HH:MM").
+  orarioCheckIn  String?
+  orarioCheckOut String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -47,6 +50,7 @@ model Hotel {
   accessi         UtenteHotel[]
   ruoli           Ruolo[]
   serviziCatalogo ServizioCatalogo[]
+  trattamenti     Trattamento[]
 }
 
 /**
@@ -589,4 +593,19 @@ model DocumentoPolizia {
   codice       String   @id @db.VarChar(5)
   descrizione  String
   aggiornatoIl DateTime @updatedAt
+}
+
+/**
+ * Trattamenti offerti dall'hotel (B&B, mezza pensione...). La prenotazione salva il NOME scelto
+ * (SegmentoSoggiorno.trattamento): rinominare o disattivare un trattamento non cambia le prenotazioni fatte.
+ */
+model Trattamento {
+  id      Int     @id @default(autoincrement())
+  hotelId Int
+  hotel   Hotel   @relation(fields: [hotelId], references: [id])
+  nome    String
+  attivo  Boolean @default(true)
+  ordine  Int     @default(0)
+
+  @@unique([hotelId, nome])
 }

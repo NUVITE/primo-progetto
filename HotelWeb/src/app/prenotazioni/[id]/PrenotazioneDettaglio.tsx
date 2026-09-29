@@ -22,7 +22,6 @@ type Camera = { id: number; codice: string; tipoCameraId: number; tipoCameraNome
 type Listino = { id: number; descrizione: string; tipo: string };
 type ServizioCatalogo = { id: number; nome: string; prezzo: number };
 
-const TRATTAMENTI = ["Mezza pensione", "Pensione completa", "B&B"];
 
 function eur(n: number) {
   return `€ ${n.toFixed(2)}`;
@@ -43,7 +42,8 @@ export function PrenotazioneDettaglio({ iniziale, puoGestire, puoRiaprire }: { i
   const [aggiungiAperto, setAggiungiAperto] = useState(false);
   const [nuovoOspite, setNuovoOspite] = useState<OspiteValue>({ mode: "vuoto" });
   const [nuovaCameraId, setNuovaCameraId] = useState<number | null>(null);
-  const [nuovoTrattamento, setNuovoTrattamento] = useState(TRATTAMENTI[0]);
+  const [trattamenti, setTrattamenti] = useState<string[]>([]);
+  const [nuovoTrattamento, setNuovoTrattamento] = useState("");
   const [nuovoDal, setNuovoDal] = useState("");
   const [nuovoAl, setNuovoAl] = useState("");
 
@@ -62,6 +62,8 @@ export function PrenotazioneDettaglio({ iniziale, puoGestire, puoRiaprire }: { i
 
   useEffect(() => {
     datiIniziali().then((d) => {
+      setTrattamenti(d.trattamenti);
+      setNuovoTrattamento(d.trattamenti[0] ?? "");
       setCamere(d.camere);
       setListini(d.listini);
       setServiziCatalogo(d.serviziCatalogo);
@@ -376,7 +378,7 @@ export function PrenotazioneDettaglio({ iniziale, puoGestire, puoRiaprire }: { i
                   <div>
                     <label className="mb-1 block text-xs text-stone-600">Trattamento</label>
                     <select className="w-full rounded-md border border-stone-300 px-2 py-1.5 text-sm" value={nuovoTrattamento} onChange={(e) => setNuovoTrattamento(e.target.value)}>
-                      {TRATTAMENTI.map((t) => <option key={t} value={t}>{t}</option>)}
+                      {trattamenti.map((t) => <option key={t} value={t}>{t}</option>)}
                     </select>
                   </div>
                   <div>

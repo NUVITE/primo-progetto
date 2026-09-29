@@ -8,14 +8,16 @@ import { stimaTassaPersona } from "@/lib/tassaSoggiorno";
 import { puo, richiediPermesso } from "@/lib/auth";
 import { PERMESSI } from "@/lib/permessi";
 import { elencoServiziCatalogo } from "@/lib/servizi";
+import { elencoTrattamenti } from "@/lib/impostazioniHotel";
 
 export async function datiIniziali() {
   const { hotelId } = await richiediPermesso(PERMESSI.PRENOTAZIONI_VEDI);
-  const [camere, tipiCamera, listini, serviziCatalogo] = await Promise.all([
+  const [camere, tipiCamera, listini, serviziCatalogo, trattamenti] = await Promise.all([
     prisma.camera.findMany({ where: { hotelId, attivo: true }, include: { tipoCamera: true }, orderBy: { codice: "asc" } }),
     prisma.tipoCamera.findMany({ where: { hotelId } }),
     prisma.listino.findMany({ where: { hotelId } }),
     elencoServiziCatalogo(hotelId),
+    elencoTrattamenti(hotelId, true),
   ]);
 
   return {
@@ -29,6 +31,8 @@ export async function datiIniziali() {
     tipiCamera: tipiCamera.map((t) => ({ id: t.id, descrizione: t.descrizione })),
     listini: listini.map((l) => ({ id: l.id, descrizione: l.descrizione, tipo: l.tipo })),
     serviziCatalogo: serviziCatalogo.filter((s) => s.attivo).map((s) => ({ id: s.id, nome: s.nome, prezzo: Number(s.prezzo) })),
+    // Trattamenti attivi configurati dall'hotel (Impostazioni > Trattamenti), nell'ordine scelto.
+    trattamenti: trattamenti.map((t) => t.nome),
   };
 }
 

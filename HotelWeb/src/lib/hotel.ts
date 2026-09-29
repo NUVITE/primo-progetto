@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { RUOLI_PREDEFINITI } from "@/lib/permessi";
+import { TRATTAMENTI_PREDEFINITI } from "@/lib/impostazioniHotel";
 import { CATALOGO_MODULI, moduliAttivi, type Modulo } from "@/lib/moduli";
 import { sistemaIstatValido } from "@/lib/istat";
 
@@ -83,7 +84,7 @@ export async function creaComune(input: { nome: string; provincia: string; codic
 
 /**
  * Crea un hotel pronto all'uso: i ruoli predefiniti, un listino base (planning e prenotazioni
- * lo richiedono) e, se indicato, il primo amministratore. Tutto o niente, in una transazione.
+ * lo richiedono), i trattamenti predefiniti e, se indicato, il primo amministratore. Tutto o niente, in una transazione.
  */
 export async function creaHotel(dati: DatiHotel, amministratore?: { nome: string; email: string; password: string }) {
   const valori = normalizza(dati);
@@ -104,6 +105,7 @@ export async function creaHotel(dati: DatiHotel, amministratore?: { nome: string
       if (r.nome === "Amministratore") ruoloAmministratoreId = ruolo.id;
     }
     await tx.listino.create({ data: { hotelId: hotel.id, codice: "BASE", descrizione: "Listino base", tipo: "base" } });
+    await tx.trattamento.createMany({ data: TRATTAMENTI_PREDEFINITI.map((nome, i) => ({ hotelId: hotel.id, nome, ordine: i + 1 })) });
 
     if (admin && passwordHash) {
       const email = admin.email.trim().toLowerCase();
