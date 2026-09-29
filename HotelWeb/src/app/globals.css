@@ -61,3 +61,25 @@ body {
     display: none;
   }
 }
+
+/* Barra laterale: due temi scelti dall'utente (preferenza salvata in cookie, vedi src/app/menu.ts). */
+.barra-scuro {
+  --sb-bg: #173f3c;
+  --sb-fg: #e6efee;
+  --sb-muted: #9dbbb7;
+  --sb-hover: rgba(255, 255, 255, 0.08);
+  --sb-active-bg: rgba(255, 255, 255, 0.16);
+  --sb-active-fg: #ffffff;
+  --sb-border: rgba(255, 255, 255, 0.12);
+  --sb-piattaforma: #d8c4ff;
+}
+.barra-chiaro {
+  --sb-bg: #f3f1ec;
+  --sb-fg: #292524;
+  --sb-muted: #78716c;
+  --sb-hover: #e7e3dc;
+  --sb-active-bg: #cdebe7;
+  --sb-active-fg: #0f5a55;
+  --sb-border: #e2ded6;
+  --sb-piattaforma: #6d28d9;
+}
