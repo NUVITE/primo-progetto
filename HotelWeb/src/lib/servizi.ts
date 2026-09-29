@@ -25,10 +25,11 @@ export async function modificaServizioCatalogo(hotelId: number, id: number, inpu
 /** Eliminabile solo se mai usato: altrimenti si perderebbe lo storico degli addebiti (si disattiva). */
 export async function eliminaServizioCatalogo(hotelId: number, id: number) {
   await prisma.servizioCatalogo.findFirstOrThrow({ where: { id, hotelId } });
-  const usi = await prisma.servizioAggiunto.count({ where: { servizioCatalogoId: id } });
+  const usi =
+    (await prisma.servizioAggiunto.count({ where: { servizioCatalogoId: id } })) + (await prisma.servizioSala.count({ where: { servizioCatalogoId: id } }));
   if (usi > 0) {
     throw new Error(
-      `Servizio già usato in ${usi} ${usi === 1 ? "addebito" : "addebiti"} su prenotazioni: non si può eliminare, disattivalo.`,
+      `Servizio già usato in ${usi} ${usi === 1 ? "addebito" : "addebiti"} su prenotazioni o eventi: non si può eliminare, disattivalo.`,
     );
   }
   await prisma.servizioCatalogo.delete({ where: { id } });

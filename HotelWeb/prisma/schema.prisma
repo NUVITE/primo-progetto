@@ -41,16 +41,20 @@ model Hotel {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  camere          Camera[]
-  tipiCamera      TipoCamera[]
-  ospiti          Ospite[]
-  gruppi          Gruppo[]
-  prenotazioni    Prenotazione[]
-  listini         Listino[]
-  accessi         UtenteHotel[]
-  ruoli           Ruolo[]
-  serviziCatalogo ServizioCatalogo[]
-  trattamenti     Trattamento[]
+  camere           Camera[]
+  tipiCamera       TipoCamera[]
+  ospiti           Ospite[]
+  gruppi           Gruppo[]
+  prenotazioni     Prenotazione[]
+  listini          Listino[]
+  accessi          UtenteHotel[]
+  ruoli            Ruolo[]
+  serviziCatalogo  ServizioCatalogo[]
+  trattamenti      Trattamento[]
+  clienti          Cliente[]
+  sale             Sala[]
+  fasceOrarie      FasciaOraria[]
+  prenotazioniSala PrenotazioneSala[]
 }
 
 /**
@@ -232,9 +236,10 @@ model Prenotazione {
   createdAt          DateTime          @default(now())
   updatedAt          DateTime          @updatedAt
 
-  segmenti        SegmentoSoggiorno[]
-  serviziAggiunti ServizioAggiunto[]
-  posizioniTassa  PosizioneTassa[]
+  segmenti         SegmentoSoggiorno[]
+  serviziAggiunti  ServizioAggiunto[]
+  posizioniTassa   PosizioneTassa[]
+  prenotazioniSala PrenotazioneSala[]
 }
 
 enum StatoSegmento {
@@ -298,6 +303,7 @@ model ServizioCatalogo {
   updatedAt DateTime @updatedAt
 
   serviziAggiunti ServizioAggiunto[]
+  serviziSala     ServizioSala[]
 }
 
 /**
@@ -608,4 +614,171 @@ model Trattamento {
   ordine  Int     @default(0)
 
   @@unique([hotelId, nome])
+}
+
+/**
+ * Cliente o azienda (committente di eventi, e in futuro intestatario di fatture). Anagrafica
+ * separata dagli ospiti (Ospite), che sono le persone che dormono in hotel.
+ */
+model Cliente {
+  id                 Int      @id @default(autoincrement())
+  hotelId            Int
+  hotel              Hotel    @relation(fields: [hotelId], references: [id])
+  // "azienda" | "privato"
+  tipo               String   @default("azienda")
+  denominazione      String
+  partitaIva         String?
+  codiceFiscale      String?
+  indirizzo          String?
+  cap                String?
+  comune             String?
+  provincia          String?  @db.VarChar(2)
+  referente          String?
+  email              String?
+  telefono           String?
+  pec                String?
+  // Codice destinatario SDI (7 caratteri) per la fattura elettronica.
+  codiceDestinatario String?  @db.VarChar(7)
+  note               String?  @db.Text
+  attivo             Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  prenotazioniSala PrenotazioneSala[]
+}
+
+/**
+ * Fasce orarie dell'hotel per le sale ("HH:MM"). mostraNelPlanning=false per le fasce che ne
+ * coprono altre (es. Giornata intera 08-19): il planning è diviso nelle sole fasce base.
+ */
+model FasciaOraria {
+  id                Int     @id @default(autoincrement())
+  hotelId           Int
+  hotel             Hotel   @relation(fields: [hotelId], references: [id])
+  nome              String
+  inizio            String  @db.VarChar(5)
+  fine              String  @db.VarChar(5)
+  mostraNelPlanning Boolean @default(true)
+  ordine            Int     @default(0)
+
+  prezzi      PrezzoFasciaSala[]
+  occupazioni OccupazioneSala[]
+
+  @@unique([hotelId, nome])
+}
+
+model Sala {
+  id              Int      @id @default(autoincrement())
+  hotelId         Int
+  hotel           Hotel    @relation(fields: [hotelId], references: [id])
+  nome            String
+  descrizione     String?
+  capienzaMax     Int?
+  // Minuti di riassetto tra due eventi: la sala non si può prenotare in quell'intervallo.
+  riassettoMinuti Int      @default(0)
+  // Prezzo per ora quando l'orario non coincide con una fascia (null = non prenotabile a ore).
+  prezzoOrario    Decimal? @db.Decimal(10, 2)
+  attiva          Boolean  @default(true)
+  ordine          Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  allestimenti AllestimentoSala[]
+  prezzi       PrezzoFasciaSala[]
+  occupazioni  OccupazioneSala[]
+
+  @@unique([hotelId, nome])
+}
+
+model AllestimentoSala {
+  id       Int     @id @default(autoincrement())
+  salaId   Int
+  sala     Sala    @relation(fields: [salaId], references: [id], onDelete: Cascade)
+  nome     String
+  capienza Int
+  // Costo dell'allestimento, per ogni occupazione che lo usa.
+  costo    Decimal @default(0) @db.Decimal(10, 2)
+  attivo   Boolean @default(true)
+
+  occupazioni OccupazioneSala[]
+
+  @@unique([salaId, nome])
+}
+
+model PrezzoFasciaSala {
+  id       Int          @id @default(autoincrement())
+  salaId   Int
+  sala     Sala         @relation(fields: [salaId], references: [id], onDelete: Cascade)
+  fasciaId Int
+  fascia   FasciaOraria @relation(fields: [fasciaId], references: [id], onDelete: Cascade)
+  prezzo   Decimal      @db.Decimal(10, 2)
+
+  @@unique([salaId, fasciaId])
+}
+
+/**
+ * Prenotazione di sala: per un cliente esterno e/o collegata a una prenotazione di camere.
+ * stato: "opzione" | "confermata" | "annullata". Le opzioni bloccano la sala come le conferme;
+ * oltre scadenzaOpzione compare un avviso (non si annullano da sole).
+ */
+model PrenotazioneSala {
+  id              Int           @id @default(autoincrement())
+  hotelId         Int
+  hotel           Hotel         @relation(fields: [hotelId], references: [id])
+  clienteId       Int?
+  cliente         Cliente?      @relation(fields: [clienteId], references: [id])
+  prenotazioneId  Int?
+  prenotazione    Prenotazione? @relation(fields: [prenotazioneId], references: [id])
+  titolo          String
+  stato           String        @default("opzione")
+  scadenzaOpzione DateTime?     @db.Date
+  partecipanti    Int?
+  note            String?       @db.Text
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  occupazioni OccupazioneSala[]
+  servizi     ServizioSala[]
+}
+
+/**
+ * Uso di una sala in un intervallo. inizio/fine sono ORA LOCALE dell'hotel salvata come UTC
+ * (08:00 = 08:00Z), coerente con le date @db.Date del resto dell'app. prezzo = sala (fascia o ore,
+ * correggibile: prezzoManuale) + costoAllestimento (copiato al momento della scelta).
+ */
+model OccupazioneSala {
+  id                 Int               @id @default(autoincrement())
+  prenotazioneSalaId Int
+  prenotazioneSala   PrenotazioneSala  @relation(fields: [prenotazioneSalaId], references: [id], onDelete: Cascade)
+  salaId             Int
+  sala               Sala              @relation(fields: [salaId], references: [id])
+  inizio             DateTime
+  fine               DateTime
+  fasciaId           Int?
+  fascia             FasciaOraria?     @relation(fields: [fasciaId], references: [id])
+  allestimentoId     Int?
+  allestimento       AllestimentoSala? @relation(fields: [allestimentoId], references: [id])
+  partecipanti       Int?
+  prezzo             Decimal           @db.Decimal(10, 2)
+  prezzoManuale      Boolean           @default(false)
+  costoAllestimento  Decimal           @default(0) @db.Decimal(10, 2)
+
+  @@index([salaId, inizio])
+}
+
+/**
+ * Servizio extra di un evento (coffee break, pranzo, attrezzature): come ServizioAggiunto per le camere.
+ */
+model ServizioSala {
+  id                 Int               @id @default(autoincrement())
+  prenotazioneSalaId Int
+  prenotazioneSala   PrenotazioneSala  @relation(fields: [prenotazioneSalaId], references: [id], onDelete: Cascade)
+  servizioCatalogoId Int?
+  servizioCatalogo   ServizioCatalogo? @relation(fields: [servizioCatalogoId], references: [id])
+  descrizione        String?
+  prezzoUnitario     Decimal           @db.Decimal(10, 2)
+  quantita           Int               @default(1)
+  data               DateTime?         @db.Date
+  note               String?
+  createdAt          DateTime          @default(now())
 }

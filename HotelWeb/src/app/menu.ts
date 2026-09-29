@@ -8,7 +8,8 @@ import { PERMESSI, type Permesso } from "@/lib/permessi";
  * visibili sparisce. Le funzioni non ancora sviluppate NON si elencano (niente pagine vuote).
  * Il vero controllo d'accesso resta comunque lato server, in ogni pagina/azione.
  */
-export type VoceMenu = { href: string; label: string; permesso?: Permesso; modulo?: Modulo };
+// permesso: uno solo o un elenco (basta averne uno).
+export type VoceMenu = { href: string; label: string; permesso?: Permesso | Permesso[]; modulo?: Modulo };
 export type GruppoMenu = { id: string; label: string; icona: LucideIcon; voci: VoceMenu[]; soloSuperAdmin?: boolean };
 
 export const MENU: GruppoMenu[] = [
@@ -19,6 +20,8 @@ export const MENU: GruppoMenu[] = [
     voci: [
       { href: "/", label: "Planning camere", permesso: PERMESSI.PRENOTAZIONI_VEDI },
       { href: "/prenotazioni", label: "Prenotazioni", permesso: PERMESSI.PRENOTAZIONI_VEDI },
+      { href: "/sale/planning", label: "Planning sale", permesso: PERMESSI.SALE_VEDI, modulo: "sale" },
+      { href: "/sale/prenotazioni", label: "Prenotazioni sale", permesso: PERMESSI.SALE_VEDI, modulo: "sale" },
       { href: "/tassa-soggiorno", label: "Regole tassa di soggiorno", permesso: PERMESSI.PRENOTAZIONI_VEDI },
     ],
   },
@@ -26,7 +29,10 @@ export const MENU: GruppoMenu[] = [
     id: "anagrafiche",
     label: "Anagrafiche",
     icona: Contact,
-    voci: [{ href: "/servizi", label: "Servizi", permesso: PERMESSI.LISTINI_GESTISCI }],
+    voci: [
+      { href: "/clienti", label: "Clienti e aziende", permesso: [PERMESSI.PRENOTAZIONI_GESTISCI, PERMESSI.SALE_GESTISCI] },
+      { href: "/servizi", label: "Servizi", permesso: PERMESSI.LISTINI_GESTISCI },
+    ],
   },
   {
     id: "impostazioni",
@@ -37,6 +43,7 @@ export const MENU: GruppoMenu[] = [
       { href: "/camere/gestione", label: "Camere", permesso: PERMESSI.CAMERE_GESTISCI },
       { href: "/impostazioni/listini", label: "Listini e tariffe", permesso: PERMESSI.LISTINI_GESTISCI },
       { href: "/impostazioni/trattamenti", label: "Trattamenti", permesso: PERMESSI.HOTEL_CONFIGURA },
+      { href: "/impostazioni/sale", label: "Sale e fasce orarie", permesso: PERMESSI.SALE_CONFIGURA, modulo: "sale" },
       { href: "/utenti", label: "Utenti", permesso: PERMESSI.UTENTI_GESTISCI },
       { href: "/ruoli", label: "Ruoli", permesso: PERMESSI.RUOLI_GESTISCI },
     ],
@@ -58,7 +65,7 @@ export function menuVisibile(permessi: Permesso[], superAdmin: boolean, moduli: 
   return MENU.filter((g) => !g.soloSuperAdmin || superAdmin)
     .map((g) => ({
       ...g,
-      voci: g.voci.filter((v) => (!v.permesso || permessi.includes(v.permesso)) && (!v.modulo || moduli.includes(v.modulo))),
+      voci: g.voci.filter((v) => (!v.permesso || [v.permesso].flat().some((p) => permessi.includes(p))) && (!v.modulo || moduli.includes(v.modulo))),
     }))
     .filter((g) => g.voci.length > 0);
 }

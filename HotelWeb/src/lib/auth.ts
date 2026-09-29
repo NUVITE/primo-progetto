@@ -173,9 +173,10 @@ export async function richiediUtente(): Promise<UtenteSessione> {
  * alla home, che per chi non vede nemmeno le prenotazioni mostra un messaggio invece di rimandare
  * di nuovo altrove (niente redirect in loop).
  */
-export async function richiediPermesso(permesso: Permesso): Promise<UtenteSessione> {
+export async function richiediPermesso(permesso: Permesso | Permesso[]): Promise<UtenteSessione> {
   const utente = await richiediUtente();
-  if (!puo(utente, permesso)) redirect("/");
+  // Con un elenco basta uno dei permessi.
+  if (![permesso].flat().some((p) => puo(utente, p))) redirect("/");
   return utente;
 }
 
