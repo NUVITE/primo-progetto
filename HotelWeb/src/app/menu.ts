@@ -19,6 +19,7 @@ export const MENU: GruppoMenu[] = [
     voci: [
       { href: "/", label: "Planning camere", permesso: PERMESSI.PRENOTAZIONI_VEDI },
       { href: "/prenotazioni", label: "Prenotazioni", permesso: PERMESSI.PRENOTAZIONI_VEDI },
+      { href: "/tassa-soggiorno", label: "Regole tassa di soggiorno", permesso: PERMESSI.PRENOTAZIONI_VEDI },
     ],
   },
   {
@@ -42,7 +43,10 @@ export const MENU: GruppoMenu[] = [
     label: "Piattaforma",
     icona: ShieldCheck,
     soloSuperAdmin: true,
-    voci: [{ href: "/piattaforma/hotel", label: "Hotel" }],
+    voci: [
+      { href: "/piattaforma/hotel", label: "Hotel" },
+      { href: "/piattaforma/tassa", label: "Tassa di soggiorno" },
+    ],
   },
 ];
 
