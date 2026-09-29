@@ -17,7 +17,21 @@ model Hotel {
   comuneId  Int
   comune    Comune   @relation(fields: [comuneId], references: [id])
   nome      String
+  // Usata per scegliere il regolamento della tassa di soggiorno (RegolamentoTassaComune.categoriaStruttura).
   categoria String?
+  // Dati anagrafici e fiscali della struttura (intestazione fatture, adempimenti).
+  ragioneSociale String?
+  partitaIva     String?
+  codiceFiscale  String?
+  indirizzo      String?
+  cap            String?
+  telefono       String?
+  email          String?
+  pec            String?
+  // Hotel disattivato: nessun utente dell'hotel puo' accedere (il superadmin lo vede ancora).
+  attivo    Boolean  @default(true)
+  // Codici dei moduli opzionali attivi (vedi src/lib/moduli.ts). Null = nessuno.
+  moduli    Json?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

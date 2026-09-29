@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import { ChevronDown, LogOut, Menu, Moon, PanelLeftClose, PanelLeftOpen, Sun, X } from "lucide-react";
 import type { Permesso } from "@/lib/permessi";
+import type { Modulo } from "@/lib/moduli";
 import { effettuaLogout } from "./logout-action";
 import { HotelSwitcher } from "./HotelSwitcher";
 import { COOKIE_BARRA, menuVisibile, voceAttiva, type GruppoMenu, type PreferenzeBarra } from "./menu";
@@ -14,6 +15,7 @@ export type DatiBarra = {
   ruoloNome: string;
   superAdmin: boolean;
   permessi: Permesso[];
+  moduli: Modulo[];
   hotelId: number;
   hotelNome: string;
   hotels: { id: number; nome: string }[];
@@ -30,7 +32,7 @@ function salvaPreferenze(p: PreferenzeBarra) {
 export function Cornice({ dati, preferenze, children }: { dati: DatiBarra; preferenze: PreferenzeBarra; children: ReactNode }) {
   const [pref, setPref] = useState(preferenze);
   const [pannelloAperto, setPannelloAperto] = useState(false);
-  const gruppi = menuVisibile(dati.permessi, dati.superAdmin);
+  const gruppi = menuVisibile(dati.permessi, dati.superAdmin, dati.moduli);
 
   function aggiorna(p: Partial<PreferenzeBarra>) {
     const nuove = { ...pref, ...p };

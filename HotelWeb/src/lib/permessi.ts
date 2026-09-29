@@ -3,6 +3,8 @@
  * (mai il nome di un ruolo); i ruoli sono insiemi di permessi configurabili per hotel.
  * Nuovo modulo = nuovi permessi aggiunti a questo elenco (e ai ruoli predefiniti se serve).
  */
+import { MODULI, type Modulo } from "@/lib/moduli";
+
 export const PERMESSI = {
   PRENOTAZIONI_VEDI: "prenotazioni.vedi",
   PRENOTAZIONI_GESTISCI: "prenotazioni.gestisci",
@@ -21,7 +23,7 @@ export type Permesso = (typeof PERMESSI)[keyof typeof PERMESSI];
 export const TUTTI_I_PERMESSI: Permesso[] = Object.values(PERMESSI);
 
 /** Descrizioni per la schermata Ruoli, raggruppate per area. */
-export const CATALOGO_PERMESSI: { area: string; voci: { permesso: Permesso; nome: string; descrizione: string }[] }[] = [
+export const CATALOGO_PERMESSI: { area: string; modulo?: Modulo; voci: { permesso: Permesso; nome: string; descrizione: string }[] }[] = [
   {
     area: "Prenotazioni",
     voci: [
@@ -39,6 +41,7 @@ export const CATALOGO_PERMESSI: { area: string; voci: { permesso: Permesso; nome
   },
   {
     area: "Sale",
+    modulo: MODULI.SALE,
     voci: [
       { permesso: PERMESSI.SALE_VEDI, nome: "Vedere sale", descrizione: "Planning delle sale" },
       { permesso: PERMESSI.SALE_GESTISCI, nome: "Gestire prenotazioni sale", descrizione: "Creare e modificare prenotazioni di sale" },
@@ -93,4 +96,16 @@ export const RUOLI_PREDEFINITI: { nome: string; permessi: Permesso[] }[] = [
 /** Permessi che richiedono p (togliendo p vanno tolti anche loro, es. "vedere" regge "gestire"). */
 export function permessiCheRichiedono(p: Permesso): Permesso[] {
   return TUTTI_I_PERMESSI.filter((q) => IMPLICAZIONI[q]?.includes(p));
+}
+
+/** Permessi che valgono solo se l'hotel ha attivo il modulo corrispondente. */
+const MODULO_DEL_PERMESSO: Partial<Record<Permesso, Modulo>> = Object.fromEntries(
+  CATALOGO_PERMESSI.flatMap((g) => (g.modulo ? g.voci.map((v) => [v.permesso, g.modulo]) : [])),
+);
+
+export function filtraPerModuli(permessi: Permesso[], moduli: Modulo[]): Permesso[] {
+  return permessi.filter((p) => {
+    const m = MODULO_DEL_PERMESSO[p];
+    return !m || moduli.includes(m);
+  });
 }

@@ -1,4 +1,5 @@
 import { ConciergeBell, Contact, Settings, ShieldCheck, type LucideIcon } from "lucide-react";
+import type { Modulo } from "@/lib/moduli";
 import { PERMESSI, type Permesso } from "@/lib/permessi";
 
 /**
@@ -7,7 +8,7 @@ import { PERMESSI, type Permesso } from "@/lib/permessi";
  * visibili sparisce. Le funzioni non ancora sviluppate NON si elencano (niente pagine vuote).
  * Il vero controllo d'accesso resta comunque lato server, in ogni pagina/azione.
  */
-export type VoceMenu = { href: string; label: string; permesso?: Permesso };
+export type VoceMenu = { href: string; label: string; permesso?: Permesso; modulo?: Modulo };
 export type GruppoMenu = { id: string; label: string; icona: LucideIcon; voci: VoceMenu[]; soloSuperAdmin?: boolean };
 
 export const MENU: GruppoMenu[] = [
@@ -41,13 +42,16 @@ export const MENU: GruppoMenu[] = [
     label: "Piattaforma",
     icona: ShieldCheck,
     soloSuperAdmin: true,
-    voci: [],
+    voci: [{ href: "/piattaforma/hotel", label: "Hotel" }],
   },
 ];
 
-export function menuVisibile(permessi: Permesso[], superAdmin: boolean): GruppoMenu[] {
+export function menuVisibile(permessi: Permesso[], superAdmin: boolean, moduli: Modulo[]): GruppoMenu[] {
   return MENU.filter((g) => !g.soloSuperAdmin || superAdmin)
-    .map((g) => ({ ...g, voci: g.voci.filter((v) => !v.permesso || permessi.includes(v.permesso)) }))
+    .map((g) => ({
+      ...g,
+      voci: g.voci.filter((v) => (!v.permesso || permessi.includes(v.permesso)) && (!v.modulo || moduli.includes(v.modulo))),
+    }))
     .filter((g) => g.voci.length > 0);
 }
 

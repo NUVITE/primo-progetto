@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import type { UtenteSessione } from "@/lib/auth";
-import { PERMESSI, permessiEffettivi, type Permesso } from "@/lib/permessi";
+import { filtraPerModuli, PERMESSI, permessiEffettivi, type Permesso } from "@/lib/permessi";
 
 type Tx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
 
@@ -15,9 +15,18 @@ export function contenutoIn(permessi: Permesso[], disponibili: Permesso[]) {
   return permessi.every((p) => disponibili.includes(p));
 }
 
+/**
+ * Permessi di un ruolo che contano nell'hotel di chi opera: quelli dei moduli spenti non valgono,
+ * quindi non devono impedire di gestire un ruolo che li contiene (es. "Reception" con i permessi
+ * delle sale in un hotel senza il modulo Sale).
+ */
+export function permessiValidi(chi: UtenteSessione, permessi: unknown) {
+  return filtraPerModuli(permessiEffettivi(permessi), chi.moduli);
+}
+
 export function verificaPuoConcedere(chi: UtenteSessione, permessi: unknown) {
   if (chi.superAdmin) return;
-  if (!contenutoIn(permessiEffettivi(permessi), chi.permessi)) {
+  if (!contenutoIn(permessiValidi(chi, permessi), chi.permessi)) {
     throw new Error("Non puoi assegnare permessi che tu stesso non hai.");
   }
 }
@@ -66,7 +75,7 @@ async function accessoGestibile(chi: UtenteSessione, utenteId: number) {
   if (!accesso) throw new Error("Questo utente non ha accesso all'hotel.");
   if (!chi.superAdmin) {
     if (accesso.utente.superAdmin) throw new Error("Solo un superadmin può modificare un superadmin.");
-    if (!contenutoIn(permessiEffettivi(accesso.ruolo.permessi), chi.permessi)) {
+    if (!contenutoIn(permessiValidi(chi, accesso.ruolo.permessi), chi.permessi)) {
       throw new Error("Non puoi modificare un utente con più permessi dei tuoi.");
     }
   }

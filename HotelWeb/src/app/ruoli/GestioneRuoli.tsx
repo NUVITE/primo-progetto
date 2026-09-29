@@ -122,7 +122,7 @@ export function GestioneRuoli({ iniziale }: { iniziale: Dati }) {
                 </div>
               )}
 
-              {CATALOGO_PERMESSI.map((gruppo) => (
+              {CATALOGO_PERMESSI.filter((gruppo) => !gruppo.modulo || dati.moduli.includes(gruppo.modulo)).map((gruppo) => (
                 <fieldset key={gruppo.area} className="flex flex-col gap-1">
                   <legend className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-stone-500">{gruppo.area}</legend>
                   {gruppo.voci.map((v) => {

@@ -11,7 +11,8 @@ export async function datiRuoli() {
     hotelNome: chi.hotelNome,
     sonoSuperAdmin: chi.superAdmin,
     permessiMiei: chi.permessi,
-    ruoli: await elencoRuoli(chi.hotelId),
+    moduli: chi.moduli,
+    ruoli: await elencoRuoli(chi),
   };
 }
 

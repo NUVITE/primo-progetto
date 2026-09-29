@@ -5,7 +5,8 @@ import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { permessiEffettivi, TUTTI_I_PERMESSI, type Permesso } from "@/lib/permessi";
+import { filtraPerModuli, permessiEffettivi, TUTTI_I_PERMESSI, type Permesso } from "@/lib/permessi";
+import { moduliAttivi, type Modulo } from "@/lib/moduli";
 
 const COOKIE_SESSIONE = "hotelweb_sessione";
 const DURATA_SESSIONE_SECONDI = 60 * 60 * 24 * 7; // 7 giorni
@@ -47,18 +48,22 @@ async function firmaSessione(utenteId: number, hotelId: number) {
 }
 
 /** Hotel accessibili: tutti per il superadmin, altrimenti quelli con una riga UtenteHotel. */
-async function hotelAccessibili(utente: { superAdmin: boolean; accessi: { hotel: { id: number; nome: string } }[] }) {
+/** Hotel accessibili: tutti per il superadmin (anche disattivati), altrimenti quelli attivi con una riga UtenteHotel. */
+async function hotelAccessibili(utente: { superAdmin: boolean; accessi: { hotel: { id: number; nome: string; attivo: boolean } }[] }) {
   if (utente.superAdmin) {
     return prisma.hotel.findMany({ select: { id: true, nome: true }, orderBy: { nome: "asc" } });
   }
-  return utente.accessi.map((a) => a.hotel).sort((x, y) => x.nome.localeCompare(y.nome));
+  return utente.accessi
+    .filter((a) => a.hotel.attivo)
+    .map(({ hotel }) => ({ id: hotel.id, nome: hotel.nome }))
+    .sort((x, y) => x.nome.localeCompare(y.nome));
 }
 
 /** Da chiamare al login: sceglie il primo hotel accessibile come hotel attivo iniziale. */
 export async function creaSessione(utenteId: number) {
   const utente = await prisma.utente.findUniqueOrThrow({
     where: { id: utenteId },
-    include: { accessi: { include: { hotel: { select: { id: true, nome: true } } } } },
+    include: { accessi: { include: { hotel: { select: { id: true, nome: true, attivo: true } } } } },
   });
   const hotels = await hotelAccessibili(utente);
   if (hotels.length === 0) {
@@ -75,7 +80,7 @@ export async function cambiaHotelAttivo(nuovoHotelId: number) {
   const utente = await prisma.utente.findUnique({ where: { id: sessione.utenteId } });
   const haAccesso = utente?.superAdmin
     ? await prisma.hotel.findUnique({ where: { id: nuovoHotelId } })
-    : await prisma.utenteHotel.findUnique({ where: { utenteId_hotelId: { utenteId: sessione.utenteId, hotelId: nuovoHotelId } } });
+    : await prisma.utenteHotel.findFirst({ where: { utenteId: sessione.utenteId, hotelId: nuovoHotelId, hotel: { attivo: true } } });
   if (!haAccesso) {
     throw new Error("Non hai accesso a questo hotel.");
   }
@@ -111,8 +116,10 @@ export type UtenteSessione = {
   hotels: { id: number; nome: string }[];
   /** Nome del ruolo nell'hotel attivo ("Superadmin" per il gestore della piattaforma). */
   ruoloNome: string;
-  /** Permessi effettivi nell'hotel attivo (implicazioni già applicate). */
+  /** Permessi effettivi nell'hotel attivo (implicazioni applicate, moduli spenti esclusi). */
   permessi: Permesso[];
+  /** Moduli opzionali attivi nell'hotel attivo. */
+  moduli: Modulo[];
 };
 
 /** Utente loggato, o null. Non reindirizza: usarla dove l'assenza di sessione è un caso normale. */
@@ -122,7 +129,7 @@ export async function getUtenteCorrente(): Promise<UtenteSessione | null> {
 
   const utente = await prisma.utente.findUnique({
     where: { id: sessione.utenteId },
-    include: { accessi: { include: { hotel: { select: { id: true, nome: true } }, ruolo: true } } },
+    include: { accessi: { include: { hotel: { select: { id: true, nome: true, attivo: true } }, ruolo: true } } },
   });
   if (!utente || !utente.attivo) return null;
 
@@ -133,6 +140,8 @@ export async function getUtenteCorrente(): Promise<UtenteSessione | null> {
   // dopo il login): si ripiega silenziosamente sul primo disponibile.
   const hotelAttivo = hotels.find((h) => h.id === sessione.hotelId) ?? hotels[0];
   const accesso = utente.accessi.find((a) => a.hotelId === hotelAttivo.id);
+  const hotelDati = await prisma.hotel.findUnique({ where: { id: hotelAttivo.id }, select: { moduli: true } });
+  const moduli = moduliAttivi(hotelDati?.moduli);
 
   return {
     id: utente.id,
@@ -143,7 +152,8 @@ export async function getUtenteCorrente(): Promise<UtenteSessione | null> {
     hotelNome: hotelAttivo.nome,
     hotels,
     ruoloNome: utente.superAdmin ? "Superadmin" : (accesso?.ruolo.nome ?? ""),
-    permessi: utente.superAdmin ? TUTTI_I_PERMESSI : permessiEffettivi(accesso?.ruolo.permessi),
+    permessi: filtraPerModuli(utente.superAdmin ? TUTTI_I_PERMESSI : permessiEffettivi(accesso?.ruolo.permessi), moduli),
+    moduli,
   };
 }
 
@@ -166,5 +176,12 @@ export async function richiediUtente(): Promise<UtenteSessione> {
 export async function richiediPermesso(permesso: Permesso): Promise<UtenteSessione> {
   const utente = await richiediUtente();
   if (!puo(utente, permesso)) redirect("/");
+  return utente;
+}
+
+/** Pagine e azioni della sezione Piattaforma: solo il gestore della piattaforma. */
+export async function richiediSuperAdmin(): Promise<UtenteSessione> {
+  const utente = await richiediUtente();
+  if (!utente.superAdmin) redirect("/");
   return utente;
 }

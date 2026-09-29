@@ -39,6 +39,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
               ruoloNome: utente.ruoloNome,
               superAdmin: utente.superAdmin,
               permessi: utente.permessi,
+              moduli: utente.moduli,
               hotelId: utente.hotelId,
               hotelNome: utente.hotelNome,
               hotels: utente.hotels,
