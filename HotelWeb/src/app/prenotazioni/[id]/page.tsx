@@ -10,6 +10,12 @@ export default async function PrenotazioneDettaglioPage({ params }: { params: Pr
   if (!Number.isInteger(idNumero)) notFound();
 
   const utente = await richiediPermesso(PERMESSI.PRENOTAZIONI_VEDI);
-  const iniziale = await caricaPrenotazione(idNumero);
-  return <PrenotazioneDettaglio iniziale={iniziale} puoGestire={puo(utente, PERMESSI.PRENOTAZIONI_GESTISCI)} />;
+  // Prenotazione inesistente o di un altro hotel: "non trovata", non un errore del server.
+  const iniziale = await caricaPrenotazione(idNumero).catch(() => null);
+  if (!iniziale) notFound();
+  return <PrenotazioneDettaglio
+      iniziale={iniziale}
+      puoGestire={puo(utente, PERMESSI.PRENOTAZIONI_GESTISCI)}
+      puoRiaprire={puo(utente, PERMESSI.SOGGIORNI_RIAPRI)}
+    />;
 }

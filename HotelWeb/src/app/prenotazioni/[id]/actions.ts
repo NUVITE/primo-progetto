@@ -18,6 +18,16 @@ import {
   type ModificaServizioInput,
 } from "@/lib/servizi";
 import { puo, richiediPermesso, type UtenteSessione } from "@/lib/auth";
+import {
+  aggiungiDichiarazione,
+  chiudiPosizione,
+  datiTassaPrenotazione,
+  impostaDatiPosizione,
+  riapriPosizione,
+  rimuoviDichiarazione,
+  type DatiPosizioneInput,
+  type DichiarazioneInput,
+} from "@/lib/posizioneTassa";
 import { PERMESSI } from "@/lib/permessi";
 
 import { datiIniziali as _datiIniziali } from "@/app/prenotazioni/nuova/actions";
@@ -30,12 +40,17 @@ export async function datiIniziali() {
  * Senza il permesso "Vedere importi" gli importi non lasciano il server: arrivano a zero e
  * importiVisibili=false dice all'interfaccia di nasconderli (nasconderli solo a video non basta).
  */
-function serializza(prenotazione: Awaited<ReturnType<typeof trovaPrenotazione>>, utente: UtenteSessione) {
+async function serializza(prenotazione: Awaited<ReturnType<typeof trovaPrenotazione>>, utente: UtenteSessione) {
   const importiVisibili = puo(utente, PERMESSI.IMPORTI_VEDI);
   const imp = (n: number) => (importiVisibili ? n : 0);
   const totali = calcolaTotaliPrenotazione(prenotazione);
+  const tassa = await datiTassaPrenotazione(utente.hotelId, prenotazione.id);
   return {
     importiVisibili,
+    tassa: {
+      ...tassa,
+      ospiti: tassa.ospiti.map((o) => ({ ...o, notti: o.notti.map((n) => ({ ...n, importo: imp(n.importo) })) })),
+    },
     id: prenotazione.id,
     stato: prenotazione.stato,
     ospitePrenotante: `${prenotazione.ospitePrenotante.nome} ${prenotazione.ospitePrenotante.cognome}`,
@@ -84,14 +99,14 @@ function serializza(prenotazione: Awaited<ReturnType<typeof trovaPrenotazione>>,
 
 export async function caricaPrenotazione(id: number) {
   const utente = await richiediPermesso(PERMESSI.PRENOTAZIONI_VEDI);
-  return serializza(await trovaPrenotazione(utente.hotelId, id), utente);
+  return await serializza(await trovaPrenotazione(utente.hotelId, id), utente);
 }
 
 export async function azioneAccorciaEstendi(segmentoId: number, nuovaDataFine: string) {
   return conEsito(async () => {
     const utente = await richiediPermesso(PERMESSI.PRENOTAZIONI_GESTISCI);
     const prenotazione = await cambiaDataFineSegmento(utente.hotelId, segmentoId, nuovaDataFine);
-    return serializza(prenotazione, utente);
+    return await serializza(prenotazione, utente);
   });
 }
 
@@ -99,7 +114,7 @@ export async function azioneCambiaCamera(segmentoId: number, dataCambio: string,
   return conEsito(async () => {
     const utente = await richiediPermesso(PERMESSI.PRENOTAZIONI_GESTISCI);
     const prenotazione = await cambiaCameraSegmento(utente.hotelId, segmentoId, dataCambio, nuovaCameraId);
-    return serializza(prenotazione, utente);
+    return await serializza(prenotazione, utente);
   });
 }
 
@@ -107,7 +122,7 @@ export async function azioneAggiungiSegmento(prenotazioneId: number, input: Nuov
   return conEsito(async () => {
     const utente = await richiediPermesso(PERMESSI.PRENOTAZIONI_GESTISCI);
     const prenotazione = await aggiungiSegmentoAPrenotazione(utente.hotelId, prenotazioneId, input);
-    return serializza(prenotazione, utente);
+    return await serializza(prenotazione, utente);
   });
 }
 
@@ -115,7 +130,7 @@ export async function azioneAssegnaCamera(segmentoId: number, cameraId: number) 
   return conEsito(async () => {
     const utente = await richiediPermesso(PERMESSI.PRENOTAZIONI_GESTISCI);
     const prenotazione = await assegnaCamera(utente.hotelId, segmentoId, cameraId);
-    return serializza(prenotazione, utente);
+    return await serializza(prenotazione, utente);
   });
 }
 
@@ -123,7 +138,7 @@ export async function azioneAggiungiServizio(prenotazioneId: number, input: Aggi
   return conEsito(async () => {
     const utente = await richiediPermesso(PERMESSI.PRENOTAZIONI_GESTISCI);
     await aggiungiServizioAPrenotazione(utente.hotelId, prenotazioneId, input);
-    return serializza(await trovaPrenotazione(utente.hotelId, prenotazioneId), utente);
+    return await serializza(await trovaPrenotazione(utente.hotelId, prenotazioneId), utente);
   });
 }
 
@@ -131,7 +146,7 @@ export async function azioneRimuoviServizio(prenotazioneId: number, servizioAggi
   return conEsito(async () => {
     const utente = await richiediPermesso(PERMESSI.PRENOTAZIONI_GESTISCI);
     await rimuoviServizioDaPrenotazione(utente.hotelId, servizioAggiuntoId);
-    return serializza(await trovaPrenotazione(utente.hotelId, prenotazioneId), utente);
+    return await serializza(await trovaPrenotazione(utente.hotelId, prenotazioneId), utente);
   });
 }
 
@@ -139,6 +154,48 @@ export async function azioneModificaServizio(prenotazioneId: number, servizioAgg
   return conEsito(async () => {
     const utente = await richiediPermesso(PERMESSI.PRENOTAZIONI_GESTISCI);
     await modificaServizio(utente.hotelId, servizioAggiuntoId, input);
+    return await serializza(await trovaPrenotazione(utente.hotelId, prenotazioneId), utente);
+  });
+}
+
+// --- Tassa di soggiorno (per ospite) ---
+
+export async function azioneDatiPosizioneTassa(prenotazioneId: number, ospiteId: number, input: DatiPosizioneInput) {
+  return conEsito(async () => {
+    const utente = await richiediPermesso(PERMESSI.PRENOTAZIONI_GESTISCI);
+    await impostaDatiPosizione(utente.hotelId, prenotazioneId, ospiteId, input);
+    return serializza(await trovaPrenotazione(utente.hotelId, prenotazioneId), utente);
+  });
+}
+
+export async function azioneAggiungiDichiarazione(prenotazioneId: number, ospiteId: number, input: DichiarazioneInput) {
+  return conEsito(async () => {
+    const utente = await richiediPermesso(PERMESSI.PRENOTAZIONI_GESTISCI);
+    await aggiungiDichiarazione(utente.hotelId, prenotazioneId, ospiteId, input);
+    return serializza(await trovaPrenotazione(utente.hotelId, prenotazioneId), utente);
+  });
+}
+
+export async function azioneRimuoviDichiarazione(prenotazioneId: number, dichiarazioneId: number) {
+  return conEsito(async () => {
+    const utente = await richiediPermesso(PERMESSI.PRENOTAZIONI_GESTISCI);
+    await rimuoviDichiarazione(utente.hotelId, prenotazioneId, dichiarazioneId);
+    return serializza(await trovaPrenotazione(utente.hotelId, prenotazioneId), utente);
+  });
+}
+
+export async function azioneChiudiSoggiorno(prenotazioneId: number, ospiteId: number) {
+  return conEsito(async () => {
+    const utente = await richiediPermesso(PERMESSI.PRENOTAZIONI_GESTISCI);
+    await chiudiPosizione(utente.hotelId, utente.id, prenotazioneId, ospiteId);
+    return serializza(await trovaPrenotazione(utente.hotelId, prenotazioneId), utente);
+  });
+}
+
+export async function azioneRiapriSoggiorno(prenotazioneId: number, ospiteId: number, nota: string) {
+  return conEsito(async () => {
+    const utente = await richiediPermesso(PERMESSI.SOGGIORNI_RIAPRI);
+    await riapriPosizione(utente.hotelId, utente.id, prenotazioneId, ospiteId, nota);
     return serializza(await trovaPrenotazione(utente.hotelId, prenotazioneId), utente);
   });
 }

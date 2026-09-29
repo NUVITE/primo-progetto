@@ -4,7 +4,7 @@ import { conEsito } from "@/lib/esito";
 import { prisma } from "@/lib/prisma";
 import { calcolaTotaliPrenotazione, creaPrenotazione, type CreaPrenotazioneInput } from "@/lib/prenotazioni";
 import { nottiTraDate, trovaPrezzoNotte } from "@/lib/pricing";
-import { trovaRegolamentoAttivo } from "@/lib/tassaSoggiorno";
+import { stimaTassaPersona } from "@/lib/tassaSoggiorno";
 import { puo, richiediPermesso } from "@/lib/auth";
 import { PERMESSI } from "@/lib/permessi";
 import { elencoServiziCatalogo } from "@/lib/servizi";
@@ -66,16 +66,15 @@ export async function anteprimaSegmento(input: {
       if (p) subtotale += p.prezzo;
     }
 
-    const regolamento = await trovaRegolamentoAttivo(prisma, camera.hotel.comuneId, dataInizio, camera.hotel.categoria);
-    const nottiTassabili = regolamento ? Math.min(notti.length, regolamento.tettoNotti) : 0;
-    const tassaStimata = regolamento ? nottiTassabili * Number(regolamento.aliquota) : 0;
+    // Stima per una persona senza esenzioni: il calcolo vero avviene sugli ospiti effettivi.
+    const stima = await stimaTassaPersona(prisma, camera.hotel, notti);
 
     return {
       notti: notti.length,
       subtotale,
-      tassaStimata,
-      regolamento: regolamento
-        ? { comune: camera.hotel.comune.nome, aliquota: Number(regolamento.aliquota), tettoNotti: regolamento.tettoNotti }
+      tassaStimata: stima.importo,
+      regolamento: stima.riferimento
+        ? { comune: camera.hotel.comune.nome, aliquota: stima.riferimento.aliquota, tettoNotti: stima.riferimento.tettoNotti }
         : null,
     };
   });
@@ -108,8 +107,8 @@ export async function anteprimaGenerica(input: {
     if (dataFine <= dataInizio) return null;
 
     const notti = nottiTraDate(dataInizio, dataFine);
-    const regolamento = await trovaRegolamentoAttivo(prisma, hotel.comuneId, dataInizio, hotel.categoria);
-    const nottiTassabili = regolamento ? Math.min(notti.length, regolamento.tettoNotti) : 0;
+    const stima = await stimaTassaPersona(prisma, hotel, notti);
+    const nottiTassabili = stima.nottiTassabili;
 
     const tipiRichiesti = await prisma.tipoCamera.findMany({
       where: { id: { in: input.richieste.filter((r) => r.quantita > 0).map((r) => r.tipoCameraId) } },
@@ -129,7 +128,7 @@ export async function anteprimaGenerica(input: {
         else tipiSenzaTariffa.add(descrizioneTipo);
       }
       subtotale += subtotaleCamera * richiesta.quantita;
-      if (regolamento) tassaStimata += nottiTassabili * Number(regolamento.aliquota) * richiesta.quantita;
+      tassaStimata += stima.importo * richiesta.quantita;
       dettaglio.push({
         tipoCameraId: richiesta.tipoCameraId,
         descrizione: descrizioneTipo,
@@ -148,8 +147,8 @@ export async function anteprimaGenerica(input: {
       dettaglio,
       nottiTassabili,
       tipiSenzaTariffa: Array.from(tipiSenzaTariffa),
-      regolamento: regolamento
-        ? { comune: hotel.comune.nome, aliquota: Number(regolamento.aliquota), tettoNotti: regolamento.tettoNotti }
+      regolamento: stima.riferimento
+        ? { comune: hotel.comune.nome, aliquota: stima.riferimento.aliquota, tettoNotti: stima.riferimento.tettoNotti }
         : null,
     };
   });

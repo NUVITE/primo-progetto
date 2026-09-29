@@ -16,7 +16,8 @@ const adapter = new PrismaMariaDb({
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
-  console.log("Seed: comune e regolamento tassa di soggiorno...");
+  // I regolamenti della tassa di soggiorno arrivano dalla migrazione 20260929120000_tassa_soggiorno_v2.
+  console.log("Seed: comuni e hotel demo...");
 
   const trani = await prisma.comune.upsert({
     where: { codiceIstat: "110009" },
@@ -24,46 +25,13 @@ async function main() {
     create: { codiceIstat: "110009", nome: "Trani", provincia: "BT" },
   });
 
-  // Regola reale verificata in HotelWeb/TASSA_SOGGIORNO_PUGLIA.md (2026-09-25):
-  // 1,50 EUR per hotel/RTA/villaggi/B&B/agriturismi/case vacanza; 1,00 EUR per
-  // affittacamere/campeggi/ostelli/locazioni brevi. Tetto 6 notti. Tutto l'anno.
-  // In vigore dal 1 maggio 2026.
-  const regolamentoEsistente = await prisma.regolamentoTassaComune.findFirst({
-    where: { comuneId: trani.id, categoriaStruttura: "Hotel" },
-  });
-  const regolamentoTrani =
-    regolamentoEsistente ??
-    (await prisma.regolamentoTassaComune.create({
-      data: {
-        comuneId: trani.id,
-        categoriaStruttura: "Hotel",
-        aliquota: 1.5,
-        tettoNotti: 6,
-        tettoNottiTipo: "per_soggiorno",
-        validoDal: new Date("2026-05-01"),
-      },
-    }));
-
-  const esenzioneEsistente = await prisma.motivoEsenzioneTassa.findFirst({
-    where: { regolamentoId: regolamentoTrani.id, codice: "MINORE16" },
-  });
-  if (!esenzioneEsistente) {
-    await prisma.motivoEsenzioneTassa.create({
-      data: {
-        regolamentoId: regolamentoTrani.id,
-        codice: "MINORE16",
-        descrizione: "Minori di 16 anni",
-        etaSoglia: 16,
-      },
-    });
-  }
 
   console.log("Seed: hotel e camere...");
 
   const hotel = await prisma.hotel.upsert({
     where: { id: 1 },
     update: {},
-    create: { id: 1, comuneId: trani.id, nome: "Hotel Meridiana", categoria: "Hotel" },
+    create: { id: 1, comuneId: trani.id, nome: "Hotel Meridiana", categoria: "Alberghi, residenze turistico-alberghiere, villaggi turistici" },
   });
 
   const tipiCamera = await Promise.all(
@@ -176,36 +144,10 @@ async function main() {
     create: { codiceIstat: "110003", nome: "Bisceglie", provincia: "BT" },
   });
 
-  // Regola reale verificata in HotelWeb/TASSA_SOGGIORNO_PUGLIA.md: 1-2 EUR, tetto 7 notti,
-  // attiva SOLO 1 maggio - 31 ottobre (non tutto l'anno, a differenza di Trani).
-  const regolamentoBisceglieEsistente = await prisma.regolamentoTassaComune.findFirst({
-    where: { comuneId: bisceglie.id, categoriaStruttura: "Hotel" },
-  });
-  const regolamentoBisceglie =
-    regolamentoBisceglieEsistente ??
-    (await prisma.regolamentoTassaComune.create({
-      data: {
-        comuneId: bisceglie.id,
-        categoriaStruttura: "Hotel",
-        aliquota: 1.0,
-        tettoNotti: 7,
-        tettoNottiTipo: "per_soggiorno",
-        validoDal: new Date("2026-03-28"),
-        stagionalitaDal: "05-01",
-        stagionalitaAl: "10-31",
-      },
-    }));
-
-  if (!(await prisma.motivoEsenzioneTassa.findFirst({ where: { regolamentoId: regolamentoBisceglie.id, codice: "MINORE12" } }))) {
-    await prisma.motivoEsenzioneTassa.create({
-      data: { regolamentoId: regolamentoBisceglie.id, codice: "MINORE12", descrizione: "Minori di 12 anni", etaSoglia: 12 },
-    });
-  }
-
   const hotel2 = await prisma.hotel.upsert({
     where: { id: 2 },
     update: {},
-    create: { id: 2, comuneId: bisceglie.id, nome: "Hotel Bisceglie Mare", categoria: "Hotel" },
+    create: { id: 2, comuneId: bisceglie.id, nome: "Hotel Bisceglie Mare", categoria: "Strutture ricettive" },
   });
 
   const tipiCamera2 = await Promise.all(
@@ -269,37 +211,10 @@ async function main() {
     create: { codiceIstat: "058091", nome: "Roma", provincia: "RM" },
   });
 
-  // Tassa di soggiorno di Roma Capitale: tariffa differenziata per categoria di struttura.
-  // "Case per ferie" = 6 EUR/persona/notte (corretto dall'utente 2026-09-26: la ricerca web aveva
-  // inizialmente trovato 3,50 EUR da una fonte che si e' rivelata sbagliata/obsoleta — l'utente
-  // segue clienti reali in questo settore e conferma che e' 6 EUR da oltre un anno), tetto 10
-  // notti consecutive, minori di 10 anni esenti.
-  const regolamentoRomaEsistente = await prisma.regolamentoTassaComune.findFirst({
-    where: { comuneId: roma.id, categoriaStruttura: "Casa per ferie" },
-  });
-  const regolamentoRoma =
-    regolamentoRomaEsistente ??
-    (await prisma.regolamentoTassaComune.create({
-      data: {
-        comuneId: roma.id,
-        categoriaStruttura: "Casa per ferie",
-        aliquota: 6.0,
-        tettoNotti: 10,
-        tettoNottiTipo: "per_soggiorno",
-        validoDal: new Date("2026-01-01"),
-      },
-    }));
-
-  if (!(await prisma.motivoEsenzioneTassa.findFirst({ where: { regolamentoId: regolamentoRoma.id, codice: "MINORE10" } }))) {
-    await prisma.motivoEsenzioneTassa.create({
-      data: { regolamentoId: regolamentoRoma.id, codice: "MINORE10", descrizione: "Minori di 10 anni", etaSoglia: 10 },
-    });
-  }
-
   const hotel3 = await prisma.hotel.upsert({
     where: { id: 3 },
     update: {},
-    create: { id: 3, comuneId: roma.id, nome: "Casa per ferie Maria Domenica Barbantini", categoria: "Casa per ferie" },
+    create: { id: 3, comuneId: roma.id, nome: "Casa per ferie Maria Domenica Barbantini", categoria: "Case per ferie" },
   });
 
   const tipiCamera3 = await Promise.all(

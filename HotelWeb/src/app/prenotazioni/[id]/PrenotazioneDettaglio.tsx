@@ -1,5 +1,6 @@
 "use client";
 
+import { SezioneTassa } from "./SezioneTassa";
 import { sbusta } from "@/lib/esito";
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -28,7 +29,7 @@ function eur(n: number) {
 }
 
 /** puoGestire=false: sola lettura. Gli importi arrivano già azzerati dal server se non visibili. */
-export function PrenotazioneDettaglio({ iniziale, puoGestire }: { iniziale: Prenotazione; puoGestire: boolean }) {
+export function PrenotazioneDettaglio({ iniziale, puoGestire, puoRiaprire }: { iniziale: Prenotazione; puoGestire: boolean; puoRiaprire: boolean }) {
   const [prenotazione, setPrenotazione] = useState(iniziale);
   const [camere, setCamere] = useState<Camera[]>([]);
   const [listini, setListini] = useState<Listino[]>([]);
@@ -392,6 +393,15 @@ export function PrenotazioneDettaglio({ iniziale, puoGestire }: { iniziale: Pren
             )}
           </div>
           )}
+
+          <SezioneTassa
+            prenotazioneId={prenotazione.id}
+            tassa={prenotazione.tassa}
+            importi={importi}
+            puoGestire={puoGestire}
+            puoRiaprire={puoRiaprire}
+            onAggiornata={setPrenotazione}
+          />
 
           <div className="rounded-xl border border-stone-200 bg-white p-4">
             <h3 className="mb-2 text-sm font-bold">Servizi aggiuntivi</h3>

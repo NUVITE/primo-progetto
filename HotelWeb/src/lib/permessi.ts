@@ -9,6 +9,7 @@ export const PERMESSI = {
   PRENOTAZIONI_VEDI: "prenotazioni.vedi",
   PRENOTAZIONI_GESTISCI: "prenotazioni.gestisci",
   IMPORTI_VEDI: "importi.vedi",
+  SOGGIORNI_RIAPRI: "soggiorni.riapri",
   CAMERE_GESTISCI: "camere.gestisci",
   LISTINI_GESTISCI: "listini.gestisci",
   SALE_VEDI: "sale.vedi",
@@ -30,6 +31,7 @@ export const CATALOGO_PERMESSI: { area: string; modulo?: Modulo; voci: { permess
       { permesso: PERMESSI.PRENOTAZIONI_VEDI, nome: "Vedere prenotazioni", descrizione: "Planning, elenco e dettaglio in sola lettura" },
       { permesso: PERMESSI.PRENOTAZIONI_GESTISCI, nome: "Gestire prenotazioni", descrizione: "Creare, modificare, dividere soggiorni, assegnare camere, aggiungere servizi" },
       { permesso: PERMESSI.IMPORTI_VEDI, nome: "Vedere importi", descrizione: "Prezzi, tassa di soggiorno e totali (senza, gli importi sono nascosti)" },
+      { permesso: PERMESSI.SOGGIORNI_RIAPRI, nome: "Riaprire soggiorni chiusi", descrizione: "Rettificare un soggiorno dopo il check-out (tassa definitiva): resta traccia di chi e quando" },
     ],
   },
   {
@@ -65,6 +67,7 @@ const IMPLICAZIONI: Partial<Record<Permesso, Permesso[]>> = {
   [PERMESSI.PRENOTAZIONI_GESTISCI]: [PERMESSI.PRENOTAZIONI_VEDI],
   [PERMESSI.SALE_GESTISCI]: [PERMESSI.SALE_VEDI],
   [PERMESSI.SALE_CONFIGURA]: [PERMESSI.SALE_VEDI],
+  [PERMESSI.SOGGIORNI_RIAPRI]: [PERMESSI.PRENOTAZIONI_GESTISCI],
 };
 
 /** Normalizza l'elenco salvato su DB: scarta codici sconosciuti e aggiunge le implicazioni. */

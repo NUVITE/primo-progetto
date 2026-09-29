@@ -1,120 +1,397 @@
 import type { Prisma, PrismaClient } from "@/generated/prisma/client";
 
+/**
+ * MOTORE UNICO della tassa di soggiorno (modello approvato il 2026-09-29, regole reali in
+ * TASSA_SOGGIORNO_REGOLAMENTI.md). Nessuna aliquota, soglia o esenzione va scritta fuori da qui.
+ *
+ * Unità di calcolo: la POSIZIONE di un ospite in una prenotazione (tutte le sue notti, anche su
+ * più camere). Finché la posizione non è definitiva (check-out) la tassa si ricalcola da zero a
+ * ogni modifica: soggiorno allungato, dichiarazione consegnata dopo l'arrivo, compleanno durante
+ * il soggiorno, ecc. Ogni notte riceve un esito e l'importo; la regola applicata resta tracciata.
+ *
+ * Interpretazione adottata per i tetti (documentata qui perché i regolamenti dicono "il contributo
+ * è applicato fino a N pernottamenti"): contano le notti effettivamente TASSATE (anche ridotte),
+ * non quelle esenti.
+ */
+
 type Db = PrismaClient | Prisma.TransactionClient;
 
+export type EsitoTassa =
+  | "tassata"
+  | "ridotta"
+  | "esente"
+  | "oltre_tetto"
+  | "oltre_tetto_annuo"
+  | "residente"
+  | "fuori_stagione"
+  | "tariffa_mancante";
+
+export const ETICHETTA_ESITO: Record<EsitoTassa, string> = {
+  tassata: "Tassata",
+  ridotta: "Ridotta",
+  esente: "Esente",
+  oltre_tetto: "Oltre il tetto di notti",
+  oltre_tetto_annuo: "Oltre il tetto annuo",
+  residente: "Residente (fuori campo)",
+  fuori_stagione: "Fuori stagione",
+  tariffa_mancante: "Tariffa mancante",
+};
+
+const GIORNO_MS = 24 * 60 * 60 * 1000;
+
 function etaAllaData(dataNascita: Date, data: Date): number {
-  let eta = data.getFullYear() - dataNascita.getFullYear();
+  let eta = data.getUTCFullYear() - dataNascita.getUTCFullYear();
   const compleannoGiaPassato =
-    data.getMonth() > dataNascita.getMonth() ||
-    (data.getMonth() === dataNascita.getMonth() && data.getDate() >= dataNascita.getDate());
+    data.getUTCMonth() > dataNascita.getUTCMonth() ||
+    (data.getUTCMonth() === dataNascita.getUTCMonth() &&
+      data.getUTCDate() >= dataNascita.getUTCDate());
   if (!compleannoGiaPassato) eta -= 1;
   return eta;
 }
 
-function pad2(n: number) {
-  return String(n).padStart(2, "0");
-}
-
-/** "MM-DD" della data, per confrontarla con la finestra stagionale del regolamento. */
 function meseGiorno(data: Date): string {
-  return `${pad2(data.getMonth() + 1)}-${pad2(data.getDate())}`;
+  return `${String(data.getUTCMonth() + 1).padStart(2, "0")}-${String(data.getUTCDate()).padStart(2, "0")}`;
 }
 
-function dataDentroFinestraStagionale(data: Date, dal: string | null, al: string | null): boolean {
-  if (!dal || !al) return true; // nessuna finestra = vale tutto l'anno
-  const md = meseGiorno(data);
-  // Assume dal <= al nello stesso anno (nessun regolamento noto attraversa il capodanno).
-  return md >= dal && md <= al;
-}
-
-/**
- * Trova il regolamento tassa di soggiorno attivo per un comune a una certa data.
- * Motore unico: nessuna aliquota/soglia va mai scritta a mano fuori da qui.
- */
-export async function trovaRegolamentoAttivo(
-  db: Db,
-  comuneId: number,
+function dentroStagione(
   data: Date,
-  categoriaStruttura: string | null
-) {
-  const regolamenti = await db.regolamentoTassaComune.findMany({
-    where: {
-      comuneId,
-      validoDal: { lte: data },
-      OR: [{ validoAl: null }, { validoAl: { gte: data } }],
-    },
-    include: { esenzioni: true },
-  });
+  dal: string | null,
+  al: string | null,
+): boolean {
+  if (!dal || !al) return true;
+  const md = meseGiorno(data);
+  // Finestra che attraversa il capodanno (es. 11-01..02-28) gestita come unione di due tratti.
+  return dal <= al ? md >= dal && md <= al : md >= dal || md <= al;
+}
 
-  const validi = regolamenti.filter((r) => dataDentroFinestraStagionale(data, r.stagionalitaDal, r.stagionalitaAl));
-
-  // Preferisci la riga con categoria che combacia esattamente, poi quella generica (categoria = null).
+function versioneValida<T extends { validoDal: Date; validoAl: Date | null }>(
+  versioni: T[],
+  data: Date,
+): T | null {
   return (
-    validi.find((r) => r.categoriaStruttura === categoriaStruttura) ??
-    validi.find((r) => r.categoriaStruttura === null) ??
+    versioni.find(
+      (v) => v.validoDal <= data && (!v.validoAl || v.validoAl >= data),
+    ) ?? null
+  );
+}
+
+async function versioniDelComune(db: Db, comuneId: number) {
+  return db.regolamentoTassa.findMany({
+    where: { comuneId },
+    include: { tariffe: true, regole: true },
+    orderBy: { validoDal: "asc" },
+  });
+}
+
+type Versione = Awaited<ReturnType<typeof versioniDelComune>>[number];
+
+function tariffaPerCategoria(versione: Versione, categoria: string | null) {
+  return (
+    versione.tariffe.find((t) => t.categoria === categoria) ??
+    versione.tariffe.find((t) => t.predefinita) ??
     null
   );
 }
 
-/**
- * Calcola la tassa per una singola notte già generata, tenendo conto di:
- * - esenzione per età (se l'ospite ha una data di nascita nota)
- * - tetto notti (per soggiorno: conta le notti già tassate in QUESTO segmento;
- *   per anno solare: conta le notti già tassate quest'anno per lo stesso ospite/regolamento)
- *
- * Semplificazione dichiarata: il tetto "per anno solare" guarda solo le notti
- * gia' salvate a DB per lo stesso ospite+regolamento nell'anno della data —
- * corretto per soggiorni creati in ordine cronologico, da rivedere se un
- * domani si permette di inserire soggiorni retroattivi fuori ordine.
- */
-export async function calcolaTassaNotte(
+/** Posizione tassa di un ospite in una prenotazione (creata al primo uso). */
+export async function posizioneTassa(
   db: Db,
-  params: {
-    comuneId: number;
-    categoriaStruttura: string | null;
-    data: Date;
-    ospiteId: number;
-    ospiteDataNascita: Date | null;
-    notteGiaContataNelSegmento: number; // quante notti tassabili precedono questa, nello stesso segmento
-  }
-): Promise<{ regolamentoId: number; importo: number; esente: boolean; motivoEsenzioneId: number | null } | null> {
-  const regolamento = await trovaRegolamentoAttivo(db, params.comuneId, params.data, params.categoriaStruttura);
-  if (!regolamento) return null; // nessuna tassa attiva per questo comune/data (es. Andria)
+  prenotazioneId: number,
+  ospiteId: number,
+) {
+  return db.posizioneTassa.upsert({
+    where: { prenotazioneId_ospiteId: { prenotazioneId, ospiteId } },
+    update: {},
+    create: { prenotazioneId, ospiteId },
+  });
+}
 
-  // 1) Esenzione per età
-  if (params.ospiteDataNascita) {
-    const eta = etaAllaData(params.ospiteDataNascita, params.data);
-    const motivoEta = regolamento.esenzioni.find((e) => e.etaSoglia !== null && eta < e.etaSoglia!);
-    if (motivoEta) {
-      return { regolamentoId: regolamento.id, importo: 0, esente: true, motivoEsenzioneId: motivoEta.id };
-    }
+/** Da chiamare prima di modificare soggiorno o dati tassa di un ospite: una posizione chiusa non si tocca. */
+export async function verificaPosizioneAperta(
+  db: Db,
+  prenotazioneId: number,
+  ospiteId: number,
+) {
+  const p = await db.posizioneTassa.findUnique({
+    where: { prenotazioneId_ospiteId: { prenotazioneId, ospiteId } },
+  });
+  if (p?.definitiva) {
+    throw new Error(
+      "Il soggiorno di questo ospite è chiuso (tassa definitiva): va riaperto prima di modificarlo.",
+    );
   }
+}
 
-  // 2) Tetto notti
-  let nottiGiaContate = params.notteGiaContataNelSegmento;
-  if (regolamento.tettoNottiTipo === "per_anno_solare") {
-    const inizioAnno = new Date(params.data.getFullYear(), 0, 1);
-    const fineAnno = new Date(params.data.getFullYear(), 11, 31);
-    nottiGiaContate = await db.tassaNotte.count({
+/**
+ * Ricalcola da zero la tassa di tutte le notti di un ospite in una prenotazione. Non fa nulla se la
+ * posizione è definitiva. Va chiamata dopo ogni modifica che può cambiarla.
+ */
+export async function ricalcolaTassaPosizione(
+  db: Db,
+  prenotazioneId: number,
+  ospiteId: number,
+) {
+  const posizione = await posizioneTassa(db, prenotazioneId, ospiteId);
+  if (posizione.definitiva) return;
+
+  const [prenotazione, ospite, dichiarazioni] = await Promise.all([
+    db.prenotazione.findUniqueOrThrow({
+      where: { id: prenotazioneId },
+      include: { hotel: true },
+    }),
+    db.ospite.findUniqueOrThrow({ where: { id: ospiteId } }),
+    db.dichiarazioneTassa.findMany({
+      where: { posizioneId: posizione.id },
+      include: { regola: true },
+    }),
+  ]);
+  const segmenti = await db.segmentoSoggiorno.findMany({
+    where: { prenotazioneId, ospiteId },
+    include: { notti: { orderBy: { data: "asc" } } },
+  });
+  const notti = segmenti.flatMap((sg) => sg.notti);
+
+  await db.tassaNotte.deleteMany({
+    where: { notteId: { in: notti.map((n) => n.id) } },
+  });
+  if (notti.length === 0) return;
+
+  // Ogni catena di segmenti (una camera e i suoi eventuali cambi camera) è la sequenza di notti di
+  // UNA persona. Nelle prenotazioni veloci più camere sono intestate a chi prenota finché al
+  // check-in non si indicano gli ospiti: contarle insieme farebbe scattare i tetti troppo presto.
+  const successore = new Map(
+    segmenti
+      .filter((sg) => sg.segmentoPrecedenteId)
+      .map((sg) => [sg.segmentoPrecedenteId!, sg]),
+  );
+  const catene = segmenti
+    .filter(
+      (sg) =>
+        !sg.segmentoPrecedenteId ||
+        !segmenti.some((x) => x.id === sg.segmentoPrecedenteId),
+    )
+    .map((inizio) => {
+      const nottiCatena = [...inizio.notti];
+      for (let sg = successore.get(inizio.id); sg; sg = successore.get(sg.id))
+        nottiCatena.push(...sg.notti);
+      return nottiCatena.sort((a, b) => a.data.getTime() - b.data.getTime());
+    });
+
+  const versioni = await versioniDelComune(db, prenotazione.hotel.comuneId);
+
+  // Notti già tassate dall'ospite in questa struttura, stesso anno, in ALTRE prenotazioni (tetto annuo).
+  const anni = [...new Set(notti.map((n) => n.data.getUTCFullYear()))];
+  const tassateAltrove: Record<number, number> = {};
+  for (const anno of anni) {
+    tassateAltrove[anno] = await db.tassaNotte.count({
       where: {
-        regolamentoId: regolamento.id,
-        esente: false,
+        esito: { in: ["tassata", "ridotta"] },
         notte: {
-          data: { gte: inizioAnno, lte: fineAnno },
-          segmento: { ospiteId: params.ospiteId },
+          data: {
+            gte: new Date(Date.UTC(anno, 0, 1)),
+            lte: new Date(Date.UTC(anno, 11, 31)),
+          },
+          segmento: {
+            ospiteId,
+            prenotazione: { hotelId: prenotazione.hotelId },
+            prenotazioneId: { not: prenotazioneId },
+          },
         },
       },
     });
   }
 
-  if (nottiGiaContate >= regolamento.tettoNotti) {
-    return { regolamentoId: regolamento.id, importo: 0, esente: true, motivoEsenzioneId: null };
+  const dichiarazioniAttive = (data: Date, codici: string[]) =>
+    dichiarazioni.filter(
+      (d) =>
+        codici.includes(d.regola.codice) &&
+        (!d.dal || d.dal <= data) &&
+        (!d.al || data < d.al),
+    );
+
+  const tassateNellAnno: Record<number, number> = {};
+  const righe: Prisma.TassaNotteCreateManyInput[] = [];
+
+  for (const nottiCatena of catene) {
+    let consecutiveTassate = 0;
+    let precedente: Date | null = null;
+    let primaSerie = true;
+
+    for (const notte of nottiCatena) {
+      const data = notte.data;
+      const versione = versioneValida(versioni, data);
+      if (!versione) {
+        precedente = data;
+        continue; // nessuna tassa in vigore quel giorno (es. Andria): nessuna riga
+      }
+
+      // Serie di notti consecutive: si interrompe con un buco o (se previsto) al 1° gennaio.
+      const cambioAnno =
+        precedente &&
+        versione.azzeraAnnoSolare &&
+        precedente.getUTCFullYear() !== data.getUTCFullYear();
+      if (
+        precedente &&
+        (data.getTime() - precedente.getTime() > GIORNO_MS || cambioAnno)
+      ) {
+        consecutiveTassate = 0;
+        primaSerie = false;
+      }
+      precedente = data;
+
+      const tariffa = tariffaPerCategoria(
+        versione,
+        prenotazione.hotel.categoria,
+      );
+      if (
+        primaSerie &&
+        consecutiveTassate === 0 &&
+        tariffa?.modoTetto === "consecutive_anche_altrove"
+      ) {
+        consecutiveTassate = posizione.nottiPrecedentiAltrove;
+      }
+
+      const riga = (
+        esito: EsitoTassa,
+        importo: number,
+        regolaId: number | null = null,
+      ) =>
+        righe.push({
+          notteId: notte.id,
+          regolamentoId: versione.id,
+          tariffaId: tariffa?.id ?? null,
+          regolaId,
+          esito,
+          importo,
+        });
+
+      if (
+        !dentroStagione(data, versione.stagionalitaDal, versione.stagionalitaAl)
+      ) {
+        riga("fuori_stagione", 0);
+        continue;
+      }
+      if (posizione.residente && versione.esclusiResidenti) {
+        riga("residente", 0);
+        continue;
+      }
+      if (!tariffa) {
+        riga("tariffa_mancante", 0);
+        continue;
+      }
+
+      // Esenzioni automatiche per età, notte per notte (il compleanno durante il soggiorno conta).
+      if (ospite.dataNascita) {
+        const eta = etaAllaData(ospite.dataNascita, data);
+        const perEta = versione.regole.find(
+          (r) =>
+            r.tipo === "eta" &&
+            ((r.etaSotto !== null && eta < r.etaSotto) ||
+              (r.etaDa !== null && eta >= r.etaDa)),
+        );
+        if (perEta) {
+          riga("esente", 0, perEta.id);
+          continue;
+        }
+      }
+
+      // Le dichiarazioni si agganciano per codice: restano valide anche se cambia la versione del regolamento.
+      const codici = (tipo: string) =>
+        versione.regole.filter((r) => r.tipo === tipo).map((r) => r.codice);
+      const esenzione = dichiarazioniAttive(data, codici("dichiarata"))[0];
+      if (esenzione) {
+        riga(
+          "esente",
+          0,
+          versione.regole.find((r) => r.codice === esenzione.regola.codice)!.id,
+        );
+        continue;
+      }
+
+      if (
+        tariffa.tettoNotti !== null &&
+        consecutiveTassate >= tariffa.tettoNotti
+      ) {
+        riga("oltre_tetto", 0);
+        continue;
+      }
+
+      const anno = data.getUTCFullYear();
+      const tettoAnnuo = dichiarazioniAttive(data, codici("tetto_annuo"))[0];
+      if (tettoAnnuo) {
+        const regola = versione.regole.find(
+          (r) => r.codice === tettoAnnuo.regola.codice,
+        )!;
+        const giaNellAnno =
+          posizione.nottiAnnoDichiarate +
+          (tassateAltrove[anno] ?? 0) +
+          (tassateNellAnno[anno] ?? 0);
+        if (
+          regola.nottiTettoAnnuo !== null &&
+          giaNellAnno >= regola.nottiTettoAnnuo
+        ) {
+          riga("oltre_tetto_annuo", 0, regola.id);
+          continue;
+        }
+      }
+
+      // Riduzioni: non cumulabili, vale la più favorevole.
+      const riduzioni = dichiarazioniAttive(data, codici("riduzione"))
+        .map((d) => versione.regole.find((r) => r.codice === d.regola.codice)!)
+        .sort(
+          (a, b) =>
+            (b.percentualeRiduzione ?? 0) - (a.percentualeRiduzione ?? 0),
+        );
+      const importoPieno = Number(tariffa.importo);
+      if (riduzioni[0]?.percentualeRiduzione) {
+        const perc = riduzioni[0].percentualeRiduzione;
+        riga(
+          "ridotta",
+          Math.round(importoPieno * (100 - perc)) / 100,
+          riduzioni[0].id,
+        );
+      } else {
+        riga("tassata", importoPieno);
+      }
+      consecutiveTassate += 1;
+      tassateNellAnno[anno] = (tassateNellAnno[anno] ?? 0) + 1;
+    }
   }
 
-  return {
-    regolamentoId: regolamento.id,
-    importo: Number(regolamento.aliquota),
-    esente: false,
-    motivoEsenzioneId: null,
-  };
+  if (righe.length) await db.tassaNotte.createMany({ data: righe });
+}
+
+/**
+ * Stima per UNA persona senza esenzioni (usata mentre si compila una prenotazione, quando gli
+ * ospiti non sono ancora noti): notti tassabili entro il tetto, importo e tariffa della prima notte.
+ */
+export async function stimaTassaPersona(
+  db: Db,
+  hotel: { comuneId: number; categoria: string | null },
+  notti: Date[],
+) {
+  const versioni = await versioniDelComune(db, hotel.comuneId);
+  let importo = 0;
+  let nottiTassabili = 0;
+  let riferimento: { aliquota: number; tettoNotti: number | null } | null =
+    null;
+  for (const data of notti) {
+    const versione = versioneValida(versioni, data);
+    if (
+      !versione ||
+      !dentroStagione(data, versione.stagionalitaDal, versione.stagionalitaAl)
+    )
+      continue;
+    const tariffa = tariffaPerCategoria(versione, hotel.categoria);
+    if (!tariffa) continue;
+    riferimento ??= {
+      aliquota: Number(tariffa.importo),
+      tettoNotti: tariffa.tettoNotti,
+    };
+    if (tariffa.tettoNotti !== null && nottiTassabili >= tariffa.tettoNotti)
+      continue;
+    nottiTassabili += 1;
+    importo += Number(tariffa.importo);
+  }
+  return { importo, nottiTassabili, riferimento };
 }

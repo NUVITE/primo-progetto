@@ -13,12 +13,12 @@ datasource db {
 }
 
 model Hotel {
-  id        Int      @id @default(autoincrement())
-  comuneId  Int
-  comune    Comune   @relation(fields: [comuneId], references: [id])
-  nome      String
+  id             Int      @id @default(autoincrement())
+  comuneId       Int
+  comune         Comune   @relation(fields: [comuneId], references: [id])
+  nome           String
   // Usata per scegliere il regolamento della tassa di soggiorno (RegolamentoTassaComune.categoriaStruttura).
-  categoria String?
+  categoria      String?
   // Dati anagrafici e fiscali della struttura (intestazione fatture, adempimenti).
   ragioneSociale String?
   partitaIva     String?
@@ -29,21 +29,21 @@ model Hotel {
   email          String?
   pec            String?
   // Hotel disattivato: nessun utente dell'hotel puo' accedere (il superadmin lo vede ancora).
-  attivo    Boolean  @default(true)
+  attivo         Boolean  @default(true)
   // Codici dei moduli opzionali attivi (vedi src/lib/moduli.ts). Null = nessuno.
-  moduli    Json?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  moduli         Json?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  camere           Camera[]
-  tipiCamera       TipoCamera[]
-  ospiti           Ospite[]
-  gruppi           Gruppo[]
-  prenotazioni     Prenotazione[]
-  listini          Listino[]
-  accessi          UtenteHotel[]
-  ruoli            Ruolo[]
-  serviziCatalogo  ServizioCatalogo[]
+  camere          Camera[]
+  tipiCamera      TipoCamera[]
+  ospiti          Ospite[]
+  gruppi          Gruppo[]
+  prenotazioni    Prenotazione[]
+  listini         Listino[]
+  accessi         UtenteHotel[]
+  ruoli           Ruolo[]
+  serviziCatalogo ServizioCatalogo[]
 }
 
 /**
@@ -52,16 +52,17 @@ model Hotel {
  * hotel in cui hanno una riga UtenteHotel, con il ruolo indicato li' (ruoli diversi per hotel).
  */
 model Utente {
-  id           Int           @id @default(autoincrement())
+  id           Int      @id @default(autoincrement())
   nome         String
-  email        String        @unique
+  email        String   @unique
   passwordHash String
-  superAdmin   Boolean       @default(false)
-  attivo       Boolean       @default(true)
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  superAdmin   Boolean  @default(false)
+  attivo       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  accessi UtenteHotel[]
+  accessi     UtenteHotel[]
+  eventiTassa EventoTassa[]
 }
 
 /**
@@ -102,7 +103,7 @@ model Comune {
   provincia   String
 
   hotel            Hotel[]
-  regolamentiTassa RegolamentoTassaComune[]
+  regolamentiTassa RegolamentoTassa[]
 }
 
 model TipoCamera {
@@ -167,6 +168,7 @@ model Ospite {
   segmenti               SegmentoSoggiorno[]
   prenotazioniPrenotante Prenotazione[]      @relation("prenotante")
   prenotazioniPagante    Prenotazione[]      @relation("pagante")
+  posizioniTassa         PosizioneTassa[]
 
   @@index([hotelId, cognome, nome])
 }
@@ -208,8 +210,9 @@ model Prenotazione {
   createdAt          DateTime          @default(now())
   updatedAt          DateTime          @updatedAt
 
-  segmenti         SegmentoSoggiorno[]
-  serviziAggiunti  ServizioAggiunto[]
+  segmenti        SegmentoSoggiorno[]
+  serviziAggiunti ServizioAggiunto[]
+  posizioniTassa  PosizioneTassa[]
 }
 
 enum StatoSegmento {
@@ -346,48 +349,158 @@ model PeriodoTariffario {
   createdAt    DateTime   @default(now())
 }
 
-model RegolamentoTassaComune {
-  id                 Int       @id @default(autoincrement())
-  comuneId           Int
-  comune             Comune    @relation(fields: [comuneId], references: [id])
-  // Null = si applica a qualunque categoria di struttura. Se per lo stesso comune
-  // esistono piu' righe (es. Trani: hotel/B&B a un'aliquota, altre strutture a un'altra),
-  // si preferisce sempre la riga con categoria che combacia con Hotel.categoria.
-  categoriaStruttura String?
-  aliquota           Decimal   @db.Decimal(6, 2)
-  tettoNotti         Int
-  // "per_soggiorno" | "per_anno_solare"
-  tettoNottiTipo     String    @default("per_soggiorno")
-  validoDal          DateTime  @db.Date
-  validoAl           DateTime? @db.Date
-  // Finestra stagionale entro l'anno in cui il regolamento si applica (es. Bisceglie: "05-01".."10-31").
-  // Null = tutto l'anno.
-  stagionalitaDal    String?
-  stagionalitaAl     String?
+/**
+ * Tassa di soggiorno — motore unico in src/lib/tassaSoggiorno.ts. Modello approvato il 2026-09-29,
+ * regole reali in TASSA_SOGGIORNO_REGOLAMENTI.md.
+ * Una VERSIONE del regolamento di un comune vale da validoDal a validoAl (null = in vigore). Si
+ * applica notte per notte secondo la data della notte. Una versione usata da un soggiorno chiuso
+ * (PosizioneTassa.definitiva) non si modifica più: si crea una versione nuova.
+ */
+model RegolamentoTassa {
+  id               Int       @id @default(autoincrement())
+  comuneId         Int
+  comune           Comune    @relation(fields: [comuneId], references: [id])
+  validoDal        DateTime  @db.Date
+  validoAl         DateTime? @db.Date
+  attoRiferimento  String?
+  fonteUrl         String?   @db.VarChar(500)
+  note             String?   @db.Text
+  // Punti non chiariti dalle fonti, da mostrare come avviso (es. "Tariffa alberghi 1,50 o 2,00?").
+  daConfermare     String?   @db.Text
+  // I residenti nel comune sono fuori campo (non "esenti": nei rendiconti vanno contati a parte).
+  esclusiResidenti Boolean   @default(true)
+  // Finestra stagionale "MM-GG" (null = tutto l'anno).
+  stagionalitaDal  String?
+  stagionalitaAl   String?
+  // Il conteggio delle notti consecutive riparte il 1° gennaio ("nell'anno solare").
+  azzeraAnnoSolare Boolean   @default(true)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
-  esenzioni  MotivoEsenzioneTassa[]
+  tariffe    TariffaTassa[]
+  regole     RegolaTassa[]
   tasseNotte TassaNotte[]
 }
 
-model MotivoEsenzioneTassa {
-  id            Int                    @id @default(autoincrement())
+model TariffaTassa {
+  id            Int              @id @default(autoincrement())
   regolamentoId Int
-  regolamento   RegolamentoTassaComune @relation(fields: [regolamentoId], references: [id])
-  codice        String
-  descrizione   String
-  etaSoglia     Int?
+  regolamento   RegolamentoTassa @relation(fields: [regolamentoId], references: [id], onDelete: Cascade)
+  // Deve combaciare con Hotel.categoria; la tariffa "predefinita" vale per le categorie non previste.
+  categoria     String
+  importo       Decimal          @db.Decimal(6, 2)
+  tettoNotti    Int?
+  // "consecutive_struttura" | "consecutive_anche_altrove" (notti precedenti dichiarate dall'ospite)
+  modoTetto     String           @default("consecutive_struttura")
+  predefinita   Boolean          @default(false)
 
   tasseNotte TassaNotte[]
+
+  @@unique([regolamentoId, categoria])
 }
 
+/**
+ * tipo: "eta" (automatica: esente se età < etaSotto oppure età >= etaDa, alla data della notte)
+ * "dichiarata" (esenzione registrata dalla reception con documento, eventualmente per un periodo)
+ * "riduzione" (come dichiarata, riduce del percentualeRiduzione %; più riduzioni non si sommano)
+ * "tetto_annuo" (categoria di ospite con tetto di nottiTettoAnnuo notti nell'anno solare, anche non consecutive)
+ */
+model RegolaTassa {
+  id                   Int              @id @default(autoincrement())
+  regolamentoId        Int
+  regolamento          RegolamentoTassa @relation(fields: [regolamentoId], references: [id], onDelete: Cascade)
+  codice               String
+  tipo                 String
+  descrizione          String           @db.VarChar(500)
+  articolo             String?
+  documentoRichiesto   String?          @db.VarChar(500)
+  // Limite da ricordare alla reception (es. "1 accompagnatore ogni 25 partecipanti"): avviso, non blocco.
+  limite               String?          @db.VarChar(500)
+  etaSotto             Int?
+  etaDa                Int?
+  percentualeRiduzione Int?
+  nottiTettoAnnuo      Int?
+
+  dichiarazioni DichiarazioneTassa[]
+  tasseNotte    TassaNotte[]
+
+  @@unique([regolamentoId, codice])
+}
+
+/**
+ * Posizione tassa di un ospite in una prenotazione (il "soggiorno" ai fini della tassa: tutte le
+ * sue notti in quella prenotazione, anche su più camere). Nasce al primo calcolo.
+ */
+model PosizioneTassa {
+  id                     Int          @id @default(autoincrement())
+  prenotazioneId         Int
+  prenotazione           Prenotazione @relation(fields: [prenotazioneId], references: [id])
+  ospiteId               Int
+  ospite                 Ospite       @relation(fields: [ospiteId], references: [id])
+  residente              Boolean      @default(false)
+  // Notti consecutive già pagate in altre strutture subito prima (ricevuta dell'ospite).
+  nottiPrecedentiAltrove Int          @default(0)
+  // Notti già pagate nell'anno dichiarate dall'ospite (per le regole "tetto_annuo").
+  nottiAnnoDichiarate    Int          @default(0)
+  rifiutoPagamento       Boolean      @default(false)
+  notaRifiuto            String?      @db.Text
+  definitiva             Boolean      @default(false)
+  createdAt              DateTime     @default(now())
+  updatedAt              DateTime     @updatedAt
+
+  dichiarazioni DichiarazioneTassa[]
+  eventi        EventoTassa[]
+
+  @@unique([prenotazioneId, ospiteId])
+}
+
+model DichiarazioneTassa {
+  id               Int            @id @default(autoincrement())
+  posizioneId      Int
+  posizione        PosizioneTassa @relation(fields: [posizioneId], references: [id], onDelete: Cascade)
+  regolaId         Int
+  regola           RegolaTassa    @relation(fields: [regolaId], references: [id])
+  // Periodo coperto (null = tutto il soggiorno); al = prima notte NON coperta.
+  dal              DateTime?      @db.Date
+  al               DateTime?      @db.Date
+  // Tipo ed estremi del documento, SENZA conservarne la copia (indicazione del Garante privacy).
+  tipoDocumento    String?
+  estremiDocumento String?
+  consegnataIl     DateTime       @db.Date
+  note             String?        @db.Text
+  createdAt        DateTime       @default(now())
+}
+
+/**
+ * Registro di chiusure e riaperture: chi ha reso definitiva o riaperto la tassa di un soggiorno.
+ */
+model EventoTassa {
+  id          Int            @id @default(autoincrement())
+  posizioneId Int
+  posizione   PosizioneTassa @relation(fields: [posizioneId], references: [id], onDelete: Cascade)
+  // "chiusura" | "riapertura"
+  tipo        String
+  utenteId    Int
+  utente      Utente         @relation(fields: [utenteId], references: [id])
+  nota        String?        @db.Text
+  createdAt   DateTime       @default(now())
+}
+
+/**
+ * Esito della tassa per una notte: cache ricalcolata dal motore finché la posizione non è definitiva.
+ * esito: "tassata" | "ridotta" | "esente" | "oltre_tetto" | "oltre_tetto_annuo" | "residente" |
+ * "fuori_stagione" | "tariffa_mancante"
+ */
 model TassaNotte {
-  id                Int                    @id @default(autoincrement())
-  notteId           Int                    @unique
-  notte             NotteSoggiorno         @relation(fields: [notteId], references: [id])
-  regolamentoId     Int
-  regolamento       RegolamentoTassaComune @relation(fields: [regolamentoId], references: [id])
-  importo           Decimal                @db.Decimal(6, 2)
-  esente            Boolean                @default(false)
-  motivoEsenzioneId Int?
-  motivoEsenzione   MotivoEsenzioneTassa?  @relation(fields: [motivoEsenzioneId], references: [id])
+  id            Int              @id @default(autoincrement())
+  notteId       Int              @unique
+  notte         NotteSoggiorno   @relation(fields: [notteId], references: [id])
+  regolamentoId Int
+  regolamento   RegolamentoTassa @relation(fields: [regolamentoId], references: [id])
+  tariffaId     Int?
+  tariffa       TariffaTassa?    @relation(fields: [tariffaId], references: [id])
+  regolaId      Int?
+  regola        RegolaTassa?     @relation(fields: [regolaId], references: [id])
+  esito         String
+  importo       Decimal          @db.Decimal(6, 2)
 }

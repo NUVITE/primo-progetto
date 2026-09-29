@@ -56,17 +56,15 @@ export async function elencoComuni() {
   return prisma.comune.findMany({ orderBy: { nome: "asc" } });
 }
 
-/** Categorie già usate nei regolamenti tassa del comune: suggerimenti per il campo categoria. */
+/** Categorie delle tariffe tassa in vigore oggi, per comune: le scelte possibili per Hotel.categoria. */
 export async function categorieTassaPerComune() {
-  const regolamenti = await prisma.regolamentoTassaComune.findMany({
-    where: { categoriaStruttura: { not: null } },
-    select: { comuneId: true, categoriaStruttura: true },
+  const oggi = new Date();
+  const versioni = await prisma.regolamentoTassa.findMany({
+    where: { validoDal: { lte: oggi }, OR: [{ validoAl: null }, { validoAl: { gte: oggi } }] },
+    include: { tariffe: { orderBy: { categoria: "asc" } } },
   });
   const perComune: Record<number, string[]> = {};
-  for (const r of regolamenti) {
-    const lista = (perComune[r.comuneId] ??= []);
-    if (r.categoriaStruttura && !lista.includes(r.categoriaStruttura)) lista.push(r.categoriaStruttura);
-  }
+  for (const v of versioni) perComune[v.comuneId] = v.tariffe.map((t) => t.categoria);
   return perComune;
 }
 

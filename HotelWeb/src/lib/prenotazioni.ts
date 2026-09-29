@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import type { Prisma, PrismaClient } from "@/generated/prisma/client";
 import { nottiTraDate, trovaPrezzoNotte } from "@/lib/pricing";
-import { calcolaTassaNotte } from "@/lib/tassaSoggiorno";
+import { ricalcolaTassaPosizione, verificaPosizioneAperta } from "@/lib/tassaSoggiorno";
 
 type Db = PrismaClient | Prisma.TransactionClient;
 
@@ -71,7 +71,7 @@ export async function creaPrenotazione(hotelId: number, input: CreaPrenotazioneI
     });
 
     for (const segInput of input.segmenti) {
-      await creaSegmento(tx, hotelId, prenotazione.id, segInput, 0);
+      await creaSegmento(tx, hotelId, prenotazione.id, segInput);
     }
 
     return caricaPrenotazioneCompleta(tx, hotelId, prenotazione.id);
@@ -116,7 +116,7 @@ export async function creaPrenotazioneGenerica(hotelId: number, input: CreaPreno
           listinoId: input.listinoId,
           dataInizio: input.dataInizio,
           dataFine: input.dataFine,
-        }, 0);
+        });
       }
     }
 
@@ -128,6 +128,7 @@ export async function creaPrenotazioneGenerica(hotelId: number, input: CreaPreno
 export async function assegnaCamera(hotelId: number, segmentoId: number, cameraId: number) {
   return prisma.$transaction(async (tx) => {
     const segmento = await trovaSegmentoDelHotel(tx, hotelId, segmentoId);
+    await verificaPosizioneAperta(tx, segmento.prenotazioneId, segmento.ospiteId);
     if (segmento.cameraId) {
       throw new Error("Questo segmento ha già una camera assegnata: usa Cambia camera per sostituirla.");
     }
@@ -303,30 +304,11 @@ export async function capacitaLiberaPerTipo(
   return totale - inManutenzione.length - segmentiSovrapposti;
 }
 
-/**
- * Somma le notti tassabili già "consumate" nella catena di segmenti che precede
- * questo (segmento_precedente_id): un cambio camera a metà soggiorno non deve far
- * ripartire da zero il conteggio del tetto notti, perché per l'ospite è lo stesso
- * soggiorno continuato in un'altra camera.
- */
-async function contaNottiTassabiliCatena(db: Db, segmentoId: number): Promise<number> {
-  const segmento = await db.segmentoSoggiorno.findUniqueOrThrow({
-    where: { id: segmentoId },
-    include: { notti: { include: { tassa: true } } },
-  });
-
-  const propria = segmento.notti.filter((n) => n.tassa && !n.tassa.esente).length;
-
-  if (!segmento.segmentoPrecedenteId) return propria;
-  return propria + (await contaNottiTassabiliCatena(db, segmento.segmentoPrecedenteId));
-}
-
 async function creaSegmento(
   db: Db,
   hotelId: number,
   prenotazioneId: number,
   segInput: NuovoSegmentoInput,
-  contatoreIniziale: number,
   segmentoPrecedenteId?: number
 ) {
   const ospiteId = await risolviOspite(db, hotelId, segInput.ospite);
@@ -371,40 +353,28 @@ async function creaSegmento(
     },
   });
 
-  await generaNottiETasse(
-    db,
-    segmento.id,
-    listino,
-    { codice: camera?.codice ?? tipoCamera.descrizione, tipoCameraId: segInput.tipoCameraId, hotel },
-    ospite,
-    dataInizio,
-    dataFine,
-    contatoreIniziale
-  );
+  await generaNotti(db, segmento.id, listino, segInput.tipoCameraId, dataInizio, dataFine);
+  await ricalcolaTassaPosizione(db, prenotazioneId, ospite.id);
 
   return segmento;
 }
 
-async function generaNottiETasse(
+/** Crea le notti di un segmento con il loro prezzo. La tassa la calcola poi ricalcolaTassaPosizione. */
+async function generaNotti(
   db: Db,
   segmentoId: number,
   listino: { id: number; tipo: string },
-  riferimento: { codice: string; tipoCameraId: number; hotel: { comuneId: number; categoria: string | null } },
-  ospite: { id: number; dataNascita: Date | null },
+  tipoCameraId: number,
   dataInizio: Date,
-  dataFine: Date,
-  contatoreIniziale: number
+  dataFine: Date
 ) {
-  const notti = nottiTraDate(dataInizio, dataFine);
-
-  let contatoreNottiTassabili = contatoreIniziale;
-  for (const notte of notti) {
-    const prezzoInfo = await trovaPrezzoNotte(db, listino.id, riferimento.tipoCameraId, notte);
+  for (const notte of nottiTraDate(dataInizio, dataFine)) {
+    const prezzoInfo = await trovaPrezzoNotte(db, listino.id, tipoCameraId, notte);
     // Nessuna tariffa impostata per questa notte: non blocca piu' la prenotazione (l'operatore
     // puo' bloccare le camere comunque e sistemare il listino piu' avanti — richiesto esplicitamente
     // dall'utente 2026-09-26), ma la notte resta segnata con prezzo 0 e motivo "mancante" cosi'
     // si vede chiaramente nel dettaglio prenotazione che il totale e' incompleto.
-    const notteSoggiorno = await db.notteSoggiorno.create({
+    await db.notteSoggiorno.create({
       data: {
         segmentoId,
         data: notte,
@@ -412,28 +382,6 @@ async function generaNottiETasse(
         motivoPrezzo: prezzoInfo ? listino.tipo : "mancante",
       },
     });
-
-    const tassaInfo = await calcolaTassaNotte(db, {
-      comuneId: riferimento.hotel.comuneId,
-      categoriaStruttura: riferimento.hotel.categoria,
-      data: notte,
-      ospiteId: ospite.id,
-      ospiteDataNascita: ospite.dataNascita,
-      notteGiaContataNelSegmento: contatoreNottiTassabili,
-    });
-
-    if (tassaInfo) {
-      await db.tassaNotte.create({
-        data: {
-          notteId: notteSoggiorno.id,
-          regolamentoId: tassaInfo.regolamentoId,
-          importo: tassaInfo.importo,
-          esente: tassaInfo.esente,
-          motivoEsenzioneId: tassaInfo.motivoEsenzioneId,
-        },
-      });
-      if (!tassaInfo.esente) contatoreNottiTassabili += 1;
-    }
   }
 }
 
@@ -442,7 +390,8 @@ export async function aggiungiSegmentoAPrenotazione(hotelId: number, prenotazion
   return prisma.$transaction(async (tx) => {
     // Verifica che la prenotazione appartenga all'hotel prima di aggiungerci qualcosa.
     await tx.prenotazione.findFirstOrThrow({ where: { id: prenotazioneId, hotelId } });
-    await creaSegmento(tx, hotelId, prenotazioneId, segInput, 0);
+    if ("id" in segInput.ospite) await verificaPosizioneAperta(tx, prenotazioneId, segInput.ospite.id);
+    await creaSegmento(tx, hotelId, prenotazioneId, segInput);
     return caricaPrenotazioneCompleta(tx, hotelId, prenotazioneId);
   });
 }
@@ -456,7 +405,7 @@ export async function aggiungiSegmentoAPrenotazione(hotelId: number, prenotazion
 export async function cambiaDataFineSegmento(hotelId: number, segmentoId: number, nuovaDataFineIso: string) {
   return prisma.$transaction(async (tx) => {
     const segmento = await trovaSegmentoDelHotel(tx, hotelId, segmentoId);
-    const hotel = await tx.hotel.findUniqueOrThrow({ where: { id: hotelId } });
+    await verificaPosizioneAperta(tx, segmento.prenotazioneId, segmento.ospiteId);
 
     const nuovaDataFine = new Date(nuovaDataFineIso);
     if (nuovaDataFine <= segmento.dataInizio) {
@@ -485,20 +434,11 @@ export async function cambiaDataFineSegmento(hotelId: number, segmentoId: number
         }
       }
       const listino = await tx.listino.findUniqueOrThrow({ where: { id: segmento.listinoId } });
-      const contatorePrecedente = await contaNottiTassabiliCatena(tx, segmentoId);
-      await generaNottiETasse(
-        tx,
-        segmentoId,
-        listino,
-        { codice: segmento.camera?.codice ?? segmento.tipoCamera.descrizione, tipoCameraId: segmento.tipoCameraId, hotel },
-        segmento.ospite,
-        segmento.dataFine,
-        nuovaDataFine,
-        contatorePrecedente
-      );
+      await generaNotti(tx, segmentoId, listino, segmento.tipoCameraId, segmento.dataFine, nuovaDataFine);
     }
 
     await tx.segmentoSoggiorno.update({ where: { id: segmentoId }, data: { dataFine: nuovaDataFine } });
+    await ricalcolaTassaPosizione(tx, segmento.prenotazioneId, segmento.ospiteId);
 
     return caricaPrenotazioneCompleta(tx, hotelId, segmento.prenotazioneId);
   });
@@ -512,6 +452,7 @@ export async function cambiaDataFineSegmento(hotelId: number, segmentoId: number
 export async function cambiaCameraSegmento(hotelId: number, segmentoId: number, dataCambioIso: string, nuovaCameraId: number) {
   return prisma.$transaction(async (tx) => {
     const segmento = await trovaSegmentoDelHotel(tx, hotelId, segmentoId);
+    await verificaPosizioneAperta(tx, segmento.prenotazioneId, segmento.ospiteId);
 
     const dataCambio = new Date(dataCambioIso);
     if (dataCambio <= segmento.dataInizio || dataCambio >= segmento.dataFine) {
@@ -536,8 +477,6 @@ export async function cambiaCameraSegmento(hotelId: number, segmentoId: number, 
     await tx.notteSoggiorno.deleteMany({ where: { id: { in: nottiDaRimuovere.map((n) => n.id) } } });
     await tx.segmentoSoggiorno.update({ where: { id: segmentoId }, data: { dataFine: dataCambio } });
 
-    const contatorePrecedente = await contaNottiTassabiliCatena(tx, segmentoId);
-
     await creaSegmento(
       tx,
       hotelId,
@@ -551,7 +490,6 @@ export async function cambiaCameraSegmento(hotelId: number, segmentoId: number, 
         dataInizio: dataCambioIso,
         dataFine: dataFineOriginale.toISOString().slice(0, 10),
       },
-      contatorePrecedente,
       segmentoId
     );
 
