@@ -2,6 +2,9 @@
 
 import { sbusta, type ValoreDi } from "@/lib/esito";
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { BedDouble, Check, Plus, Trash2 } from "lucide-react";
+import { Avviso, Campo, Input, IntestazionePagina, Pulsante, Select, Sezione, Spunta } from "@/components/ui";
 import { OspiteSearch, type OspiteValue } from "./OspiteSearch";
 import { anteprimaSegmento, datiIniziali, salvaPrenotazione } from "./actions";
 import { CampoComposizione } from "../CampoComposizione";
@@ -149,204 +152,178 @@ export function NuovaPrenotazioneForm() {
   }
 
   if (erroreCaricamento) {
-    return <div className="p-8 text-sm font-semibold text-red-700">{erroreCaricamento}</div>;
+    return (
+      <div className="p-3 sm:p-6">
+        <Avviso tipo="errore">{erroreCaricamento}</Avviso>
+      </div>
+    );
   }
 
   if (!caricato) {
-    return <div className="p-8 text-sm text-stone-600">Caricamento...</div>;
+    return <div className="p-6 text-sm text-stone-600">Caricamento...</div>;
   }
 
   if (esito) {
     return (
-      <div className="mx-auto max-w-lg rounded-xl border border-emerald-200 bg-emerald-50 p-6">
-        <h2 className="text-lg font-bold text-emerald-800">Prenotazione #{esito.id} creata</h2>
-        <p className="mt-1 text-sm text-emerald-900">Ospite prenotante: {esito.ospitePrenotante}</p>
-        {esito.importiVisibili && <div className="mt-4 space-y-1 text-sm">
-          <div className="flex justify-between"><span>Subtotale soggiorno</span><span className="font-mono">€ {esito.subtotale.toFixed(2)}</span></div>
-          <div className="flex justify-between"><span>Tassa di soggiorno</span><span className="font-mono">€ {esito.tassa.toFixed(2)}</span></div>
-          <div className="flex justify-between text-base font-bold"><span>Totale</span><span className="font-mono">€ {esito.totale.toFixed(2)}</span></div>
-        </div>}
-        <button
-          type="button"
-          className="mt-6 rounded-md border border-emerald-700 px-4 py-2 text-sm font-semibold text-emerald-800"
-          onClick={() => window.location.reload()}
-        >
-          Nuova prenotazione
-        </button>
+      <div className="p-3 sm:p-6">
+        <Sezione className="mx-auto max-w-lg" titolo={`Prenotazione #${esito.id} creata`}>
+          <Avviso tipo="ok">Ospite prenotante: {esito.ospitePrenotante}</Avviso>
+          {esito.importiVisibili && (
+            <dl className="mt-4 space-y-1 text-sm">
+              <div className="flex justify-between"><dt>Subtotale soggiorno</dt><dd className="font-mono">€ {esito.subtotale.toFixed(2)}</dd></div>
+              <div className="flex justify-between"><dt>Tassa di soggiorno</dt><dd className="font-mono">€ {esito.tassa.toFixed(2)}</dd></div>
+              <div className="flex justify-between border-t border-stone-200 pt-1 text-base font-bold"><dt>Totale</dt><dd className="font-mono">€ {esito.totale.toFixed(2)}</dd></div>
+            </dl>
+          )}
+          <div className="mt-5 flex flex-wrap gap-2">
+            <Link href={`/prenotazioni/${esito.id}`} className="inline-flex h-8 items-center rounded-md bg-teal-700 px-3 text-sm font-semibold text-white shadow-sm hover:bg-teal-800 pointer-coarse:h-10">
+              Apri la prenotazione
+            </Link>
+            <Pulsante icona={Plus} onClick={() => window.location.reload()}>
+              Nuova prenotazione
+            </Pulsante>
+          </div>
+        </Sezione>
       </div>
     );
   }
 
   return (
-    <div className="flex w-full min-w-0 flex-col gap-6 p-3 sm:p-6">
-      <h1 className="text-xl font-bold">Nuova prenotazione</h1>
+    <div className="flex w-full min-w-0 flex-col gap-4 p-3 sm:p-6">
+      <IntestazionePagina titolo="Nuova prenotazione" sottotitolo="Ospite, camere e date: il prezzo si calcola mentre compili." />
 
-      <div className="flex flex-col gap-6 xl:flex-row xl:items-start">
-      <div className="flex flex-1 flex-col gap-6 xl:max-w-3xl">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-start">
+        <div className="flex min-w-0 flex-1 flex-col gap-4 xl:max-w-3xl">
+          <Sezione titolo="Ospite prenotante">
+            <OspiteSearch value={ospitePrenotante} onChange={setOspitePrenotante} etichetta="Chi prenota" />
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              <Spunta etichetta="Fa parte di un gruppo" checked={gruppoAttivo} onChange={(e) => setGruppoAttivo(e.target.checked)} />
+              {gruppoAttivo && <Input className="max-w-xs" placeholder="Nome del gruppo" value={gruppoNome} onChange={(e) => setGruppoNome(e.target.value)} />}
+            </div>
+          </Sezione>
 
-      <section className="rounded-xl border border-stone-200 bg-white p-5">
-        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-stone-600">Ospite prenotante</h2>
-        <OspiteSearch value={ospitePrenotante} onChange={setOspitePrenotante} etichetta="Cerca per nome o cognome" />
-
-        <div className="mt-4 flex items-center gap-2">
-          <input id="gruppo" type="checkbox" checked={gruppoAttivo} onChange={(e) => setGruppoAttivo(e.target.checked)} />
-          <label htmlFor="gruppo" className="text-sm">Fa parte di un gruppo</label>
-          {gruppoAttivo && (
-            <input
-              className="ml-2 rounded-md border border-stone-300 px-2 py-1 text-sm"
-              placeholder="Nome gruppo"
-              value={gruppoNome}
-              onChange={(e) => setGruppoNome(e.target.value)}
-            />
-          )}
-        </div>
-      </section>
-
-      <section className="rounded-xl border border-stone-200 bg-white p-5">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-stone-600">Camere e soggiorni</h2>
-          <button type="button" onClick={aggiungiSegmento} className="rounded-md border border-teal-700 px-3 py-1.5 text-sm font-semibold text-teal-700">
-            + Aggiungi camera / segmento
-          </button>
-        </div>
-
-        <div className="flex flex-col gap-4">
-          {segmenti.map((seg, idx) => (
-            <div key={seg.chiave} className="rounded-lg border border-stone-200 p-4">
-              <div className="mb-3 flex items-center justify-between">
-                <span className="text-sm font-semibold">Camera {idx + 1}</span>
-                {segmenti.length > 1 && (
-                  <button type="button" className="text-xs font-semibold text-red-600" onClick={() => rimuoviSegmento(idx)}>
-                    Rimuovi
-                  </button>
-                )}
-              </div>
-
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div>
-                  <label className="mb-1 block text-xs text-stone-600">Camera</label>
-                  <select
-                    className="w-full rounded-md border border-stone-300 px-2 py-1.5 text-sm"
-                    value={seg.cameraId ?? ""}
-                    onChange={(e) => aggiornaSegmento(idx, { cameraId: Number(e.target.value) })}
-                  >
-                    <option value="" disabled>Seleziona...</option>
-                    {camere.map((c) => (
-                      <option key={c.id} value={c.id}>{c.codice} — {c.tipoCameraNome}</option>
-                    ))}
-                  </select>
+          <Sezione
+            titolo="Camere e soggiorni"
+            azioni={
+              <Pulsante icona={Plus} onClick={aggiungiSegmento}>
+                Aggiungi camera
+              </Pulsante>
+            }
+            corpoClassName="flex flex-col gap-4"
+          >
+            {segmenti.map((seg, idx) => (
+              <div key={seg.chiave} className="rounded-md border border-stone-200 bg-stone-50/60 p-3">
+                <div className="mb-3 flex items-center justify-between">
+                  <span className="flex items-center gap-2 text-sm font-bold text-stone-900">
+                    <BedDouble className="h-4 w-4 text-teal-700" aria-hidden />
+                    Camera {idx + 1}
+                  </span>
+                  {segmenti.length > 1 && (
+                    <Pulsante variante="pericolo" dimensione="piccolo" icona={Trash2} onClick={() => rimuoviSegmento(idx)}>
+                      Rimuovi
+                    </Pulsante>
+                  )}
                 </div>
-                <div>
-                  <label className="mb-1 block text-xs text-stone-600">Trattamento</label>
-                  <select
-                    className="w-full rounded-md border border-stone-300 px-2 py-1.5 text-sm"
-                    value={seg.trattamento}
-                    onChange={(e) => aggiornaSegmento(idx, { trattamento: e.target.value })}
-                  >
-                    {trattamenti.map((t) => (
-                      <option key={t} value={t}>{t}</option>
-                    ))}
-                  </select>
+
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  <Campo etichetta="Camera" obbligatorio className="lg:col-span-2">
+                    <Select value={seg.cameraId ?? ""} onChange={(e) => aggiornaSegmento(idx, { cameraId: Number(e.target.value) })}>
+                      <option value="" disabled>Seleziona...</option>
+                      {camere.map((c) => (
+                        <option key={c.id} value={c.id}>{c.codice} — {c.tipoCameraNome}</option>
+                      ))}
+                    </Select>
+                  </Campo>
+                  <Campo etichetta="Arrivo" obbligatorio>
+                    <Input type="date" value={seg.dataInizio} onChange={(e) => aggiornaSegmento(idx, { dataInizio: e.target.value })} />
+                  </Campo>
+                  <Campo etichetta="Partenza" obbligatorio>
+                    <Input type="date" value={seg.dataFine} min={seg.dataInizio || undefined} onChange={(e) => aggiornaSegmento(idx, { dataFine: e.target.value })} />
+                  </Campo>
+                  <Campo etichetta="Listino" className="lg:col-span-2">
+                    <Select value={seg.listinoId ?? ""} onChange={(e) => aggiornaSegmento(idx, { listinoId: Number(e.target.value) })}>
+                      {listini.map((l) => (
+                        <option key={l.id} value={l.id}>{l.descrizione}</option>
+                      ))}
+                    </Select>
+                  </Campo>
+                  <Campo etichetta="Trattamento" className="lg:col-span-2">
+                    <Select value={seg.trattamento} onChange={(e) => aggiornaSegmento(idx, { trattamento: e.target.value })}>
+                      {trattamenti.map((t) => (
+                        <option key={t} value={t}>{t}</option>
+                      ))}
+                    </Select>
+                  </Campo>
                 </div>
-                <div>
-                  <label className="mb-1 block text-xs text-stone-600">Listino</label>
-                  <select
-                    className="w-full rounded-md border border-stone-300 px-2 py-1.5 text-sm"
-                    value={seg.listinoId ?? ""}
-                    onChange={(e) => aggiornaSegmento(idx, { listinoId: Number(e.target.value) })}
-                  >
-                    {listini.map((l) => (
-                      <option key={l.id} value={l.id}>{l.descrizione}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="sm:col-span-2">
-                  <label className="mb-1 block text-xs text-stone-600">Persone in camera (base del prezzo)</label>
+
+                <div className="mt-3 flex flex-col gap-1">
+                  <span className="text-xs font-semibold text-stone-700">Persone in camera <span className="font-normal text-stone-500">(base del prezzo)</span></span>
                   <CampoComposizione valore={seg.composizione} onChange={(c) => aggiornaSegmento(idx, { composizione: c })} />
                 </div>
-                <div>
-                  <label className="mb-1 block text-xs text-stone-600">Check-in</label>
-                  <input
-                    type="date"
-                    className="w-full rounded-md border border-stone-300 px-2 py-1.5 text-sm"
-                    value={seg.dataInizio}
-                    onChange={(e) => aggiornaSegmento(idx, { dataInizio: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs text-stone-600">Check-out</label>
-                  <input
-                    type="date"
-                    className="w-full rounded-md border border-stone-300 px-2 py-1.5 text-sm"
-                    value={seg.dataFine}
-                    onChange={(e) => aggiornaSegmento(idx, { dataFine: e.target.value })}
-                  />
-                </div>
-              </div>
 
-              <div className="mt-3">
-                <OspiteSearch value={seg.ospite} onChange={(v) => aggiornaSegmento(idx, { ospite: v })} etichetta="Ospite di questa camera" />
-              </div>
+                <div className="mt-3">
+                  <OspiteSearch value={seg.ospite} onChange={(v) => aggiornaSegmento(idx, { ospite: v })} etichetta="Intestatario della camera" />
+                </div>
 
-              {seg.anteprima && (
-                <div className="mt-3 rounded-md bg-stone-50 px-3 py-2 text-xs text-stone-600">
-                  <div className="flex flex-wrap justify-between gap-2">
-                    <span>{seg.anteprima.notti} notti · € {seg.anteprima.subtotale.toFixed(2)}</span>
-                    {seg.anteprima.regolamento ? (
-                      <span>Tassa stimata ({seg.anteprima.regolamento.comune}): € {seg.anteprima.tassaStimata.toFixed(2)}</span>
-                    ) : (
-                      <span>Nessuna tassa di soggiorno per questo comune</span>
-                    )}
-                  </div>
-                  {seg.anteprima.dettaglioPrimaNotte.length > 0 && (
-                    <div className="mt-1 text-stone-500">
-                      Prima notte: {seg.anteprima.dettaglioPrimaNotte.map((r) => `${r.voce} = € ${r.importo.toFixed(2)}`).join(" · ")}
+                {seg.anteprima && (
+                  <div className="mt-3 rounded-md border border-stone-200 bg-white px-3 py-2 text-sm">
+                    <div className="flex flex-wrap items-baseline justify-between gap-2">
+                      <span className="font-semibold text-stone-900">
+                        {seg.anteprima.notti} {seg.anteprima.notti === 1 ? "notte" : "notti"} · € {seg.anteprima.subtotale.toFixed(2)}
+                      </span>
+                      <span className="text-xs text-stone-600">
+                        {seg.anteprima.regolamento
+                          ? `Tassa stimata (${seg.anteprima.regolamento.comune}): € ${seg.anteprima.tassaStimata.toFixed(2)}`
+                          : "Nessuna tassa di soggiorno per questo comune"}
+                      </span>
                     </div>
-                  )}
-                  {seg.anteprima.nottiSenzaTariffa > 0 && (
-                    <div className="mt-1 font-semibold text-amber-800">{seg.anteprima.nottiSenzaTariffa} notti senza tariffa nel listino: il totale è incompleto.</div>
-                  )}
-                  {seg.anteprima.avvisi.map((a) => (
-                    <div key={a} className="mt-1 font-semibold text-amber-800">{a}</div>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      </section>
-
-      </div>
-
-      <section className="rounded-xl border border-stone-200 bg-white p-5 xl:sticky xl:top-6 xl:w-96 xl:flex-shrink-0">
-        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-stone-600">Riepilogo</h2>
-        <div className="space-y-1 text-sm">
-          <div className="flex justify-between"><span>Subtotale soggiorno</span><span className="font-mono">€ {totali.subtotale.toFixed(2)}</span></div>
-          <div className="flex justify-between"><span>Tassa di soggiorno (stimata)</span><span className="font-mono">€ {totali.tassa.toFixed(2)}</span></div>
-          <div className="flex justify-between text-base font-bold"><span>Totale stimato</span><span className="font-mono">€ {totali.totale.toFixed(2)}</span></div>
-        </div>
-        <div className="mt-3">
-          <label className="mb-1 block text-xs text-stone-600">Acconto richiesto</label>
-          <input
-            className="w-40 rounded-md border border-stone-300 px-2 py-1.5 text-sm"
-            value={accontoRichiesto}
-            onChange={(e) => setAccontoRichiesto(e.target.value)}
-            placeholder="€ 0,00"
-          />
+                    {seg.anteprima.dettaglioPrimaNotte.length > 0 && (
+                      <ul className="mt-1.5 space-y-0.5 border-t border-stone-100 pt-1.5 text-xs text-stone-600">
+                        <li className="font-semibold text-stone-700">Prima notte</li>
+                        {seg.anteprima.dettaglioPrimaNotte.map((r, i) => (
+                          <li key={i} className="flex justify-between gap-2">
+                            <span>{r.voce}</span>
+                            <span className="font-mono">€ {r.importo.toFixed(2)}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {seg.anteprima.nottiSenzaTariffa > 0 && (
+                      <Avviso tipo="avviso" className="mt-2">
+                        {seg.anteprima.nottiSenzaTariffa} notti senza tariffa nel listino: il totale è incompleto.
+                      </Avviso>
+                    )}
+                    {seg.anteprima.avvisi.map((a) => (
+                      <Avviso key={a} tipo="avviso" className="mt-2">
+                        {a}
+                      </Avviso>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </Sezione>
         </div>
 
-        {errore && <p className="mt-3 text-sm font-semibold text-red-600">{errore}</p>}
+        <Sezione titolo="Riepilogo" className="xl:sticky xl:top-6 xl:w-96 xl:flex-shrink-0">
+          <dl className="space-y-1 text-sm">
+            <div className="flex justify-between"><dt>Subtotale soggiorno</dt><dd className="font-mono">€ {totali.subtotale.toFixed(2)}</dd></div>
+            <div className="flex justify-between text-stone-600"><dt>Tassa di soggiorno (stimata)</dt><dd className="font-mono">€ {totali.tassa.toFixed(2)}</dd></div>
+            <div className="flex justify-between border-t border-stone-200 pt-1 text-base font-bold"><dt>Totale stimato</dt><dd className="font-mono">€ {totali.totale.toFixed(2)}</dd></div>
+          </dl>
+          <Campo etichetta="Acconto richiesto" className="mt-4 w-40">
+            <Input inputMode="decimal" value={accontoRichiesto} onChange={(e) => setAccontoRichiesto(e.target.value)} placeholder="€ 0,00" />
+          </Campo>
 
-        <button
-          type="button"
-          disabled={!formValido || salvando}
-          onClick={handleSalva}
-          className="mt-4 w-full rounded-md bg-teal-700 py-2.5 text-sm font-bold text-white disabled:opacity-40"
-        >
-          {salvando ? "Salvataggio..." : "Conferma prenotazione"}
-        </button>
-      </section>
+          {errore && <Avviso tipo="errore" className="mt-3">{errore}</Avviso>}
+          {!formValido && !errore && (
+            <p className="mt-3 text-xs text-stone-500">Per confermare servono chi prenota e, per ogni camera, camera, date e intestatario.</p>
+          )}
 
+          <Pulsante variante="primario" icona={Check} disabled={!formValido || salvando} onClick={handleSalva} className="mt-3 w-full">
+            {salvando ? "Salvataggio..." : "Conferma prenotazione"}
+          </Pulsante>
+        </Sezione>
       </div>
     </div>
   );
