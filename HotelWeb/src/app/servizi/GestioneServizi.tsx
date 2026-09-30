@@ -11,6 +11,34 @@ import {
 } from "./actions";
 
 type Dati = Awaited<ReturnType<typeof datiGestioneServizi>>;
+type Addebito = Dati["servizi"][number]["addebito"];
+type Effetto = Dati["servizi"][number]["effetto"];
+
+export const ETICHETTA_ADDEBITO: Record<string, string> = {
+  una_tantum: "una tantum",
+  per_notte: "per notte",
+  per_persona_notte: "per persona per notte",
+};
+const ETICHETTA_EFFETTO: Record<string, string> = { letto_aggiunto: "letto aggiunto", animale: "animale" };
+
+/** Addebito ed effetto del supplemento: stessi controlli per nuovo e modifica. */
+function CampiSupplemento({ addebito, effetto, onChange }: { addebito: Addebito; effetto: Effetto; onChange: (a: Addebito, e: Effetto) => void }) {
+  const sel = "rounded-md border border-stone-300 px-2 py-1 text-sm text-stone-900";
+  return (
+    <>
+      <select className={sel} value={addebito} onChange={(e) => onChange(e.target.value as Addebito, effetto)} title="Come si addebita">
+        {Object.entries(ETICHETTA_ADDEBITO).map(([k, v]) => (
+          <option key={k} value={k}>{v}</option>
+        ))}
+      </select>
+      <select className={sel} value={effetto ?? ""} onChange={(e) => onChange(addebito, (e.target.value || null) as Effetto)} title="Effetto sulla camera">
+        <option value="">nessun effetto</option>
+        <option value="letto_aggiunto">letto aggiunto (+1 posto)</option>
+        <option value="animale">animale (solo camere che li ammettono)</option>
+      </select>
+    </>
+  );
+}
 
 function eur(n: number) {
   return `€ ${n.toFixed(2)}`;
@@ -23,10 +51,14 @@ export function GestioneServizi({ iniziale }: { iniziale: Dati }) {
 
   const [nuovoNome, setNuovoNome] = useState("");
   const [nuovoPrezzo, setNuovoPrezzo] = useState("");
+  const [nuovoAddebito, setNuovoAddebito] = useState<Addebito>("una_tantum");
+  const [nuovoEffetto, setNuovoEffetto] = useState<Effetto>(null);
 
   const [inModifica, setInModifica] = useState<number | null>(null);
   const [modNome, setModNome] = useState("");
   const [modPrezzo, setModPrezzo] = useState("");
+  const [modAddebito, setModAddebito] = useState<Addebito>("una_tantum");
+  const [modEffetto, setModEffetto] = useState<Effetto>(null);
   const [daEliminare, setDaEliminare] = useState<number | null>(null);
 
   function apriModifica(s: Dati["servizi"][number]) {
@@ -34,6 +66,8 @@ export function GestioneServizi({ iniziale }: { iniziale: Dati }) {
     setInModifica(s.id);
     setModNome(s.nome);
     setModPrezzo(String(s.prezzo));
+    setModAddebito(s.addebito);
+    setModEffetto(s.effetto);
   }
 
   async function eseguendo(fn: () => Promise<Dati>) {
@@ -54,7 +88,9 @@ export function GestioneServizi({ iniziale }: { iniziale: Dati }) {
     <div className="flex w-full min-w-0 flex-col gap-6 p-3 sm:p-6">
       <h1 className="text-xl font-bold">Servizi aggiuntivi</h1>
       <p className="text-sm text-stone-600">
-        Catalogo dei servizi extra a listino (es. sala conferenze, pranzo aggiuntivo, colazione extra).
+        Catalogo dei servizi e supplementi a richiesta (es. letto aggiunto, cuccia per il cane, colazione in camera). Si addebitano una tantum, per notte
+        o per persona per notte: la quantità si calcola dalle notti e dalle persone delle camere scelte. Il letto aggiunto aumenta i posti della camera
+        (entro il massimo del tipo camera); gli animali sono ammessi solo nei tipi camera che li accettano (Impostazioni &gt; Camere).
         Un servizio a prezzo libero (importo deciso al momento) non serve qui: si aggiunge direttamente dal dettaglio di una prenotazione.
       </p>
 
@@ -64,7 +100,7 @@ export function GestioneServizi({ iniziale }: { iniziale: Dati }) {
         <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-stone-600">Catalogo</h2>
         <table className="tabella-responsive mb-4 w-full text-sm">
           <thead className="text-left text-xs uppercase text-stone-500">
-            <tr><th className="pb-1">Nome</th><th className="pb-1">Prezzo</th><th className="pb-1">Attivo</th><th className="pb-1" /></tr>
+            <tr><th className="pb-1">Nome</th><th className="pb-1">Prezzo</th><th className="pb-1">Addebito</th><th className="pb-1">Attivo</th><th className="pb-1" /></tr>
           </thead>
           <tbody>
             {dati.servizi.map((s) =>
@@ -88,13 +124,18 @@ export function GestioneServizi({ iniziale }: { iniziale: Dati }) {
                       onChange={(e) => setModPrezzo(e.target.value)}
                     />
                   </td>
+                  <td data-label="Addebito" className="py-1.5 pr-2">
+                    <div className="flex flex-wrap gap-1">
+                      <CampiSupplemento addebito={modAddebito} effetto={modEffetto} onChange={(a, e) => { setModAddebito(a); setModEffetto(e); }} />
+                    </div>
+                  </td>
                   <td className="cella-intera py-1.5" colSpan={2}>
                     <div className="flex justify-end gap-2">
                       <button
                         disabled={busy || !modNome.trim() || modPrezzo === ""}
                         className="rounded-md bg-teal-700 px-2.5 py-1 text-xs font-bold text-white disabled:opacity-40"
                         onClick={() =>
-                          eseguendo(() => sbusta(azioneModificaServizioCatalogo(s.id, { nome: modNome.trim(), prezzo: Number(modPrezzo) })))
+                          eseguendo(() => sbusta(azioneModificaServizioCatalogo(s.id, { nome: modNome.trim(), prezzo: Number(modPrezzo), addebito: modAddebito, effetto: modEffetto })))
                         }
                       >
                         Salva
@@ -109,6 +150,10 @@ export function GestioneServizi({ iniziale }: { iniziale: Dati }) {
                 <tr key={s.id} className="border-t border-stone-100">
                   <td className="cella-intera py-1.5 font-semibold">{s.nome}</td>
                   <td data-label="Prezzo" className="py-1.5 font-mono">{eur(s.prezzo)}</td>
+                  <td data-label="Addebito" className="py-1.5 text-xs">
+                    {ETICHETTA_ADDEBITO[s.addebito]}
+                    {s.effetto && <span className="ml-1 rounded bg-teal-50 px-1.5 py-0.5 text-teal-800">{ETICHETTA_EFFETTO[s.effetto]}</span>}
+                  </td>
                   <td data-label="Stato" className="py-1.5">
                     <button
                       className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${s.attivo ? "bg-emerald-50 text-emerald-700" : "bg-stone-200 text-stone-600"}`}
@@ -154,7 +199,7 @@ export function GestioneServizi({ iniziale }: { iniziale: Dati }) {
               ),
             )}
             {dati.servizi.length === 0 && (
-              <tr><td colSpan={4} className="cella-intera py-2 text-stone-500">Nessun servizio a catalogo.</td></tr>
+              <tr><td colSpan={5} className="cella-intera py-2 text-stone-500">Nessun servizio a catalogo.</td></tr>
             )}
           </tbody>
         </table>
@@ -174,14 +219,17 @@ export function GestioneServizi({ iniziale }: { iniziale: Dati }) {
             value={nuovoPrezzo}
             onChange={(e) => setNuovoPrezzo(e.target.value)}
           />
+          <CampiSupplemento addebito={nuovoAddebito} effetto={nuovoEffetto} onChange={(a, e) => { setNuovoAddebito(a); setNuovoEffetto(e); }} />
           <button
             disabled={busy || !nuovoNome.trim() || !nuovoPrezzo}
             className="rounded-md bg-teal-700 px-3 py-1.5 text-sm font-bold text-white disabled:opacity-40"
             onClick={() =>
               eseguendo(async () => {
-                const r = await sbusta(azioneCreaServizio({ nome: nuovoNome.trim(), prezzo: Number(nuovoPrezzo) }));
+                const r = await sbusta(azioneCreaServizio({ nome: nuovoNome.trim(), prezzo: Number(nuovoPrezzo), addebito: nuovoAddebito, effetto: nuovoEffetto }));
                 setNuovoNome("");
                 setNuovoPrezzo("");
+                setNuovoAddebito("una_tantum");
+                setNuovoEffetto(null);
                 return r;
               })
             }

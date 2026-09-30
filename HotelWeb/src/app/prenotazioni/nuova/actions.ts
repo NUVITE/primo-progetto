@@ -30,7 +30,9 @@ export async function datiIniziali() {
     })),
     tipiCamera: tipiCamera.map((t) => ({ id: t.id, descrizione: t.descrizione })),
     listini: listini.map((l) => ({ id: l.id, descrizione: l.descrizione, tipo: l.tipo })),
-    serviziCatalogo: serviziCatalogo.filter((s) => s.attivo).map((s) => ({ id: s.id, nome: s.nome, prezzo: Number(s.prezzo) })),
+    serviziCatalogo: serviziCatalogo
+      .filter((s) => s.attivo)
+      .map((s) => ({ id: s.id, nome: s.nome, prezzo: Number(s.prezzo), addebito: s.addebito, effetto: s.effetto })),
     // Trattamenti attivi configurati dall'hotel (Impostazioni > Trattamenti), nell'ordine scelto.
     trattamenti: trattamenti.map((t) => t.nome),
   };

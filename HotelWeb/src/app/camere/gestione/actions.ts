@@ -1,7 +1,7 @@
 "use server";
 
 import { conEsito } from "@/lib/esito";
-import {
+import { impostaOpzioniTipoCamera,
   cambiaTipoCamera,
   creaCamera,
   creaIndisponibilita,
@@ -22,7 +22,7 @@ export async function datiGestione() {
   const hotelId = await hotelAmministrato();
   const { tipiCamera, camere, indisponibilita } = await datiGestioneCamere(hotelId);
   return {
-    tipiCamera: tipiCamera.map((t) => ({ id: t.id, codice: t.codice, descrizione: t.descrizione })),
+    tipiCamera: tipiCamera.map((t) => ({ id: t.id, codice: t.codice, descrizione: t.descrizione, lettiAggiuntiMax: t.lettiAggiuntiMax, animaliAmmessi: t.animaliAmmessi })),
     camere: camere.map((c) => ({
       id: c.id,
       codice: c.codice,
@@ -42,6 +42,14 @@ export async function datiGestione() {
       motivo: i.motivo,
     })),
   };
+}
+
+export async function azioneOpzioniTipoCamera(id: number, lettiAggiuntiMax: number, animaliAmmessi: boolean) {
+  return conEsito(async () => {
+    const hotelId = await hotelAmministrato();
+    await impostaOpzioniTipoCamera(hotelId, id, lettiAggiuntiMax, animaliAmmessi);
+    return datiGestione();
+  });
 }
 
 export async function azioneCreaTipoCamera(codice: string, descrizione: string) {

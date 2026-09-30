@@ -8,6 +8,7 @@ import type { datiCheckin, AnagraficaInput, DatiPresenzaInput } from "@/lib/chec
 import { OspiteSearch, type OspiteValue } from "../../../nuova/OspiteSearch";
 import { LuogoSearch } from "./LuogoSearch";
 import {
+  azioneRicalcolaDaPresenti,
   azioneAggiungiOccupante,
   azioneCheckoutCamera,
   azioneCheckoutOccupante,
@@ -85,6 +86,27 @@ export function CheckinCamera({ iniziale, puoGestire }: { iniziale: Dati; puoGes
           {s.capienza !== null && ` · fino a ${s.capienza} persone`}
           {s.gruppo && ` · gruppo ${s.gruppo}`}
         </p>
+        <p className="text-sm text-stone-600">
+          Prenotata per: {s.composizione.prenotata}
+          {s.lettiAggiunti > 0 && ` · ${s.lettiAggiunti} ${s.lettiAggiunti === 1 ? "letto aggiunto" : "letti aggiunti"}`}
+        </p>
+        {s.composizione.diversa && dati.occupanti.some((o) => o.stato !== "attesa") && (
+          <div className="mt-2 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            Persone registrate: {s.composizione.reale}
+            {s.composizione.senzaData > 0 && ` (${s.composizione.senzaData} senza data di nascita, contati adulti)`} — diverse dalla prenotazione. Il
+            prezzo resta quello concordato finché non lo ricalcoli.
+            {puoGestire && (
+              <button
+                type="button"
+                disabled={busy}
+                className="ml-2 rounded-md bg-teal-700 px-2.5 py-1 text-xs font-bold text-white disabled:opacity-40"
+                onClick={() => esegui(() => sbusta(azioneRicalcolaDaPresenti(s.id)), "Prezzo ricalcolato sulle persone registrate.")}
+              >
+                Ricalcola il prezzo
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {!dati.tabelleCaricate && (

@@ -23,7 +23,8 @@ import {
 type Prenotazione = Awaited<ReturnType<typeof caricaPrenotazione>>;
 type Camera = { id: number; codice: string; tipoCameraId: number; tipoCameraNome: string };
 type Listino = { id: number; descrizione: string; tipo: string };
-type ServizioCatalogo = { id: number; nome: string; prezzo: number };
+type ServizioCatalogo = { id: number; nome: string; prezzo: number; addebito: string; effetto: string | null };
+const ADDEBITO: Record<string, string> = { per_notte: "per notte", per_persona_notte: "per persona per notte" };
 
 
 function eur(n: number) {
@@ -95,7 +96,7 @@ export function PrenotazioneDettaglio({ iniziale, puoGestire, puoRiaprire }: { i
     setServizioEditDaCatalogo(s.daCatalogo);
     setServizioDescrizione(s.descrizione ?? "");
     setServizioPrezzo(String(s.prezzoUnitario));
-    setServizioQuantita(String(s.quantita));
+    setServizioQuantita(String(s.unita));
     setServizioAmbito(s.segmenti.length === 0 ? "tutta" : "specifici");
     setServizioSegmenti(new Set(s.segmenti.map((sg) => sg.segmentoId)));
     setServizioAperto(true);
@@ -537,6 +538,12 @@ export function PrenotazioneDettaglio({ iniziale, puoGestire, puoRiaprire }: { i
                       </td>
                       {importi && <td data-label="Importo" className="py-1.5 font-mono">
                         {s.quantita > 1 ? `${s.quantita} × ${eur(s.prezzoUnitario)} = ` : ""}
+                        {ADDEBITO[s.addebito] && (
+                          <span className="block font-sans text-[11px] text-stone-500">
+                            {s.unita > 1 ? `${s.unita} unità, ` : ""}
+                            {ADDEBITO[s.addebito]}
+                          </span>
+                        )}
                         {eur(s.totale)}
                       </td>}
                       {puoGestire && <td className="cella-intera py-1.5 md:text-right">
@@ -581,7 +588,7 @@ export function PrenotazioneDettaglio({ iniziale, puoGestire, puoRiaprire }: { i
                       >
                         <option value="libero">Prezzo libero...</option>
                         {serviziCatalogo.map((sc) => (
-                          <option key={sc.id} value={sc.id}>{sc.nome} ({eur(sc.prezzo)})</option>
+                          <option key={sc.id} value={sc.id}>{sc.nome} ({eur(sc.prezzo)}{ADDEBITO[sc.addebito] ? ` ${ADDEBITO[sc.addebito]}` : ""})</option>
                         ))}
                       </select>
                     </div>
@@ -609,7 +616,12 @@ export function PrenotazioneDettaglio({ iniziale, puoGestire, puoRiaprire }: { i
                     />
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs text-stone-600">Quantità</label>
+                    <label className="mb-1 block text-xs text-stone-600">
+                      Quantità
+                      {typeof servizioCatalogoId === "number" && ADDEBITO[serviziCatalogo.find((sc) => sc.id === servizioCatalogoId)?.addebito ?? ""] && (
+                        <span className="text-stone-500"> (× notti{serviziCatalogo.find((sc) => sc.id === servizioCatalogoId)?.addebito === "per_persona_notte" ? " × persone" : ""} delle camere scelte)</span>
+                      )}
+                    </label>
                     <input
                       type="number"
                       min={1}

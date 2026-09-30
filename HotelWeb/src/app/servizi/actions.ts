@@ -7,6 +7,7 @@ import {
   elencoServiziCatalogo,
   impostaAttivoServizioCatalogo,
   modificaServizioCatalogo,
+  type DatiServizioCatalogo,
 } from "@/lib/servizi";
 import { richiediPermesso } from "@/lib/auth";
 import { PERMESSI } from "@/lib/permessi";
@@ -20,11 +21,18 @@ export async function datiGestioneServizi() {
   const hotelId = await hotelAmministrato();
   const servizi = await elencoServiziCatalogo(hotelId);
   return {
-    servizi: servizi.map((s) => ({ id: s.id, nome: s.nome, prezzo: Number(s.prezzo), attivo: s.attivo })),
+    servizi: servizi.map((s) => ({
+      id: s.id,
+      nome: s.nome,
+      prezzo: Number(s.prezzo),
+      addebito: s.addebito as DatiServizioCatalogo["addebito"],
+      effetto: s.effetto as DatiServizioCatalogo["effetto"],
+      attivo: s.attivo,
+    })),
   };
 }
 
-export async function azioneCreaServizio(input: { nome: string; prezzo: number }) {
+export async function azioneCreaServizio(input: DatiServizioCatalogo) {
   return conEsito(async () => {
     const hotelId = await hotelAmministrato();
     await creaServizioCatalogo(hotelId, input);
@@ -40,7 +48,7 @@ export async function azioneImpostaAttivoServizio(id: number, attivo: boolean) {
   });
 }
 
-export async function azioneModificaServizioCatalogo(id: number, input: { nome: string; prezzo: number }) {
+export async function azioneModificaServizioCatalogo(id: number, input: DatiServizioCatalogo) {
   return conEsito(async () => {
     const hotelId = await hotelAmministrato();
     await modificaServizioCatalogo(hotelId, id, input);

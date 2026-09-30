@@ -4,6 +4,8 @@ import { LISTE_ISTAT, sistemaIstatValido, type SistemaIstat } from "@/lib/istat"
 import { CODICE_ITALIA, TIPI_ALLOGGIATO, descriviLuoghi } from "@/lib/tabellePolizia";
 import { posizioneTassa, ricalcolaTassaPosizione, verificaPosizioneAperta } from "@/lib/tassaSoggiorno";
 import { cambiaDataFineSegmento } from "@/lib/prenotazioni";
+import { lettiAggiuntiSegmento } from "@/lib/servizi";
+import { composizioneDi, composizioneReale, descriviComposizione, stessaComposizione } from "@/lib/pricing";
 
 /**
  * Check-in e check-out (fase 2, approvata il 2026-09-29): occupanti di una camera con i dati per la
@@ -131,6 +133,12 @@ export async function datiCheckin(hotelId: number, segmentoId: number, mostraDoc
     ]),
   );
   const tabelleCaricate = documenti.length > 0;
+  const lettiAggiunti = await lettiAggiuntiSegmento(segmento.id);
+  const prenotata = composizioneDi(segmento);
+  // Persone registrate in camera (con età dalla data di nascita) contro quelle prenotate: se
+  // diverse si propone di ricalcolare il prezzo (mai in automatico).
+  const presenti = await prisma.presenza.findMany({ where: { segmentoId: segmento.id }, include: { ospite: true } });
+  const reale = composizioneReale(segmento.dataInizio, presenti.map((p) => ({ dataNascita: p.ospite.dataNascita, dal: p.dal })));
 
   return {
     segmento: {
@@ -138,7 +146,15 @@ export async function datiCheckin(hotelId: number, segmentoId: number, mostraDoc
       prenotazioneId: segmento.prenotazioneId,
       camera: segmento.camera?.codice ?? null,
       tipoCamera: segmento.tipoCamera.descrizione,
-      capienza: segmento.camera ? segmento.camera.capienzaAdulti + segmento.camera.capienzaBambini : null,
+      capienza: segmento.camera ? segmento.camera.capienzaAdulti + segmento.camera.capienzaBambini + lettiAggiunti : null,
+      lettiAggiunti,
+      composizione: {
+        prenotata: descriviComposizione(prenotata),
+        reale: descriviComposizione(reale.composizione),
+        senzaData: reale.senzaData,
+        diversa: !stessaComposizione(prenotata, reale.composizione),
+        valoreReale: reale.composizione,
+      },
       dal: iso(segmento.dataInizio),
       al: iso(segmento.dataFine),
       intestatarioId: segmento.ospiteId,
@@ -298,8 +314,11 @@ export async function aggiungiOccupante(hotelId: number, segmentoId: number, rif
     await tx.presenza.create({ data: { segmentoId, ospiteId } });
     await ricalcolaTassaPosizione(tx, segmento.prenotazioneId, ospiteId);
     const occupanti = await tx.presenza.count({ where: { segmentoId } });
-    const capienza = segmento.camera ? segmento.camera.capienzaAdulti + segmento.camera.capienzaBambini : null;
-    return capienza !== null && occupanti > capienza ? `La camera ospita ${capienza} persone: ora ce ne sono ${occupanti}.` : null;
+    // Capienza della camera più gli eventuali letti aggiunti (supplementi) su questa prenotazione.
+    const capienza = segmento.camera ? segmento.camera.capienzaAdulti + segmento.camera.capienzaBambini + (await lettiAggiuntiSegmento(segmentoId)) : null;
+    return capienza !== null && occupanti > capienza
+      ? `La camera ospita ${capienza} persone: ora ce ne sono ${occupanti}. Per un letto in più aggiungi il supplemento "letto aggiunto".`
+      : null;
   });
 }
 

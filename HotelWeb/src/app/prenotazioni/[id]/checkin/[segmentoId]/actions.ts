@@ -17,6 +17,7 @@ import {
   type OspiteRif,
 } from "@/lib/checkin";
 import { cercaLuoghi } from "@/lib/tabellePolizia";
+import { aggiornaComposizione } from "@/lib/prenotazioni";
 
 const mostraDocumenti = (u: UtenteSessione) => puo(u, PERMESSI.PRENOTAZIONI_GESTISCI);
 
@@ -53,6 +54,17 @@ export async function azioneSostituisciOccupante(segmentoId: number, presenzaId:
 
 export async function azioneRimuoviOccupante(segmentoId: number, presenzaId: number) {
   return esegui(segmentoId, (u) => rimuoviOccupante(u.hotelId, presenzaId));
+}
+
+/**
+ * Porta la composizione prenotata a quella delle persone registrate e ricalcola il prezzo delle
+ * notti della camera. La composizione si ricava sul server (mai dal client).
+ */
+export async function azioneRicalcolaDaPresenti(segmentoId: number) {
+  return esegui(segmentoId, async (u) => {
+    const dati = await datiCheckin(u.hotelId, segmentoId, false);
+    await aggiornaComposizione(u.hotelId, segmentoId, dati.segmento.composizione.valoreReale, true);
+  });
 }
 
 export async function azioneConfermaArrivo(segmentoId: number) {

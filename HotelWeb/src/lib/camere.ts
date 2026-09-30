@@ -19,6 +19,13 @@ export async function datiGestioneCamere(hotelId: number) {
   return { tipiCamera, camere, indisponibilita };
 }
 
+/** Letti aggiunti possibili oltre la capienza e animali ammessi (supplementi con effetto). */
+export async function impostaOpzioniTipoCamera(hotelId: number, id: number, lettiAggiuntiMax: number, animaliAmmessi: boolean) {
+  if (!(Number.isInteger(lettiAggiuntiMax) && lettiAggiuntiMax >= 0 && lettiAggiuntiMax <= 5)) throw new Error("Letti aggiunti: da 0 a 5.");
+  await prisma.tipoCamera.findFirstOrThrow({ where: { id, hotelId } });
+  return prisma.tipoCamera.update({ where: { id }, data: { lettiAggiuntiMax, animaliAmmessi } });
+}
+
 export async function creaTipoCamera(hotelId: number, codice: string, descrizione: string) {
   return prisma.tipoCamera.create({ data: { hotelId, codice, descrizione } });
 }

@@ -119,6 +119,9 @@ async function serializza(prenotazione: Awaited<ReturnType<typeof trovaPrenotazi
       descrizione: s.descrizione,
       prezzoUnitario: imp(Number(s.prezzoUnitario)),
       quantita: s.quantita,
+      // Unità richieste e modo di addebito (quantita = unita x notti / persone x notti).
+      unita: s.unita,
+      addebito: s.addebito,
       totale: imp(Number(s.prezzoUnitario) * s.quantita),
       data: s.data ? s.data.toISOString().slice(0, 10) : null,
       note: s.note,

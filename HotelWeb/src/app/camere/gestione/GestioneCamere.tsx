@@ -3,6 +3,7 @@
 import { sbusta } from "@/lib/esito";
 import { useEffect, useState } from "react";
 import {
+  azioneOpzioniTipoCamera,
   azioneCambiaTipoCamera,
   azioneCreaCamera,
   azioneCreaIndisponibilita,
@@ -64,13 +65,35 @@ export function GestioneCamere({ iniziale }: { iniziale: Dati }) {
           <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-stone-600">Tipi camera</h2>
           <table className="mb-4 w-full text-sm">
             <thead className="text-left text-xs uppercase text-stone-500">
-              <tr><th className="pb-1">Codice</th><th className="pb-1">Descrizione</th></tr>
+              <tr><th className="pb-1">Codice</th><th className="pb-1">Descrizione</th><th className="pb-1" title="Letti aggiunti possibili oltre la capienza">Letti agg.</th><th className="pb-1">Animali</th></tr>
             </thead>
             <tbody>
               {dati.tipiCamera.map((t) => (
                 <tr key={t.id} className="border-t border-stone-100">
                   <td className="py-1.5 font-mono">{t.codice}</td>
                   <td className="py-1.5">{t.descrizione}</td>
+                  <td className="py-1.5">
+                    <input
+                      type="number"
+                      min={0}
+                      max={5}
+                      disabled={busy}
+                      className="w-14 rounded-md border border-stone-300 px-1.5 py-0.5 text-sm"
+                      defaultValue={t.lettiAggiuntiMax}
+                      onBlur={(e) => {
+                        const v = Number(e.target.value || 0);
+                        if (v !== t.lettiAggiuntiMax) eseguendo(() => sbusta(azioneOpzioniTipoCamera(t.id, v, t.animaliAmmessi)));
+                      }}
+                    />
+                  </td>
+                  <td className="py-1.5">
+                    <input
+                      type="checkbox"
+                      disabled={busy}
+                      checked={t.animaliAmmessi}
+                      onChange={(e) => eseguendo(() => sbusta(azioneOpzioniTipoCamera(t.id, t.lettiAggiuntiMax, e.target.checked)))}
+                    />
+                  </td>
                 </tr>
               ))}
             </tbody>
