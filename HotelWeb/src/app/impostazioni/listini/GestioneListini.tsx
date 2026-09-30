@@ -11,6 +11,7 @@ import {
   azioneRinominaListino,
   datiListini,
 } from "../actions";
+import { RegoleListino } from "./RegoleListino";
 
 type Dati = Awaited<ReturnType<typeof datiListini>>;
 type Periodo = { dal: string; al: string; prezzoNotte: string };
@@ -26,7 +27,7 @@ export function GestioneListini({ iniziale }: { iniziale: Dati }) {
   const [busy, setBusy] = useState(false);
   const [modifica, setModifica] = useState<{ id: number; p: Periodo } | null>(null);
   const [nuovi, setNuovi] = useState<Record<number, Periodo>>({});
-  const [nuovoListino, setNuovoListino] = useState<{ codice: string; descrizione: string } | null>(null);
+  const [nuovoListino, setNuovoListino] = useState<{ codice: string; descrizione: string; gruppo: boolean } | null>(null);
   const [rinomina, setRinomina] = useState<string | null>(null);
   const listino = dati.listini.find((l) => l.id === listinoId) ?? dati.listini[0];
 
@@ -52,8 +53,8 @@ export function GestioneListini({ iniziale }: { iniziale: Dati }) {
       <div>
         <h1 className="text-xl font-bold">Listini e tariffe</h1>
         <p className="text-sm text-stone-600">
-          Prezzo per camera e per notte, per tipo di camera e periodo (date comprese). Un cambio di prezzo vale per le nuove prenotazioni: quelle già fatte
-          conservano il prezzo concordato.
+          Prezzo per notte (a camera o a persona, secondo il listino), per tipo di camera e periodo (date comprese), con trattamenti, riduzioni e
+          condizioni di gruppo. Ogni modifica vale per le nuove prenotazioni: quelle già fatte conservano il prezzo concordato.
         </p>
       </div>
       {messaggio && (
@@ -79,13 +80,16 @@ export function GestioneListini({ iniziale }: { iniziale: Dati }) {
         {nuovoListino ? (
           <span className="flex flex-wrap items-center gap-2">
             <input className="w-24 rounded-md border border-stone-300 px-2 py-1 text-sm" placeholder="Codice" value={nuovoListino.codice} onChange={(e) => setNuovoListino({ ...nuovoListino, codice: e.target.value })} />
-            <input className="w-48 rounded-md border border-stone-300 px-2 py-1 text-sm" placeholder="es. Listino gruppi" value={nuovoListino.descrizione} onChange={(e) => setNuovoListino({ ...nuovoListino, descrizione: e.target.value })} />
+            <input className="w-48 rounded-md border border-stone-300 px-2 py-1 text-sm" placeholder="es. Gruppi scout" value={nuovoListino.descrizione} onChange={(e) => setNuovoListino({ ...nuovoListino, descrizione: e.target.value })} />
+            <label className="flex items-center gap-1 text-xs">
+              <input type="checkbox" checked={nuovoListino.gruppo} onChange={(e) => setNuovoListino({ ...nuovoListino, gruppo: e.target.checked })} /> per gruppi
+            </label>
             <button
               type="button"
               disabled={busy}
               className="rounded-md bg-teal-700 px-2.5 py-1 text-xs font-bold text-white disabled:opacity-40"
               onClick={async () => {
-                if (await esegui(() => sbusta(azioneCreaListino(nuovoListino.codice, nuovoListino.descrizione)), () => "Listino creato.")) setNuovoListino(null);
+                if (await esegui(() => sbusta(azioneCreaListino(nuovoListino.codice, nuovoListino.descrizione, nuovoListino.gruppo)), () => "Listino creato.")) setNuovoListino(null);
               }}
             >
               Crea
@@ -95,7 +99,7 @@ export function GestioneListini({ iniziale }: { iniziale: Dati }) {
             </button>
           </span>
         ) : (
-          <button type="button" className="text-sm font-semibold text-teal-700" onClick={() => setNuovoListino({ codice: "", descrizione: "" })}>
+          <button type="button" className="text-sm font-semibold text-teal-700" onClick={() => setNuovoListino({ codice: "", descrizione: "", gruppo: false })}>
             + Nuovo listino
           </button>
         )}
@@ -148,6 +152,16 @@ export function GestioneListini({ iniziale }: { iniziale: Dati }) {
         </div>
       )}
 
+      {listino && (
+        <RegoleListino
+          key={listino.id}
+          listino={listino}
+          trattamenti={dati.trattamenti}
+          busy={busy}
+          esegui={(fn, ok) => esegui(fn, () => ok)}
+        />
+      )}
+
       {listino?.perTipo.map((t) => {
         const tipo = dati.tipi.find((x) => x.id === t.tipoCameraId)!;
         const nuovo = nuovi[t.tipoCameraId] ?? vuoto();
@@ -165,7 +179,7 @@ export function GestioneListini({ iniziale }: { iniziale: Dati }) {
                 <tr>
                   <th className="pb-1 pr-2">Dal</th>
                   <th className="pb-1 pr-2">Al (compreso)</th>
-                  <th className="pb-1 pr-2">€ / notte</th>
+                  <th className="pb-1 pr-2">{listino.regole.modalita === "persona" ? "€ / persona / notte" : "€ / camera / notte"}</th>
                   <th />
                 </tr>
               </thead>

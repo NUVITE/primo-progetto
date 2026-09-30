@@ -121,11 +121,16 @@ export async function elencoListini(hotelId: number) {
   const [listini, tipi] = await Promise.all([
     prisma.listino.findMany({
       where: { hotelId },
-      include: { periodi: { orderBy: [{ tipoCameraId: "asc" }, { dal: "asc" }] } },
+      include: {
+        periodi: { orderBy: [{ tipoCameraId: "asc" }, { dal: "asc" }] },
+        supplementiTrattamento: true,
+        riduzioni: { orderBy: [{ etaDa: "asc" }, { id: "asc" }] },
+      },
       orderBy: { id: "asc" },
     }),
     prisma.tipoCamera.findMany({ where: { hotelId }, orderBy: { descrizione: "asc" } }),
   ]);
+  const trattamenti = await elencoTrattamenti(hotelId);
   // Buchi di copertura nei prossimi 12 mesi, per listino e tipo: notti per cui mancherebbe il prezzo.
   const oggi = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate()));
   const fine = new Date(oggi.getTime() + 365 * GIORNO);
@@ -143,11 +148,30 @@ export async function elencoListini(hotelId: number) {
   };
   return {
     tipi: tipi.map((t) => ({ id: t.id, descrizione: t.descrizione })),
+    trattamenti: trattamenti.map((t) => ({ id: t.id, nome: t.nome, attivo: t.attivo })),
     listini: listini.map((l) => ({
       id: l.id,
       codice: l.codice,
       descrizione: l.descrizione,
       tipo: l.tipo,
+      regole: {
+        modalita: l.modalita === "persona" ? "persona" : "camera",
+        supplementoSingola: l.supplementoSingola === null ? null : Number(l.supplementoSingola),
+        supplementoSingolaPercentuale: l.supplementoSingolaPercentuale,
+        gruppo: l.tipo === "gruppo",
+        categoria: l.categoria ?? "",
+        minPersone: l.minPersone,
+        gratuitaOgni: l.gratuitaOgni,
+      } satisfies RegoleListinoInput,
+      supplementiTrattamento: Object.fromEntries(l.supplementiTrattamento.map((x) => [x.trattamentoId, Number(x.importo)])) as Record<number, number>,
+      riduzioni: l.riduzioni.map((r) => ({
+        id: r.id,
+        etaDa: r.etaDa,
+        etaA: r.etaA,
+        tipo: r.tipo as RiduzioneInput["tipo"],
+        valore: Number(r.valore),
+        dalTerzoLetto: r.dalTerzoLetto,
+      })),
       perTipo: tipi.map((t) => {
         const periodi = l.periodi.filter((p) => p.tipoCameraId === t.id);
         return {
@@ -160,10 +184,90 @@ export async function elencoListini(hotelId: number) {
   };
 }
 
-export async function creaListino(hotelId: number, codice: string, descrizione: string) {
+export async function creaListino(hotelId: number, codice: string, descrizione: string, gruppo = false) {
   const c = codice.trim().toUpperCase();
   if (!c || !descrizione.trim()) throw new Error("Indica codice e descrizione del listino.");
-  await prisma.listino.create({ data: { hotelId, codice: c, descrizione: descrizione.trim(), tipo: "personalizzato" } });
+  await prisma.listino.create({
+    data: { hotelId, codice: c, descrizione: descrizione.trim(), tipo: gruppo ? "gruppo" : "personalizzato", modalita: gruppo ? "persona" : "camera" },
+  });
+}
+
+// ---------- Regole del listino (approvate 2026-09-30) ----------
+
+export type RegoleListinoInput = {
+  modalita: "camera" | "persona";
+  supplementoSingola: number | null;
+  supplementoSingolaPercentuale: boolean;
+  gruppo: boolean;
+  categoria: string;
+  minPersone: number | null;
+  gratuitaOgni: number | null;
+};
+export type RiduzioneInput = { etaDa: number; etaA: number | null; tipo: "percentuale" | "importo" | "gratis"; valore: number; dalTerzoLetto: boolean };
+
+/** Le regole valgono per le nuove prenotazioni (e per "Ricalcola"): i prezzi già fissati non cambiano. */
+export async function salvaRegoleListino(hotelId: number, id: number, r: RegoleListinoInput) {
+  const l = await prisma.listino.findFirstOrThrow({ where: { id, hotelId } });
+  if (r.supplementoSingola !== null && !(r.supplementoSingola >= 0)) throw new Error("Supplemento singola non valido.");
+  if (r.supplementoSingolaPercentuale && r.supplementoSingola !== null && r.supplementoSingola > 100) throw new Error("Supplemento singola oltre il 100%.");
+  for (const [nome, v] of [["Minimo persone", r.minPersone], ["Gratuità", r.gratuitaOgni]] as const) {
+    if (v !== null && !(Number.isInteger(v) && v > 0)) throw new Error(`${nome}: indica un numero intero maggiore di zero.`);
+  }
+  if (l.tipo === "base" && r.gruppo) throw new Error("Il listino base non può diventare un listino di gruppo: creane uno apposta.");
+  await prisma.listino.update({
+    where: { id },
+    data: {
+      modalita: r.modalita === "persona" ? "persona" : "camera",
+      supplementoSingola: r.modalita === "persona" ? r.supplementoSingola : null,
+      supplementoSingolaPercentuale: r.modalita === "persona" && r.supplementoSingolaPercentuale,
+      tipo: l.tipo === "base" ? "base" : r.gruppo ? "gruppo" : "personalizzato",
+      categoria: r.gruppo ? txt(r.categoria) : null,
+      minPersone: r.gruppo ? r.minPersone : null,
+      gratuitaOgni: r.gruppo ? r.gratuitaOgni : null,
+    },
+  });
+}
+
+/** importi: trattamentoId -> supplemento per persona per notte (null o 0 = incluso nel prezzo). */
+export async function salvaSupplementiTrattamento(hotelId: number, listinoId: number, importi: Record<number, number | null>) {
+  await prisma.listino.findFirstOrThrow({ where: { id: listinoId, hotelId } });
+  const trattamenti = await prisma.trattamento.findMany({ where: { hotelId } });
+  await prisma.$transaction(async (tx) => {
+    for (const t of trattamenti) {
+      const v = importi[t.id];
+      if (v === null || v === undefined || v === 0) {
+        await tx.supplementoTrattamento.deleteMany({ where: { listinoId, trattamentoId: t.id } });
+      } else {
+        if (!(v > 0)) throw new Error(`Supplemento non valido per ${t.nome}.`);
+        await tx.supplementoTrattamento.upsert({
+          where: { listinoId_trattamentoId: { listinoId, trattamentoId: t.id } },
+          update: { importo: v },
+          create: { listinoId, trattamentoId: t.id, importo: v },
+        });
+      }
+    }
+  });
+}
+
+function verificaRiduzione(r: RiduzioneInput) {
+  if (!(Number.isInteger(r.etaDa) && r.etaDa >= 0 && r.etaDa <= 18)) throw new Error("Età iniziale tra 0 e 18 (18 = adulti).");
+  if (r.etaA !== null && !(Number.isInteger(r.etaA) && r.etaA >= r.etaDa)) throw new Error("L'età finale non può precedere quella iniziale.");
+  if (!["percentuale", "importo", "gratis"].includes(r.tipo)) throw new Error("Tipo di riduzione non valido.");
+  if (r.tipo !== "gratis" && !(r.valore > 0)) throw new Error("Indica il valore della riduzione.");
+  if (r.tipo === "percentuale" && r.valore > 100) throw new Error("Riduzione oltre il 100%: usa \"gratis\".");
+}
+
+export async function salvaRiduzione(hotelId: number, listinoId: number, id: number | null, r: RiduzioneInput) {
+  await prisma.listino.findFirstOrThrow({ where: { id: listinoId, hotelId } });
+  verificaRiduzione(r);
+  const dati = { etaDa: r.etaDa, etaA: r.etaA, tipo: r.tipo, valore: r.tipo === "gratis" ? 0 : r.valore, dalTerzoLetto: r.dalTerzoLetto };
+  if (id) await prisma.riduzioneListino.update({ where: { id, listinoId }, data: dati });
+  else await prisma.riduzioneListino.create({ data: { ...dati, listinoId } });
+}
+
+export async function eliminaRiduzione(hotelId: number, listinoId: number, id: number) {
+  await prisma.listino.findFirstOrThrow({ where: { id: listinoId, hotelId } });
+  await prisma.riduzioneListino.delete({ where: { id, listinoId } });
 }
 
 export async function rinominaListino(hotelId: number, id: number, descrizione: string) {

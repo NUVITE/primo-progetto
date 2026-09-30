@@ -9,6 +9,7 @@ import {
   creaListino,
   creaPeriodo,
   creaTrattamento,
+  eliminaRiduzione,
   elencoListini,
   elencoTrattamenti,
   eliminaPeriodo,
@@ -16,9 +17,14 @@ import {
   modificaPeriodo,
   rinominaListino,
   rinominaTrattamento,
+  salvaRegoleListino,
+  salvaRiduzione,
   salvaStruttura,
+  salvaSupplementiTrattamento,
   spostaTrattamento,
   type DatiPeriodo,
+  type RegoleListinoInput,
+  type RiduzioneInput,
   type DatiStruttura,
 } from "@/lib/impostazioniHotel";
 
@@ -79,8 +85,20 @@ async function suListini<T>(fn: (hotelId: number) => Promise<T>) {
   });
 }
 
-export async function azioneCreaListino(codice: string, descrizione: string) {
-  return suListini((h) => creaListino(h, codice, descrizione));
+export async function azioneCreaListino(codice: string, descrizione: string, gruppo = false) {
+  return suListini((h) => creaListino(h, codice, descrizione, gruppo));
+}
+export async function azioneSalvaRegoleListino(id: number, r: RegoleListinoInput) {
+  return suListini((h) => salvaRegoleListino(h, id, r));
+}
+export async function azioneSalvaSupplementiTrattamento(listinoId: number, importi: Record<number, number | null>) {
+  return suListini((h) => salvaSupplementiTrattamento(h, listinoId, importi));
+}
+export async function azioneSalvaRiduzione(listinoId: number, id: number | null, r: RiduzioneInput) {
+  return suListini((h) => salvaRiduzione(h, listinoId, id, r));
+}
+export async function azioneEliminaRiduzione(listinoId: number, id: number) {
+  return suListini((h) => eliminaRiduzione(h, listinoId, id));
 }
 export async function azioneRinominaListino(id: number, descrizione: string) {
   return suListini((h) => rinominaListino(h, id, descrizione));
