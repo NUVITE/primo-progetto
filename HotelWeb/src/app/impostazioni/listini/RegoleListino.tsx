@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { sbusta } from "@/lib/esito";
 import type { RegoleListinoInput, RiduzioneInput } from "@/lib/impostazioniHotel";
+import { AiutoSezione, Esempio } from "@/components/AiutoSezione";
 import { azioneEliminaRiduzione, azioneSalvaRegoleListino, azioneSalvaRiduzione, azioneSalvaSupplementiTrattamento, datiListini } from "../actions";
 
 type Dati = Awaited<ReturnType<typeof datiListini>>;
@@ -39,7 +40,24 @@ export function RegoleListino({ listino, trattamenti, busy, esegui }: { listino:
 
   return (
     <section className="flex flex-col gap-4 rounded-xl border border-stone-200 bg-white p-4 sm:p-5">
-      <h2 className="font-bold">Regole del listino</h2>
+      <div>
+        <h2 className="font-bold">Regole del listino</h2>
+        <AiutoSezione breve="Come si calcola il prezzo di una notte con questo listino.">
+          <p>
+            <strong>A camera</strong>: il prezzo del periodo è quello della camera, qualunque sia il numero di persone; si aggiungono solo i supplementi
+            dei trattamenti per persona.
+          </p>
+          <p>
+            <strong>A persona</strong>: il prezzo del periodo vale per ogni persona in camera. Se in una doppia dorme una persona sola si aggiunge il{" "}
+            <strong>supplemento singola</strong>.
+          </p>
+          <p>
+            <strong>Listino per gruppi</strong>: sotto il minimo di persone compare un avviso; con &quot;1 gratuito ogni N paganti&quot; il sistema
+            azzera ogni notte la quota più alta per ogni gruppo di N+1 persone.
+          </p>
+          <Esempio>listino a persona 45 €, 2 adulti in doppia = 90 € a notte; 1 adulto solo con singola +10 € = 55 €.</Esempio>
+        </AiutoSezione>
+      </div>
 
       {/* Modalità, singola, gruppo */}
       {regole ? (
@@ -150,7 +168,14 @@ export function RegoleListino({ listino, trattamenti, busy, esegui }: { listino:
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
             <h3 className="text-sm font-bold">Trattamenti</h3>
-            <p className="text-sm text-stone-600">Supplemento per persona per notte rispetto al prezzo del listino. Vuoto = incluso.</p>
+            <AiutoSezione breve="Quanto si aggiunge a persona per notte per mezza pensione o pensione completa.">
+              <p>
+                Il prezzo del listino comprende il trattamento base (di solito B&amp;B). Per gli altri trattamenti indica il supplemento{" "}
+                <strong>per persona per notte</strong>; lascia vuoto se è compreso nel prezzo.
+              </p>
+              <p>Le riduzioni per età valgono anche sul supplemento.</p>
+              <Esempio>camera a 80 €, mezza pensione +20 €, 2 adulti = 80 + 20 + 20 = 120 € a notte.</Esempio>
+            </AiutoSezione>
           </div>
           {!supplementi && (
             <button
@@ -198,10 +223,20 @@ export function RegoleListino({ listino, trattamenti, busy, esegui }: { listino:
       {/* Riduzioni per età */}
       <div className="border-t border-stone-100 pt-3">
         <h3 className="text-sm font-bold">Riduzioni per età</h3>
-        <p className="text-sm text-stone-600">
-          Età all&apos;arrivo; vale la prima regola che corrisponde. Si applicano alla quota della persona{aPersona ? " (prezzo + trattamento)" : " (nei listini a camera: al supplemento del trattamento)"}.
-          &quot;Dal 3° letto&quot; = solo per chi è in camera con almeno altre due persone (es. bambino con 2 adulti). Per gli adulti indica età 18.
-        </p>
+        <AiutoSezione breve="Sconti per bambini (e per adulti nel letto aggiunto) in base all'età all'arrivo.">
+          <p>
+            Ogni regola vale per una fascia d&apos;età; se più regole corrispondono vale la <strong>prima</strong> in elenco (ordinate per età).
+          </p>
+          <p>
+            Lo sconto si applica alla quota della persona:{" "}
+            {aPersona ? "prezzo a persona più supplemento del trattamento" : "in un listino a camera, solo al supplemento del trattamento"}.
+          </p>
+          <p>
+            <strong>Solo dal 3° letto</strong> = la regola vale solo per chi dorme in camera con almeno altre due persone. Per gli adulti nel letto
+            aggiunto indica età 18.
+          </p>
+          <Esempio>2 adulti + bambino di 8 anni, regola 3–11 anni −50% dal 3° letto: il bambino paga metà quota.</Esempio>
+        </AiutoSezione>
         <ul className="mt-2 flex flex-col gap-1 text-sm">
           {listino.riduzioni.map((x) =>
             riduzione?.id === x.id ? null : (
