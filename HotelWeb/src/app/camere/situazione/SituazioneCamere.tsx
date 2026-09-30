@@ -590,11 +590,13 @@ export function SituazioneCamere({ puoGestire }: { puoGestire: boolean }) {
 
                       {espanso &&
                         raggruppaPerPiano(camere.filter((c) => c.tipoCameraId === t.id)).map(([piano, righe]) => (
-                          <div key={piano} className="pl-4">
-                            <div className="py-1 text-xs font-bold uppercase tracking-wide text-stone-500">{piano}</div>
+                          // Il rientro va solo sulla colonna dei nomi: se si rientrasse tutta la riga, le colonne dei giorni
+                          // si restringerebbero e non sarebbero più allineate con quelle del tipo camera (segnalato 2026-09-30).
+                          <div key={piano}>
+                            <div className="py-1 pl-5 text-xs font-bold uppercase tracking-wide text-stone-500">{piano}</div>
                             {righe.map((c) => (
                               <div key={c.id} className="mb-1 grid gap-1" style={{ gridTemplateColumns: `var(--col-etichetta) repeat(${giorni.length}, minmax(36px, 1fr))` }}>
-                                <div className="sticky left-0 z-10 flex items-center gap-1.5 truncate bg-white text-sm">
+                                <div className="sticky left-0 z-10 flex items-center gap-1.5 truncate bg-white pl-5 text-sm">
                                   <span className="font-bold">{c.codice}</span>
                                 </div>
                                 {giorni.map((g) => {
@@ -874,7 +876,7 @@ export function SituazioneCamere({ puoGestire }: { puoGestire: boolean }) {
                         <li key={p.segmentoId}>
                           <Link
                             href={`/prenotazioni/${p.prenotazioneId}`}
-                            className="group flex items-center justify-between gap-2 rounded-md border border-transparent px-2 py-1.5 text-sm hover:border-teal-200 hover:bg-teal-50"
+                            className="group flex flex-col gap-0.5 rounded-md border border-transparent px-2 py-1.5 text-sm hover:border-teal-200 hover:bg-teal-50"
                           >
                             <span className="font-semibold text-stone-900 group-hover:text-teal-800 group-hover:underline">{p.label}</span>
                             <span className="flex items-center gap-1 text-xs text-stone-600">
