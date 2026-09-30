@@ -27,6 +27,17 @@ const DIMENSIONI = {
   piccolo: "h-7 px-2 text-xs gap-1 pointer-coarse:h-9",
 };
 
+/** Stesse classi del pulsante, per i link che devono sembrare pulsanti (es. <Link> di navigazione). */
+export function classePulsante(variante: Variante = "secondario", dimensione: keyof typeof DIMENSIONI = "normale", extra?: string) {
+  return cx(
+    "inline-flex shrink-0 items-center justify-center whitespace-nowrap rounded-md font-semibold transition-colors",
+    "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700",
+    VARIANTI[variante],
+    DIMENSIONI[dimensione],
+    extra,
+  );
+}
+
 export function Pulsante({
   variante = "secondario",
   dimensione = "normale",
