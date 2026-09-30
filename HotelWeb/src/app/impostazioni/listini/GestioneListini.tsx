@@ -12,6 +12,7 @@ import {
   datiListini,
 } from "../actions";
 import { RegoleListino } from "./RegoleListino";
+import { Suggerimento } from "@/components/Suggerimento";
 
 type Dati = Awaited<ReturnType<typeof datiListini>>;
 type Periodo = { dal: string; al: string; prezzoNotte: string };
@@ -50,13 +51,24 @@ export function GestioneListini({ iniziale }: { iniziale: Dati }) {
 
   return (
     <div className="flex w-full min-w-0 flex-col gap-4 p-3 sm:p-6">
-      <div>
-        <h1 className="text-xl font-bold">Listini e tariffe</h1>
-        <p className="text-sm text-stone-600">
-          Prezzo per notte (a camera o a persona, secondo il listino), per tipo di camera e periodo (date comprese), con trattamenti, riduzioni e
-          condizioni di gruppo. Ogni modifica vale per le nuove prenotazioni: quelle già fatte conservano il prezzo concordato.
-        </p>
-      </div>
+      <h1 className="text-xl font-bold">Listini e tariffe</h1>
+      <Suggerimento id="listini" titolo="Come si imposta un listino">
+        <ol className="list-decimal space-y-1 pl-5">
+          <li>
+            Scegli il listino dai pulsanti qui sotto, oppure creane uno nuovo con <strong>+ Nuovo listino</strong> (per esempio uno per i gruppi scout o
+            per le scuole).
+          </li>
+          <li>
+            In <strong>Regole del listino</strong> indica se il prezzo è <strong>a camera</strong> o <strong>a persona</strong>, i supplementi dei
+            trattamenti (mezza pensione, pensione completa) e le riduzioni per i bambini.
+          </li>
+          <li>
+            Per ogni tipo di camera aggiungi i <strong>periodi</strong> con il prezzo per notte (date comprese). Le notti non coperte da un periodo
+            restano &quot;senza tariffa&quot; e il totale della prenotazione risulta incompleto.
+          </li>
+        </ol>
+        <p>Ogni modifica vale per le nuove prenotazioni: quelle già fatte conservano il prezzo concordato.</p>
+      </Suggerimento>
       {messaggio && (
         <p className={`rounded-md px-3 py-2 text-sm font-semibold ${messaggio.tipo === "ok" ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-700"}`}>
           {messaggio.testo}

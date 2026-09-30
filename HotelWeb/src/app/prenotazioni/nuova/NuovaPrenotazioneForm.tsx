@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { BedDouble, Check, Plus, Trash2 } from "lucide-react";
 import { Avviso, Campo, Input, IntestazionePagina, Pulsante, Select, Sezione, Spunta } from "@/components/ui";
+import { Suggerimento } from "@/components/Suggerimento";
 import { OspiteSearch, type OspiteValue } from "./OspiteSearch";
 import { anteprimaSegmento, datiIniziali, salvaPrenotazione } from "./actions";
 import { CampoComposizione } from "../CampoComposizione";
@@ -190,7 +191,18 @@ export function NuovaPrenotazioneForm() {
 
   return (
     <div className="flex w-full min-w-0 flex-col gap-4 p-3 sm:p-6">
-      <IntestazionePagina titolo="Nuova prenotazione" sottotitolo="Ospite, camere e date: il prezzo si calcola mentre compili." />
+      <IntestazionePagina titolo="Nuova prenotazione" />
+      <Suggerimento id="nuova-prenotazione" titolo="Come si fa una prenotazione">
+        <ol className="list-decimal space-y-1 pl-5">
+          <li>Cerca chi prenota per nome o cognome; se non c&apos;è, crealo dal menu della ricerca.</li>
+          <li>
+            Per ogni camera scegli camera, arrivo e partenza, listino e trattamento, e indica le <strong>persone</strong> (adulti ed età dei
+            bambini): servono per il prezzo.
+          </li>
+          <li>Il prezzo si calcola mentre compili; controlla il riepilogo e premi <strong>Conferma prenotazione</strong>.</li>
+        </ol>
+        <p>Per bloccare più camere senza sceglierle subito, trascina le date sul Planning camere (prenotazione veloce).</p>
+      </Suggerimento>
 
       <div className="flex flex-col gap-4 xl:flex-row xl:items-start">
         <div className="flex min-w-0 flex-1 flex-col gap-4 xl:max-w-3xl">

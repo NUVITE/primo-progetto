@@ -152,7 +152,7 @@ export function Sezione({
         <header className="flex flex-wrap items-center justify-between gap-2 border-b border-stone-200 px-4 py-2.5">
           <div className="min-w-0">
             {titolo && <h2 className="text-sm font-bold text-stone-900">{titolo}</h2>}
-            {descrizione && <p className="text-xs text-stone-500">{descrizione}</p>}
+            {descrizione && <p className="text-sm text-stone-600">{descrizione}</p>}
           </div>
           {azioni && <div className="flex flex-wrap items-center gap-2">{azioni}</div>}
         </header>

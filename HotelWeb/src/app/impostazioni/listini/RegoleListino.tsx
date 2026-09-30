@@ -150,7 +150,7 @@ export function RegoleListino({ listino, trattamenti, busy, esegui }: { listino:
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
             <h3 className="text-sm font-bold">Trattamenti</h3>
-            <p className="text-xs text-stone-500">Supplemento per persona per notte rispetto al prezzo del listino. Vuoto = incluso.</p>
+            <p className="text-sm text-stone-600">Supplemento per persona per notte rispetto al prezzo del listino. Vuoto = incluso.</p>
           </div>
           {!supplementi && (
             <button
@@ -198,7 +198,7 @@ export function RegoleListino({ listino, trattamenti, busy, esegui }: { listino:
       {/* Riduzioni per età */}
       <div className="border-t border-stone-100 pt-3">
         <h3 className="text-sm font-bold">Riduzioni per età</h3>
-        <p className="text-xs text-stone-500">
+        <p className="text-sm text-stone-600">
           Età all&apos;arrivo; vale la prima regola che corrisponde. Si applicano alla quota della persona{aPersona ? " (prezzo + trattamento)" : " (nei listini a camera: al supplemento del trattamento)"}.
           &quot;Dal 3° letto&quot; = solo per chi è in camera con almeno altre due persone (es. bambino con 2 adulti). Per gli adulti indica età 18.
         </p>
