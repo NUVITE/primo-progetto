@@ -7,6 +7,7 @@ import { ArrowLeft, BedDouble, CalendarRange, Check, ChevronDown, ChevronUp, Key
 import { Avviso, Campo, classePulsante, Etichetta, Input, IntestazionePagina, Pulsante, Select, Sezione, Spunta } from "@/components/ui";
 import { AiutoSezione, Esempio } from "@/components/AiutoSezione";
 import { Suggerimento } from "@/components/Suggerimento";
+import { statoPrenotazione } from "../stato";
 import Link from "next/link";
 import { OspiteSearch, type OspiteValue } from "../nuova/OspiteSearch";
 import { CampoComposizione } from "../CampoComposizione";
@@ -215,12 +216,7 @@ export function PrenotazioneDettaglio({ iniziale, puoGestire, puoRiaprire }: { i
   const importi = prenotazione.importiVisibili;
   const it = (iso: string) => iso.split("-").reverse().join("/");
   const nomeListino = (id: number) => listini.find((l) => l.id === id)?.descrizione ?? "";
-  const STATO: Record<string, { testo: string; tono: "ambra" | "verde" | "neutro" }> = {
-    OPZIONE: { testo: "Opzione", tono: "ambra" },
-    CONFERMATA: { testo: "Confermata", tono: "verde" },
-    ANNULLATA: { testo: "Annullata", tono: "neutro" },
-  };
-  const stato = STATO[prenotazione.stato] ?? { testo: prenotazione.stato, tono: "neutro" as const };
+  const stato = statoPrenotazione(prenotazione.stato);
   const pannello = "mt-3 flex flex-col gap-3 rounded-md border border-teal-200 bg-teal-50/50 p-3";
 
   return (

@@ -1,13 +1,15 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { CalendarRange, ChevronRight, Search, Users } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useState } from "react";
+import { Campo, Etichetta, Input } from "@/components/ui";
 import { azioneCercaPrenotazioni } from "./actions";
+import { statoPrenotazione } from "./stato";
 
 type Riga = Awaited<ReturnType<typeof azioneCercaPrenotazioni>>[number];
 
 export function PrenotazioniLista({ iniziale }: { iniziale: Riga[] }) {
-  const router = useRouter();
   const [query, setQuery] = useState("");
   const [risultati, setRisultati] = useState<Riga[] | null>(null);
   const [cercando, setCercando] = useState(false);
@@ -28,79 +30,99 @@ export function PrenotazioniLista({ iniziale }: { iniziale: Riga[] }) {
   }, [query]);
 
   const righe = risultati ?? iniziale;
+  const vuoto = cercando ? "Ricerca in corso..." : query.trim().length >= 2 ? "Nessuna prenotazione trovata." : "Nessuna prenotazione ancora.";
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="max-w-sm">
-        <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-stone-600">Cerca prenotazione</label>
-        <input
-          className="w-full rounded-md border border-stone-300 px-3 py-2 text-sm text-stone-900"
-          placeholder="Nome o cognome (passate e future)..."
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-      </div>
+      <Campo etichetta="Cerca per nome o cognome" aiuto="Trova anche le prenotazioni passate e i componenti dei gruppi." className="max-w-md">
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" aria-hidden />
+          <Input className="pl-8" placeholder="es. Rossi" value={query} onChange={(e) => setQuery(e.target.value)} />
+        </div>
+      </Campo>
 
-      {/* Telefono: una scheda per prenotazione al posto della tabella a 6 colonne. */}
+      <p className="text-sm text-stone-600">
+        {risultati ? `${righe.length} ${righe.length === 1 ? "risultato" : "risultati"} per “${query.trim()}”` : "Ultime prenotazioni inserite"}
+      </p>
+
+      {/* Telefono: una scheda per prenotazione al posto della tabella. */}
       <ul className="flex flex-col gap-2 md:hidden">
-        {righe.map((p) => (
-          <li key={p.id}>
-            <button
-              type="button"
-              onClick={() => router.push(`/prenotazioni/${p.id}`)}
-              className="flex w-full flex-col gap-1 rounded-xl border border-stone-200 bg-white px-4 py-3 text-left text-sm active:bg-teal-50"
-            >
-              <span className="flex items-baseline justify-between gap-2">
-                <span className="font-bold text-stone-900">{p.ospitePrenotante}</span>
-                <span className="text-xs font-semibold text-teal-700">#{p.id}</span>
-              </span>
-              {p.periodo && <span className="font-mono text-xs text-stone-700">{p.periodo}</span>}
-              {p.camere && <span className="text-xs text-stone-600">{p.camere}</span>}
-              <span className="text-[11px] uppercase tracking-wide text-stone-500">
-                {p.stato}
-                {p.gruppoNome ? ` · ${p.gruppoNome}` : ""}
-              </span>
-            </button>
-          </li>
-        ))}
-        {righe.length === 0 && (
-          <li className="rounded-xl border border-stone-200 bg-white px-4 py-6 text-center text-sm text-stone-600">
-            {cercando ? "Ricerca in corso..." : query.trim().length >= 2 ? "Nessuna prenotazione trovata." : "Nessuna prenotazione ancora."}
-          </li>
-        )}
+        {righe.map((p) => {
+          const stato = statoPrenotazione(p.stato);
+          return (
+            <li key={p.id}>
+              <Link href={`/prenotazioni/${p.id}`} className="flex items-center gap-3 rounded-lg border border-stone-200 bg-white px-4 py-3 shadow-sm active:bg-teal-50">
+                <span className="flex min-w-0 flex-1 flex-col gap-1">
+                  <span className="flex flex-wrap items-center gap-2">
+                    <span className="font-bold text-stone-900">{p.ospitePrenotante}</span>
+                    <Etichetta tono={stato.tono}>{stato.testo}</Etichetta>
+                  </span>
+                  {p.periodo && (
+                    <span className="flex items-center gap-1.5 text-sm text-stone-700">
+                      <CalendarRange className="h-4 w-4 text-stone-500" aria-hidden />
+                      {p.periodo}
+                    </span>
+                  )}
+                  {p.camere && <span className="text-sm text-stone-600">{p.camere}</span>}
+                  <span className="text-xs text-stone-500">
+                    #{p.id}
+                    {p.gruppoNome ? ` · gruppo ${p.gruppoNome}` : ""}
+                  </span>
+                </span>
+                <ChevronRight className="h-5 w-5 shrink-0 text-stone-400" aria-hidden />
+              </Link>
+            </li>
+          );
+        })}
+        {righe.length === 0 && <li className="rounded-lg border border-stone-200 bg-white px-4 py-6 text-center text-sm text-stone-600">{vuoto}</li>}
       </ul>
 
-      <div className="hidden overflow-x-auto rounded-xl border border-stone-200 bg-white md:block">
+      <div className="hidden overflow-x-auto rounded-lg border border-stone-200 bg-white shadow-sm md:block">
         <table className="w-full text-sm">
-          <thead className="border-b border-stone-200 bg-stone-50 text-left text-xs uppercase tracking-wide text-stone-600">
+          <thead className="border-b border-stone-200 bg-stone-50 text-left text-xs font-semibold text-stone-600">
             <tr>
-              <th className="px-4 py-2">#</th>
               <th className="px-4 py-2">Ospite prenotante</th>
-              <th className="px-4 py-2">Gruppo</th>
-              <th className="px-4 py-2">Camere</th>
               <th className="px-4 py-2">Periodo</th>
+              <th className="px-4 py-2">Camere</th>
+              <th className="px-4 py-2">Gruppo</th>
               <th className="px-4 py-2">Stato</th>
+              <th className="px-4 py-2 text-right">N.</th>
             </tr>
           </thead>
           <tbody>
-            {righe.map((p) => (
-              <tr
-                key={p.id}
-                onClick={() => router.push(`/prenotazioni/${p.id}`)}
-                className="cursor-pointer border-b border-stone-100 last:border-0 hover:bg-teal-50"
-              >
-                <td className="px-4 py-2 font-semibold text-teal-700">#{p.id}</td>
-                <td className="px-4 py-2">{p.ospitePrenotante}</td>
-                <td className="px-4 py-2">{p.gruppoNome ?? "—"}</td>
-                <td className="px-4 py-2">{p.camere ?? "—"}</td>
-                <td className="px-4 py-2">{p.periodo ?? "—"}</td>
-                <td className="px-4 py-2">{p.stato}</td>
-              </tr>
-            ))}
+            {righe.map((p) => {
+              const stato = statoPrenotazione(p.stato);
+              return (
+                <tr key={p.id} className="group border-b border-stone-100 last:border-0 hover:bg-teal-50">
+                  <td className="px-4 py-2">
+                    {/* Il link copre la riga: si apre con un clic, con il tasto centrale o da tastiera. */}
+                    <Link href={`/prenotazioni/${p.id}`} className="font-semibold text-stone-900 group-hover:text-teal-800 group-hover:underline">
+                      {p.ospitePrenotante}
+                    </Link>
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-2 text-stone-800">{p.periodo ?? "—"}</td>
+                  <td className="px-4 py-2 text-stone-700">{p.camere ?? "—"}</td>
+                  <td className="px-4 py-2 text-stone-700">
+                    {p.gruppoNome ? (
+                      <span className="inline-flex items-center gap-1">
+                        <Users className="h-3.5 w-3.5 text-stone-500" aria-hidden />
+                        {p.gruppoNome}
+                      </span>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
+                  <td className="px-4 py-2">
+                    <Etichetta tono={stato.tono}>{stato.testo}</Etichetta>
+                  </td>
+                  <td className="px-4 py-2 text-right font-mono text-stone-500">#{p.id}</td>
+                </tr>
+              );
+            })}
             {righe.length === 0 && (
               <tr>
                 <td colSpan={6} className="px-4 py-6 text-center text-stone-600">
-                  {cercando ? "Ricerca in corso..." : query.trim().length >= 2 ? "Nessuna prenotazione trovata." : "Nessuna prenotazione ancora."}
+                  {vuoto}
                 </td>
               </tr>
             )}

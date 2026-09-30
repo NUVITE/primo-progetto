@@ -7,6 +7,10 @@ import { CODICE_ITALIA } from "@/lib/codiciPolizia";
 import type { datiCheckin, AnagraficaInput, DatiPresenzaInput } from "@/lib/checkin";
 import { OspiteSearch, type OspiteValue } from "../../../nuova/OspiteSearch";
 import { LuogoSearch } from "./LuogoSearch";
+import { ArrowLeft, CheckCircle2, LogIn, LogOut, RefreshCw, Save, UserMinus, UserPlus, UserRoundCog } from "lucide-react";
+import { Avviso, CLASSE_CAMPO, Etichetta, IntestazionePagina, Pulsante, Sezione } from "@/components/ui";
+import { AiutoSezione } from "@/components/AiutoSezione";
+import { Suggerimento } from "@/components/Suggerimento";
 import {
   azioneRicalcolaDaPresenti,
   azioneAggiungiOccupante,
@@ -21,14 +25,15 @@ import {
 type Dati = Awaited<ReturnType<typeof datiCheckin>>;
 type Occupante = Dati["occupanti"][number];
 
-const INPUT = "mt-1 w-full rounded-md border border-stone-300 px-2 py-1.5 text-sm text-stone-900 disabled:bg-stone-50";
-const ETICHETTA = "flex flex-col text-xs text-stone-600";
+const INPUT = CLASSE_CAMPO;
+const ETICHETTA = "flex min-w-0 flex-col gap-1 text-xs font-semibold text-stone-700";
+const SOTTOTITOLO = "mb-2 mt-4 border-t border-stone-100 pt-3 text-xs font-bold uppercase tracking-wide text-stone-500 first:mt-0 first:border-t-0 first:pt-0";
 const it = (iso: string) => iso.split("-").reverse().join("/");
 
-const STATO: Record<string, { testo: string; classe: string }> = {
-  attesa: { testo: "In arrivo", classe: "bg-stone-100 text-stone-600" },
-  arrivato: { testo: "Arrivato", classe: "bg-teal-100 text-teal-800" },
-  partito: { testo: "Partito", classe: "bg-emerald-100 text-emerald-800" },
+const STATO: Record<string, { testo: string; tono: "blu" | "verde" | "neutro" }> = {
+  attesa: { testo: "In arrivo", tono: "blu" },
+  arrivato: { testo: "Arrivato", tono: "verde" },
+  partito: { testo: "Partito", tono: "neutro" },
 };
 
 function rifOspite(v: OspiteValue) {
@@ -74,74 +79,87 @@ export function CheckinCamera({ iniziale, puoGestire }: { iniziale: Dati; puoGes
 
   return (
     <div className="flex w-full min-w-0 flex-col gap-4 p-3 sm:p-6">
-      <div>
-        <Link href={`/prenotazioni/${s.prenotazioneId}`} className="text-sm text-teal-700">
-          ← Prenotazione #{s.prenotazioneId}
-        </Link>
-        <h1 className="text-xl font-bold">
-          Check-in {s.camera ? `camera ${s.camera}` : `${s.tipoCamera} (camera da assegnare)`}
-        </h1>
-        <p className="text-sm text-stone-600">
-          {s.tipoCamera} · dal {it(s.dal)} al {it(s.al)}
-          {s.capienza !== null && ` · fino a ${s.capienza} persone`}
-          {s.gruppo && ` · gruppo ${s.gruppo}`}
-        </p>
-        <p className="text-sm text-stone-600">
-          Prenotata per: {s.composizione.prenotata}
-          {s.lettiAggiunti > 0 && ` · ${s.lettiAggiunti} ${s.lettiAggiunti === 1 ? "letto aggiunto" : "letti aggiunti"}`}
-        </p>
-        {s.composizione.diversa && dati.occupanti.some((o) => o.stato !== "attesa") && (
-          <div className="mt-2 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900">
-            Persone registrate: {s.composizione.reale}
-            {s.composizione.senzaData > 0 && ` (${s.composizione.senzaData} senza data di nascita, contati adulti)`} — diverse dalla prenotazione. Il
-            prezzo resta quello concordato finché non lo ricalcoli.
-            {puoGestire && (
-              <button
-                type="button"
+      <IntestazionePagina
+        sopra={
+          <Link href={`/prenotazioni/${s.prenotazioneId}`} className="inline-flex items-center gap-1 font-semibold text-teal-800 hover:underline">
+            <ArrowLeft className="h-4 w-4" aria-hidden /> Prenotazione #{s.prenotazioneId}
+          </Link>
+        }
+        titolo={`Check-in ${s.camera ? `camera ${s.camera}` : `${s.tipoCamera} (camera da assegnare)`}`}
+        sottotitolo={
+          <>
+            {s.tipoCamera} · dal <strong className="text-stone-900">{it(s.dal)}</strong> al <strong className="text-stone-900">{it(s.al)}</strong>
+            {s.capienza !== null && ` · fino a ${s.capienza} persone`}
+            {s.gruppo && ` · gruppo ${s.gruppo}`}
+            <br />
+            Prenotata per: <strong className="text-stone-900">{s.composizione.prenotata}</strong>
+            {s.lettiAggiunti > 0 && ` · ${s.lettiAggiunti} ${s.lettiAggiunti === 1 ? "letto aggiunto" : "letti aggiunti"}`}
+          </>
+        }
+      />
+
+      <Suggerimento id="checkin" titolo="Come si fa il check-in">
+        <ol className="list-decimal space-y-1 pl-5">
+          <li>
+            Per ogni persona in camera completa i dati richiesti (in giallo sotto il nome cosa manca) e premi <strong>Salva dati</strong>. Se c&apos;è
+            una persona in più usa <strong>Aggiungi una persona</strong>.
+          </li>
+          <li>
+            Quando gli ospiti sono arrivati premi <strong>Conferma arrivo</strong>: da quel momento hai 24 ore per inviare la schedina alla Polizia.
+          </li>
+          <li>
+            Alla partenza usa <strong>Check-out della camera</strong> (oppure il check-out di una sola persona se parte prima degli altri): la tassa di
+            soggiorno diventa definitiva.
+          </li>
+        </ol>
+      </Suggerimento>
+
+      {s.composizione.diversa && dati.occupanti.some((o) => o.stato !== "attesa") && (
+        <Avviso
+          tipo="avviso"
+          azione={
+            puoGestire && (
+              <Pulsante
+                variante="primario"
+                dimensione="piccolo"
+                icona={RefreshCw}
                 disabled={busy}
-                className="ml-2 rounded-md bg-teal-700 px-2.5 py-1 text-xs font-bold text-white disabled:opacity-40"
                 onClick={() => esegui(() => sbusta(azioneRicalcolaDaPresenti(s.id)), "Prezzo ricalcolato sulle persone registrate.")}
               >
                 Ricalcola il prezzo
-              </button>
-            )}
-          </div>
-        )}
-      </div>
+              </Pulsante>
+            )
+          }
+        >
+          Persone registrate: <strong>{s.composizione.reale}</strong>
+          {s.composizione.senzaData > 0 && ` (${s.composizione.senzaData} senza data di nascita, contati come adulti)`}: diverse dalla prenotazione. Il
+          prezzo resta quello concordato finché non lo ricalcoli.
+        </Avviso>
+      )}
 
       {!dati.tabelleCaricate && (
-        <p className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900">
-          Le tabelle ufficiali Polizia non sono ancora caricate: luoghi e documenti non si possono indicare. Le carica il gestore della
-          piattaforma (Piattaforma &gt; Tabelle Polizia).
-        </p>
+        <Avviso tipo="avviso">
+          Le tabelle ufficiali Polizia non sono ancora caricate: luoghi e documenti non si possono indicare. Le carica il gestore della piattaforma
+          (Piattaforma &gt; Tabelle Polizia).
+        </Avviso>
       )}
-      {messaggio && (
-        <p
-          className={`rounded-md px-3 py-2 text-sm font-semibold ${
-            messaggio.tipo === "ok" ? "bg-emerald-50 text-emerald-800" : messaggio.tipo === "avviso" ? "bg-amber-50 text-amber-900" : "bg-red-50 text-red-700"
-          }`}
-        >
-          {messaggio.testo}
-        </p>
-      )}
+      {messaggio && <Avviso tipo={messaggio.tipo}>{messaggio.testo}</Avviso>}
 
       {dati.occupanti.map((o) => (
         <SchedaOccupante key={`${o.presenzaId}-${o.ospiteId}`} dati={dati} o={o} puoGestire={puoGestire} busy={busy} esegui={esegui} />
       ))}
 
       {puoGestire && !tuttiPartiti && (
-        <section className="rounded-xl border border-dashed border-stone-300 bg-white p-4">
+        <section>
           {aggiungi ? (
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-2 rounded-lg border border-teal-200 bg-white p-4 shadow-sm">
               <OspiteSearch value={nuovo} onChange={setNuovo} etichetta="Aggiungi una persona alla camera" />
               <div className="flex justify-end gap-2">
-                <button type="button" className="rounded-md px-3 py-1.5 text-sm font-semibold text-stone-600 hover:bg-stone-100" onClick={() => setAggiungi(false)}>
-                  Annulla
-                </button>
-                <button
-                  type="button"
+                <Pulsante onClick={() => setAggiungi(false)}>Annulla</Pulsante>
+                <Pulsante
+                  variante="primario"
+                  icona={UserPlus}
                   disabled={busy || nuovo.mode === "vuoto"}
-                  className="rounded-md bg-teal-700 px-3 py-1.5 text-sm font-bold text-white disabled:opacity-40"
                   onClick={async () => {
                     const rif = rifOspite(nuovo);
                     if (rif && (await esegui(() => sbusta(azioneAggiungiOccupante(s.id, rif)), "Persona aggiunta: completa i suoi dati."))) {
@@ -151,60 +169,53 @@ export function CheckinCamera({ iniziale, puoGestire }: { iniziale: Dati; puoGes
                   }}
                 >
                   Aggiungi
-                </button>
+                </Pulsante>
               </div>
             </div>
           ) : (
-            <button type="button" className="text-sm font-semibold text-teal-700" onClick={() => setAggiungi(true)}>
-              + Aggiungi una persona alla camera
-            </button>
+            <Pulsante icona={UserPlus} onClick={() => setAggiungi(true)}>
+              Aggiungi una persona alla camera
+            </Pulsante>
           )}
         </section>
       )}
 
       {puoGestire && (
-        <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-stone-200 bg-white p-4">
-          <div className="text-sm text-stone-700">
+        <section className="sticky bottom-0 z-10 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-stone-300 bg-white p-3 shadow-md sm:p-4">
+          <div className="flex items-center gap-2 text-sm font-medium text-stone-800">
+            {tuttiArrivati && <CheckCircle2 className="h-4 w-4 text-emerald-700" aria-hidden />}
             {tuttiPartiti ? "Tutti partiti: soggiorno chiuso." : tuttiArrivati ? "Tutti gli occupanti sono arrivati." : "Quando arrivano, conferma l'arrivo: da lì partono le 24 ore per la schedina PS."}
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {!tuttiArrivati && (
-              <button
-                type="button"
-                disabled={busy}
-                className="rounded-md bg-teal-700 px-4 py-2 text-sm font-bold text-white disabled:opacity-40"
-                onClick={() => esegui(() => sbusta(azioneConfermaArrivo(s.id)), "Arrivo confermato.")}
-              >
+              <Pulsante variante="primario" icona={LogIn} disabled={busy} onClick={() => esegui(() => sbusta(azioneConfermaArrivo(s.id)), "Arrivo confermato.")}>
                 Conferma arrivo
-              </button>
+              </Pulsante>
             )}
             {tuttiArrivati && !tuttiPartiti && dataCheckout === null && (
-              <button type="button" className="rounded-md bg-stone-800 px-4 py-2 text-sm font-bold text-white" onClick={() => setDataCheckout(s.al)}>
+              <Pulsante variante="primario" icona={LogOut} onClick={() => setDataCheckout(s.al)}>
                 Check-out della camera
-              </button>
+              </Pulsante>
             )}
             {dataCheckout !== null && (
-              <span className="flex flex-wrap items-end gap-2 rounded-md bg-stone-50 px-3 py-2">
+              <span className="flex flex-wrap items-end gap-2 rounded-md border border-teal-200 bg-teal-50/50 px-3 py-2">
                 <label className={ETICHETTA}>
                   Data di partenza
                   <input type="date" className={INPUT} min={s.dal} max={s.al} value={dataCheckout} onChange={(e) => setDataCheckout(e.target.value)} />
                 </label>
-                <span className="max-w-xs text-xs text-stone-600">
+                <span className="max-w-xs text-sm text-stone-700">
                   Tutte le persone risultano partite e la loro tassa diventa definitiva.{dataCheckout < s.al ? " Partenza anticipata: le notti successive si liberano." : ""}
                 </span>
-                <button
-                  type="button"
+                <Pulsante
+                  variante="primario"
                   disabled={busy || !dataCheckout}
-                  className="rounded-md bg-stone-800 px-3 py-1.5 text-sm font-bold text-white disabled:opacity-40"
                   onClick={async () => {
                     if (await esegui(() => sbusta(azioneCheckoutCamera(s.id, dataCheckout)), "Check-out registrato.")) setDataCheckout(null);
                   }}
                 >
                   Conferma check-out
-                </button>
-                <button type="button" className="rounded-md px-3 py-1.5 text-sm font-semibold text-stone-600" onClick={() => setDataCheckout(null)}>
-                  Annulla
-                </button>
+                </Pulsante>
+                <Pulsante onClick={() => setDataCheckout(null)}>Annulla</Pulsante>
               </span>
             )}
           </div>
@@ -260,22 +271,24 @@ function SchedaOccupante({
     setA({ ...a, [campo]: italia ? CODICE_ITALIA : "", ...(campo === "statoNascitaCodice" ? { comuneNascitaCodice: "" } : { residenzaComuneCodice: "" }) });
 
   return (
-    <section className="rounded-xl border border-stone-200 bg-white p-4 sm:p-5">
-      <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <h2 className="font-bold">
-            {o.anagrafica.nome} {o.anagrafica.cognome}
-            {o.intestatario && <span className="ml-2 text-xs font-normal text-stone-500">(intestatario della camera)</span>}
-          </h2>
-          {o.mancanti.length === 0 ? (
-            <p className="text-xs font-semibold text-emerald-700">✓ Dati per la schedina PS{dati.sistemaIstat ? " e l'ISTAT" : ""} completi</p>
-          ) : (
-            <p className="text-xs text-amber-800">Mancano: {o.mancanti.join(", ")}</p>
-          )}
-        </div>
-        <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATO[o.stato]?.classe}`}>{STATO[o.stato]?.testo ?? o.stato}</span>
-      </div>
+    <Sezione
+      titolo={
+        <span className="flex flex-wrap items-center gap-2">
+          {o.anagrafica.nome} {o.anagrafica.cognome}
+          {o.intestatario && <span className="text-sm font-normal text-stone-600">(intestatario della camera)</span>}
+          <Etichetta tono={STATO[o.stato]?.tono ?? "neutro"}>{STATO[o.stato]?.testo ?? o.stato}</Etichetta>
+        </span>
+      }
+    >
+      {o.mancanti.length === 0 ? (
+        <Avviso tipo="ok" className="mb-3">Dati per la schedina PS{dati.sistemaIstat ? " e l'ISTAT" : ""} completi.</Avviso>
+      ) : (
+        <Avviso tipo="avviso" className="mb-3">
+          <strong>Mancano:</strong> {o.mancanti.join(", ")}.
+        </Avviso>
+      )}
 
+      <p className={SOTTOTITOLO}>Dati personali</p>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <label className={ETICHETTA}>
           Cognome
@@ -298,6 +311,9 @@ function SchedaOccupante({
           <input type="date" className={INPUT} disabled={bloccata} value={a.dataNascita} onChange={(e) => setA({ ...a, dataNascita: e.target.value })} />
         </label>
 
+      </div>
+      <p className={SOTTOTITOLO}>Nascita, cittadinanza e residenza</p>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <div className={ETICHETTA}>
           <span className="flex flex-wrap items-center gap-x-3">
             Nascita
@@ -330,6 +346,16 @@ function SchedaOccupante({
           </span>
           {a.residenzaStatoCodice === CODICE_ITALIA ? <LuogoSearch tipo="comune" {...luogo("residenzaComuneCodice")} /> : <LuogoSearch tipo="stato" {...luogo("residenzaStatoCodice")} />}
         </div>
+      </div>
+      <p className={SOTTOTITOLO}>Schedina di Polizia</p>
+      <AiutoSezione breve="Il tipo di alloggiato dice alla Polizia chi è il riferimento del gruppo o della famiglia.">
+        <p>
+          <strong>Ospite singolo</strong> se è solo; in una famiglia uno è il <strong>capofamiglia</strong> e gli altri <strong>familiari</strong>; in un
+          gruppo uno è il <strong>capogruppo</strong> e gli altri <strong>membri del gruppo</strong>. Il sistema lo propone già: controllalo.
+        </p>
+        <p>Il documento serve solo per ospite singolo, capofamiglia e capogruppo.</p>
+      </AiutoSezione>
+      <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <label className={ETICHETTA}>
           Tipo di alloggiato
           <select className={INPUT} disabled={bloccata} value={p.tipoAlloggiato ?? ""} onChange={(e) => setP({ ...p, tipoAlloggiato: e.target.value ? Number(e.target.value) : null })}>
@@ -379,7 +405,7 @@ function SchedaOccupante({
               <LuogoSearch tipo="comune" placeholder="Comune italiano..." {...luogo("documentoRilascioCodice")} />
               {!a.documentoRilascioCodice && !bloccata && (
                 <details className="mt-1">
-                  <summary className="cursor-pointer text-[11px] text-stone-500">Rilasciato all&apos;estero?</summary>
+                  <summary className="cursor-pointer text-xs font-semibold text-teal-800">Rilasciato all&apos;estero?</summary>
                   <LuogoSearch tipo="stato" {...luogo("documentoRilascioCodice")} />
                 </details>
               )}
@@ -389,9 +415,11 @@ function SchedaOccupante({
       </div>
 
       {liste && (
-        <div className="mt-3 grid grid-cols-1 gap-3 border-t border-stone-100 pt-3 sm:grid-cols-2 lg:grid-cols-4">
+        <>
+        <p className={SOTTOTITOLO}>Statistica turistica (ISTAT)</p>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <label className={ETICHETTA}>
-            Motivo del viaggio (ISTAT)
+            Motivo del viaggio
             <select className={INPUT} disabled={bloccata} value={p.motivoViaggio} onChange={(e) => setP({ ...p, motivoViaggio: e.target.value })}>
               <option value="">—</option>
               {liste.motivo.map((v) => (
@@ -402,7 +430,7 @@ function SchedaOccupante({
             </select>
           </label>
           <label className={ETICHETTA}>
-            {liste.mezzoMovimento ? "Mezzo per arrivare" : "Mezzo di trasporto"} (ISTAT)
+            {liste.mezzoMovimento ? "Mezzo per arrivare" : "Mezzo di trasporto"}
             <select className={INPUT} disabled={bloccata} value={p.mezzoArrivo} onChange={(e) => setP({ ...p, mezzoArrivo: e.target.value })}>
               <option value="">—</option>
               {liste.mezzoArrivo.map((v) => (
@@ -414,7 +442,7 @@ function SchedaOccupante({
           </label>
           {liste.mezzoMovimento && (
             <label className={ETICHETTA}>
-              Mezzo per muoversi sul posto (ISTAT)
+              Mezzo per muoversi sul posto
               <select className={INPUT} disabled={bloccata} value={p.mezzoMovimento} onChange={(e) => setP({ ...p, mezzoMovimento: e.target.value })}>
                 <option value="">—</option>
                 {liste.mezzoMovimento.map((v) => (
@@ -426,16 +454,17 @@ function SchedaOccupante({
             </label>
           )}
           {liste.postoLetto && (
-            <label className="flex items-center gap-2 self-end text-sm">
-              <input type="checkbox" className="h-4 w-4 accent-teal-700" disabled={bloccata} checked={p.occupaPostoLetto} onChange={(e) => setP({ ...p, occupaPostoLetto: e.target.checked })} />
+            <label className="flex items-center gap-2 self-end pb-1.5 text-sm">
+              <input type="checkbox" disabled={bloccata} checked={p.occupaPostoLetto} onChange={(e) => setP({ ...p, occupaPostoLetto: e.target.checked })} />
               Occupa un posto letto
             </label>
           )}
         </div>
+        </>
       )}
 
-      <details className="mt-3 text-sm">
-        <summary className="cursor-pointer text-xs font-semibold text-stone-600">Arriva dopo o parte prima degli altri?</summary>
+      <details className="mt-4 text-sm">
+        <summary className="cursor-pointer text-sm font-semibold text-teal-800">Arriva dopo o parte prima degli altri?</summary>
         <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <label className={ETICHETTA}>
             Arriva il (vuoto = con la camera)
@@ -448,85 +477,94 @@ function SchedaOccupante({
         </div>
       </details>
 
-      {o.chiusa && <p className="mt-3 text-xs text-stone-600">Soggiorno chiuso: per correggere i dati va riaperto dalla sezione Tassa di soggiorno della prenotazione.</p>}
+      {o.chiusa && (
+        <Avviso tipo="info" className="mt-3">
+          Soggiorno chiuso: per correggere i dati va riaperto dalla sezione Tassa di soggiorno della prenotazione.
+        </Avviso>
+      )}
 
       {puoGestire && !o.chiusa && (
         <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-stone-100 pt-3">
           <div className="flex flex-wrap gap-2">
             {sostituisci === null ? (
-              <button type="button" className="rounded-md px-2.5 py-1 text-xs font-semibold text-teal-700 hover:bg-teal-50" onClick={() => setSostituisci({ mode: "vuoto" })}>
+              <Pulsante variante="leggero" dimensione="piccolo" icona={UserRoundCog} onClick={() => setSostituisci({ mode: "vuoto" })}>
                 Sostituisci persona
-              </button>
+              </Pulsante>
             ) : (
-              <div className="flex w-full flex-col gap-2 rounded-md border border-dashed border-stone-300 p-2 sm:w-96">
+              <div className="flex w-full flex-col gap-2 rounded-md border border-teal-200 bg-teal-50/50 p-3 sm:w-96">
                 <OspiteSearch value={sostituisci} onChange={setSostituisci} etichetta={`Al posto di ${o.anagrafica.nome} ${o.anagrafica.cognome}`} />
                 <div className="flex justify-end gap-2">
-                  <button type="button" className="text-xs font-semibold text-stone-600" onClick={() => setSostituisci(null)}>
+                  <Pulsante dimensione="piccolo" onClick={() => setSostituisci(null)}>
                     Annulla
-                  </button>
-                  <button
-                    type="button"
+                  </Pulsante>
+                  <Pulsante
+                    variante="primario"
+                    dimensione="piccolo"
                     disabled={busy || sostituisci.mode === "vuoto"}
-                    className="rounded-md bg-teal-700 px-2.5 py-1 text-xs font-bold text-white disabled:opacity-40"
                     onClick={() => {
                       const rif = rifOspite(sostituisci);
                       if (rif) esegui(() => sbusta(azioneSostituisciOccupante(dati.segmento.id, o.presenzaId, rif)), "Persona sostituita: completa i suoi dati.");
                     }}
                   >
                     Sostituisci
-                  </button>
+                  </Pulsante>
                 </div>
               </div>
             )}
             {dati.occupanti.length > 1 &&
               (confermaRimuovi ? (
-                <span className="flex items-center gap-2 text-xs">
-                  Togliere dalla camera?
-                  <button type="button" disabled={busy} className="rounded-md bg-red-600 px-2 py-1 font-bold text-white" onClick={() => esegui(() => sbusta(azioneRimuoviOccupante(dati.segmento.id, o.presenzaId)), "Persona tolta dalla camera.")}>
-                    Togli
-                  </button>
-                  <button type="button" className="font-semibold text-stone-600" onClick={() => setConfermaRimuovi(false)}>
-                    Annulla
-                  </button>
+                <span className="flex items-center gap-2 text-sm">
+                  <span className="font-semibold text-red-800">Togliere dalla camera?</span>
+                  <Pulsante
+                    variante="pericolo"
+                    dimensione="piccolo"
+                    disabled={busy}
+                    onClick={() => esegui(() => sbusta(azioneRimuoviOccupante(dati.segmento.id, o.presenzaId)), "Persona tolta dalla camera.")}
+                  >
+                    Sì, togli
+                  </Pulsante>
+                  <Pulsante dimensione="piccolo" onClick={() => setConfermaRimuovi(false)}>
+                    No
+                  </Pulsante>
                 </span>
               ) : (
-                <button type="button" className="rounded-md px-2.5 py-1 text-xs font-semibold text-red-600 hover:bg-red-50" onClick={() => setConfermaRimuovi(true)}>
+                <Pulsante variante="pericolo" dimensione="piccolo" icona={UserMinus} onClick={() => setConfermaRimuovi(true)}>
                   Togli dalla camera
-                </button>
+                </Pulsante>
               ))}
             {o.stato === "arrivato" &&
               dati.occupanti.length > 1 &&
               (partenza === null ? (
-                <button type="button" className="rounded-md px-2.5 py-1 text-xs font-semibold text-stone-700 hover:bg-stone-100" onClick={() => setPartenza(p.al || dati.segmento.al)}>
+                <Pulsante dimensione="piccolo" icona={LogOut} onClick={() => setPartenza(p.al || dati.segmento.al)}>
                   Check-out solo di questa persona
-                </button>
+                </Pulsante>
               ) : (
-                <span className="flex flex-wrap items-center gap-2 text-xs">
-                  <input type="date" className="rounded-md border border-stone-300 px-2 py-1 text-sm" value={partenza} onChange={(e) => setPartenza(e.target.value)} />
-                  <button
-                    type="button"
+                <span className="flex flex-wrap items-center gap-2 text-sm">
+                  <input type="date" className={`${INPUT} w-auto`} value={partenza} onChange={(e) => setPartenza(e.target.value)} />
+                  <Pulsante
+                    variante="primario"
+                    dimensione="piccolo"
                     disabled={busy}
-                    className="rounded-md bg-stone-800 px-2 py-1 font-bold text-white"
                     onClick={() => esegui(() => sbusta(azioneCheckoutOccupante(dati.segmento.id, o.presenzaId, partenza)), "Check-out della persona registrato.")}
                   >
                     Conferma partenza
-                  </button>
-                  <button type="button" className="font-semibold text-stone-600" onClick={() => setPartenza(null)}>
+                  </Pulsante>
+                  <Pulsante dimensione="piccolo" onClick={() => setPartenza(null)}>
                     Annulla
-                  </button>
+                  </Pulsante>
                 </span>
               ))}
           </div>
-          <button
-            type="button"
+          <Pulsante
+            variante="primario"
+            icona={Save}
             disabled={busy}
-            className="rounded-md bg-teal-700 px-4 py-2 text-sm font-bold text-white disabled:opacity-40"
             onClick={() => esegui(() => sbusta(azioneSalvaOccupante(dati.segmento.id, o.presenzaId, a, p)), `Dati di ${a.nome} ${a.cognome} salvati.`)}
           >
             Salva dati
-          </button>
+          </Pulsante>
         </div>
       )}
-    </section>
+    </Sezione>
   );
 }

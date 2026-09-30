@@ -47,10 +47,10 @@ export function LuogoSearch({
 
   if (codice && !modifica) {
     return (
-      <div className="mt-1 flex items-center justify-between gap-2 rounded-md border border-stone-300 bg-stone-50 px-2 py-1.5 text-sm text-stone-900">
+      <div className="flex h-8 items-center justify-between gap-2 rounded-md border border-stone-300 bg-stone-50 px-2.5 text-sm font-normal text-stone-900 pointer-coarse:h-10">
         <span className="truncate">{descrizione || codice}</span>
         {!disabled && (
-          <button type="button" className="text-xs font-semibold text-teal-700" onClick={() => setModifica(true)}>
+          <button type="button" className="rounded px-1.5 py-0.5 text-xs font-semibold text-teal-800 hover:bg-teal-50" onClick={() => setModifica(true)}>
             Cambia
           </button>
         )}
@@ -61,7 +61,7 @@ export function LuogoSearch({
   return (
     <div className="relative">
       <input
-        className="mt-1 w-full rounded-md border border-stone-300 px-2 py-1.5 text-sm text-stone-900"
+        className="h-8 w-full rounded-md border border-stone-300 bg-white px-2.5 text-sm font-normal text-stone-900 pointer-coarse:h-10"
         disabled={disabled}
         placeholder={placeholder ?? (tipo === "comune" ? "Scrivi il nome del comune..." : "Scrivi il nome dello stato...")}
         value={testo}
@@ -75,7 +75,7 @@ export function LuogoSearch({
               <li key={l.codice}>
                 <button
                   type="button"
-                  className="w-full px-3 py-1.5 text-left text-sm text-stone-800 hover:bg-teal-50"
+                  className="w-full px-3 py-1.5 text-left text-sm font-normal text-stone-800 hover:bg-teal-50 pointer-coarse:py-2.5"
                   onClick={() => {
                     onChange(l.codice, etichetta);
                     setRisultati([]);
@@ -91,7 +91,7 @@ export function LuogoSearch({
         </ul>
       )}
       {codice && (
-        <button type="button" className="mt-1 text-[11px] text-stone-500 underline" onClick={() => setModifica(false)}>
+        <button type="button" className="mt-1 text-xs font-semibold text-stone-600 underline" onClick={() => setModifica(false)}>
           Annulla (resta: {descrizione || codice})
         </button>
       )}

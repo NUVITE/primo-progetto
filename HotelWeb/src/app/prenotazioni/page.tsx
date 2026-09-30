@@ -3,6 +3,9 @@ import { elencoPrenotazioni } from "@/lib/prenotazioni";
 import { richiediPermesso } from "@/lib/auth";
 import { PERMESSI } from "@/lib/permessi";
 import { PrenotazioniLista } from "./PrenotazioniLista";
+import { Plus } from "lucide-react";
+import { classePulsante, IntestazionePagina } from "@/components/ui";
+import { Suggerimento } from "@/components/Suggerimento";
 
 function isoGiorno(d: Date) {
   return d.toISOString().slice(0, 10).split("-").reverse().join("/");
@@ -26,13 +29,22 @@ export default async function ElencoPrenotazioniPage() {
   });
 
   return (
-    <div className="flex w-full flex-col gap-4 p-3 sm:p-6">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-bold">Prenotazioni</h1>
-        <Link href="/prenotazioni/nuova" className="rounded-md bg-teal-700 px-4 py-2 text-sm font-bold text-white">
-          + Nuova prenotazione
-        </Link>
-      </div>
+    <div className="flex w-full min-w-0 flex-col gap-4 p-3 sm:p-6">
+      <IntestazionePagina
+        titolo="Prenotazioni"
+        azioni={
+          <Link href="/prenotazioni/nuova" className={classePulsante("primario")}>
+            <Plus className="h-4 w-4" aria-hidden />
+            Nuova prenotazione
+          </Link>
+        }
+      />
+      <Suggerimento id="elenco-prenotazioni" titolo="Come si trova una prenotazione">
+        <p>
+          Scrivi un nome o un cognome nella ricerca: trova chi ha prenotato e chiunque sia registrato nelle camere, anche nelle prenotazioni
+          passate. Clicca sul nome per aprire la prenotazione. Per vedere chi arriva in un certo periodo usa il <strong>Planning camere</strong>.
+        </p>
+      </Suggerimento>
 
       <PrenotazioniLista iniziale={iniziale} />
     </div>

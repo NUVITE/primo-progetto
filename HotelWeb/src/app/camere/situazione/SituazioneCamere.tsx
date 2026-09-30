@@ -7,6 +7,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { OspiteSearch, type OspiteValue } from "../../prenotazioni/nuova/OspiteSearch";
 import { anteprimaGenerica, assegnaCameraASegmento, datiIniziali, salvaPrenotazioneGenerica } from "./actions";
 import { CampoComposizione } from "@/app/prenotazioni/CampoComposizione";
+import { ChevronLeft, ChevronRight, ExternalLink, KeyRound, Lock, Plus, X } from "lucide-react";
+import { Avviso, Campo, classePulsante, Input, Pulsante, Select, Textarea } from "@/components/ui";
+import { Suggerimento } from "@/components/Suggerimento";
+import { AiutoSezione } from "@/components/AiutoSezione";
 import type { Composizione } from "@/lib/pricing";
 
 type Stato = "libera" | "occupata" | "in_arrivo" | "in_partenza" | "fuori_servizio" | "occupata_generica";
@@ -447,21 +451,34 @@ export function SituazioneCamere({ puoGestire }: { puoGestire: boolean }) {
 
   return (
     <div className="flex w-full min-w-0 flex-col gap-4 p-3 sm:p-6">
-      <div className="flex items-center justify-between">
-        <div className="flex flex-wrap items-baseline gap-x-3">
-          <h1 className="text-xl font-bold">Situazione camere</h1>
-          <span className="text-sm text-stone-600">{rangeLabel()}</span>
-        </div>
+      <div className="flex flex-wrap items-baseline gap-x-3">
+        <h1 className="text-xl font-bold">Planning camere</h1>
+        <span className="text-sm font-medium text-stone-700">{rangeLabel()}</span>
       </div>
 
+      <Suggerimento id="planning" titolo="Come si usa il planning">
+        <ol className="list-decimal space-y-1 pl-5">
+          <li>
+            Le righe verdi riassumono, per tipo di camera, <strong>quante camere sono libere</strong> ogni giorno. Clicca sul nome del tipo per vedere le
+            singole camere e chi le occupa.
+          </li>
+          <li>
+            Per prenotare <strong>trascina il mouse sulle date</strong> di una riga (dal giorno di arrivo all&apos;ultima notte). Su tablet o telefono
+            tocca il giorno di arrivo e poi sistema la partenza nel riquadro che si apre.
+          </li>
+          <li>Clicca una camera occupata per vedere di chi è la prenotazione e aprirla.</li>
+        </ol>
+      </Suggerimento>
+
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex overflow-hidden rounded-md border border-stone-300">
+        <div className="flex overflow-hidden rounded-md border border-stone-300 bg-white shadow-sm">
           {(["giorno", "settimana", "quindicina", "mese"] as ViewMode[]).map((m) => (
             <button
               key={m}
               onClick={() => setViewMode(m)}
-              className={`px-3 py-1.5 text-sm font-semibold ${m !== "mese" ? "border-r border-stone-300" : ""} ${
-                viewMode === m ? "bg-teal-700 text-white" : "bg-white text-stone-800"
+              aria-pressed={viewMode === m}
+              className={`h-8 px-3 text-sm font-semibold pointer-coarse:h-10 ${m !== "mese" ? "border-r border-stone-300" : ""} ${
+                viewMode === m ? "bg-teal-700 text-white" : "bg-white text-stone-800 hover:bg-stone-50"
               }`}
             >
               {m === "giorno" ? "Giorno" : m === "settimana" ? "Settimana" : m === "quindicina" ? "15 giorni" : "Mese"}
@@ -469,38 +486,41 @@ export function SituazioneCamere({ puoGestire }: { puoGestire: boolean }) {
           ))}
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={() => shiftPeriodo(-1)} className="h-8 w-8 rounded-md border border-stone-300 text-sm">←</button>
-          <button onClick={() => setAnchor(oggi())} className="rounded-md border border-stone-300 px-3 py-1.5 text-sm font-semibold">Oggi</button>
-          <button onClick={() => shiftPeriodo(1)} className="h-8 w-8 rounded-md border border-stone-300 text-sm">→</button>
+          <Pulsante aria-label="Periodo precedente" title="Periodo precedente" onClick={() => shiftPeriodo(-1)} className="w-8 px-0 pointer-coarse:w-10">
+            <ChevronLeft className="h-4 w-4" />
+          </Pulsante>
+          <Pulsante onClick={() => setAnchor(oggi())}>Oggi</Pulsante>
+          <Pulsante aria-label="Periodo successivo" title="Periodo successivo" onClick={() => shiftPeriodo(1)} className="w-8 px-0 pointer-coarse:w-10">
+            <ChevronRight className="h-4 w-4" />
+          </Pulsante>
+          {puoGestire && (
+            <Link href="/prenotazioni/nuova" className={classePulsante("primario")}>
+              <Plus className="h-4 w-4" aria-hidden />
+              Nuova prenotazione
+            </Link>
+          )}
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-4 rounded-md border border-stone-200 bg-white px-4 py-2 text-xs">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 rounded-lg border border-stone-200 bg-white px-4 py-2 text-sm text-stone-800 shadow-sm">
         {(Object.keys(ETICHETTA) as Stato[]).map((s) => (
           <span key={s} className="flex items-center gap-1.5">
             <span className="inline-block h-3.5 w-3.5 rounded" style={{ background: STILE[s].bg, border: `1px solid ${STILE[s].border}` }} />
             {ETICHETTA[s]}
           </span>
         ))}
-        {puoGestire && (
-          <span className="ml-auto text-stone-600">Trascina sulle date (o tocca il giorno di arrivo) per prenotare velocemente.</span>
-        )}
+
       </div>
 
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
         {/* Su schermi stretti la griglia scorre in orizzontale con la colonna dei nomi fissa a sinistra. */}
-        <div className="min-w-0 flex-grow overflow-x-auto rounded-xl border border-stone-200 bg-white p-2 select-none [--col-etichetta:92px] sm:p-4 sm:[--col-etichetta:140px]">
+        <div className="min-w-0 flex-grow overflow-x-auto rounded-lg border border-stone-200 bg-white p-2 shadow-sm select-none [--col-etichetta:92px] sm:p-4 sm:[--col-etichetta:140px]">
           {caricando ? (
             <p className="text-sm text-stone-600">Caricamento...</p>
           ) : erroreCaricamento ? (
             <div className="flex flex-col items-start gap-2">
-              <p className="text-sm font-semibold text-red-700">{erroreCaricamento}</p>
-              <button
-                className="rounded-md border border-stone-300 px-3 py-1.5 text-sm font-semibold"
-                onClick={() => setAnchor((a) => new Date(a))}
-              >
-                Riprova
-              </button>
+              <Avviso tipo="errore">{erroreCaricamento}</Avviso>
+              <Pulsante onClick={() => setAnchor((a) => new Date(a))}>Riprova</Pulsante>
             </div>
           ) : (
             <div style={{ minWidth: `calc(var(--col-etichetta) + ${giorni.length * 44}px)` }}>
@@ -511,12 +531,14 @@ export function SituazioneCamere({ puoGestire }: { puoGestire: boolean }) {
                 {giorni.map((g, idx) => {
                   const d = new Date(g);
                   const evidenziato = giornoEvidenziato(idx);
+                  const festivo = d.getDay() === 0 || d.getDay() === 6;
                   return (
                     <div
                       key={g}
-                      className="rounded text-center text-[11px] text-stone-600"
-                      style={{ background: evidenziato ? "#0F6B66" : "transparent", color: evidenziato ? "white" : undefined, fontWeight: evidenziato ? 700 : 400 }}
+                      className={`rounded py-0.5 text-center text-xs leading-tight ${festivo && !evidenziato ? "bg-stone-100 text-stone-800" : "text-stone-700"}`}
+                      style={{ background: evidenziato ? "#0F6B66" : undefined, color: evidenziato ? "white" : undefined, fontWeight: evidenziato ? 700 : 500 }}
                     >
+                      <div className="text-[11px] uppercase">{["dom", "lun", "mar", "mer", "gio", "ven", "sab"][d.getDay()]}</div>
                       <div className="font-mono">{pad2(d.getDate())}/{pad2(d.getMonth() + 1)}</div>
                     </div>
                   );
@@ -535,10 +557,11 @@ export function SituazioneCamere({ puoGestire }: { puoGestire: boolean }) {
                         <button
                           type="button"
                           onClick={() => toggleTipo(t.id)}
-                          className="sticky left-0 z-10 flex h-full items-center gap-1 truncate bg-white text-left text-xs font-semibold text-stone-700 hover:text-teal-700"
+                          aria-expanded={espanso}
+                          className="sticky left-0 z-10 flex h-full items-center gap-1 truncate rounded bg-white pr-1 text-left text-sm font-semibold text-stone-800 hover:bg-teal-50 hover:text-teal-800"
                           title={espanso ? "Nascondi le camere di questo tipo" : "Mostra le camere fisiche di questo tipo"}
                         >
-                          <span className="inline-block w-3 text-[9px]">{espanso ? "▾" : "▸"}</span>
+                          <ChevronRight className={`h-4 w-4 shrink-0 text-stone-500 transition-transform ${espanso ? "rotate-90" : ""}`} aria-hidden />
                           {t.descrizione}
                         </button>
                         {giorni.map((g, idx) => {
@@ -568,7 +591,7 @@ export function SituazioneCamere({ puoGestire }: { puoGestire: boolean }) {
                       {espanso &&
                         raggruppaPerPiano(camere.filter((c) => c.tipoCameraId === t.id)).map(([piano, righe]) => (
                           <div key={piano} className="pl-4">
-                            <div className="py-1 text-[10px] font-bold uppercase tracking-wide text-stone-500">{piano}</div>
+                            <div className="py-1 text-xs font-bold uppercase tracking-wide text-stone-500">{piano}</div>
                             {righe.map((c) => (
                               <div key={c.id} className="mb-1 grid gap-1" style={{ gridTemplateColumns: `var(--col-etichetta) repeat(${giorni.length}, minmax(36px, 1fr))` }}>
                                 <div className="sticky left-0 z-10 flex items-center gap-1.5 truncate bg-white text-sm">
@@ -615,56 +638,63 @@ export function SituazioneCamere({ puoGestire }: { puoGestire: boolean }) {
             chi prenota deve continuare a vedere chi c'e' gia' in quelle date (feedback 2026-09-28). */}
         <div className="flex w-full flex-col gap-4 lg:w-80 lg:flex-shrink-0">
           {periodoConfermato && (
-            <div ref={pannelloVeloceRef} className="flex scroll-mt-4 flex-col gap-3 rounded-xl border-2 border-teal-600 bg-white p-4 sm:p-5">
+            <div ref={pannelloVeloceRef} className="flex scroll-mt-4 flex-col gap-3 rounded-lg border-2 border-teal-600 bg-white p-4 shadow-md sm:p-5">
               <div>
-                <h2 className="text-xs font-semibold uppercase tracking-wide text-stone-600">Nuova prenotazione veloce</h2>
+                <div className="flex items-center justify-between gap-2">
+                  <h2 className="flex items-center gap-2 text-sm font-bold text-stone-900">
+                    <Lock className="h-4 w-4 text-teal-700" aria-hidden /> Prenotazione veloce
+                  </h2>
+                  <button type="button" aria-label="Chiudi" onClick={chiudiPannelloVeloce} className="flex h-7 w-7 items-center justify-center rounded text-stone-500 hover:bg-stone-100">
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+                <AiutoSezione breve="Blocca le camere per tipo, senza sceglierle subito." >
+                  <p>
+                    Indica quante camere di ogni tipo servono e quante persone in ciascuna: il prezzo si calcola subito. Le camere precise si assegnano
+                    dopo, dal dettaglio della prenotazione.
+                  </p>
+                </AiutoSezione>
                 {/* Date modificabili: su touch non si puo' trascinare (il dito scorre la griglia),
                     quindi si tocca il giorno di arrivo e qui si sistema la partenza. */}
-                <div className="mt-1 grid grid-cols-2 gap-2">
-                  <label className="flex flex-col text-[11px] text-stone-600">
-                    Arrivo
-                    <input
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  <Campo etichetta="Arrivo">
+                    <Input type="date" className="font-semibold" value={periodoConfermato.dal} onChange={(e) => cambiaDatePeriodo(e.target.value, periodoConfermato.al)} />
+                  </Campo>
+                  <Campo etichetta="Partenza">
+                    <Input
                       type="date"
-                      className="rounded-md border border-stone-300 px-2 py-1 text-sm font-bold text-stone-900"
-                      value={periodoConfermato.dal}
-                      onChange={(e) => cambiaDatePeriodo(e.target.value, periodoConfermato.al)}
-                    />
-                  </label>
-                  <label className="flex flex-col text-[11px] text-stone-600">
-                    Partenza
-                    <input
-                      type="date"
+                      className="font-semibold"
                       min={isoGiorno(addDays(new Date(periodoConfermato.dal), 1))}
-                      className="rounded-md border border-stone-300 px-2 py-1 text-sm font-bold text-stone-900"
                       value={periodoConfermato.al}
                       onChange={(e) => cambiaDatePeriodo(periodoConfermato.dal, e.target.value)}
                     />
-                  </label>
+                  </Campo>
                 </div>
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs text-stone-600">Camere richieste</label>
+                <span className="text-xs font-semibold text-stone-700">Camere richieste</span>
                 {tipiOrdinati.map((t) => {
                   const min = minimoLiberoPerTipo(t.id);
                   return (
                     <div key={t.id} className="flex flex-col gap-1">
                       <div className="flex items-center justify-between gap-2">
-                        <span className="text-sm">{t.descrizione}</span>
+                        <span className="text-sm text-stone-900">{t.descrizione}</span>
                         <div className="flex items-center gap-2">
-                          {min !== null && <span className="text-[11px] text-stone-500">({min} libere)</span>}
-                          <input
+                          {min !== null && <span className="text-xs text-stone-500">{min} libere</span>}
+                          <Input
                             type="number"
                             min={0}
-                            className="w-16 rounded-md border border-stone-300 px-2 py-1 text-sm"
+                            aria-label={`Camere ${t.descrizione}`}
+                            className="w-16"
                             value={quantita[t.id] ?? 0}
                             onChange={(e) => setQuantita({ ...quantita, [t.id]: Math.max(0, Number(e.target.value)) })}
                           />
                         </div>
                       </div>
                       {(quantita[t.id] ?? 0) > 0 && (
-                        <div className="rounded-md bg-stone-50 px-2 py-1.5">
-                          <p className="text-[11px] text-stone-500">Persone in ogni camera</p>
+                        <div className="rounded-md border border-stone-200 bg-stone-50 px-2 py-1.5">
+                          <p className="mb-1 text-xs text-stone-600">Persone in ogni camera</p>
                           <CampoComposizione compatto valore={composizioneDi(t.id)} onChange={(c) => setComposizioni({ ...composizioni, [t.id]: c })} />
                         </div>
                       )}
@@ -673,25 +703,24 @@ export function SituazioneCamere({ puoGestire }: { puoGestire: boolean }) {
                 })}
               </div>
 
-              <div>
-                <label className="mb-1 block text-xs text-stone-600">Listino</label>
-                <select className="w-full rounded-md border border-stone-300 px-2 py-1.5 text-sm" value={listinoId ?? ""} onChange={(e) => setListinoId(Number(e.target.value))}>
-                  {listini.map((l) => <option key={l.id} value={l.id}>{l.descrizione}</option>)}
-                </select>
-              </div>
-
-              <div>
-                <label className="mb-1 block text-xs text-stone-600">Trattamento</label>
-                <select className="w-full rounded-md border border-stone-300 px-2 py-1.5 text-sm" value={trattamento} onChange={(e) => setTrattamento(e.target.value)}>
-                  {trattamenti.map((t) => <option key={t} value={t}>{t}</option>)}
-                </select>
+              <div className="grid grid-cols-2 gap-2">
+                <Campo etichetta="Listino">
+                  <Select value={listinoId ?? ""} onChange={(e) => setListinoId(Number(e.target.value))}>
+                    {listini.map((l) => <option key={l.id} value={l.id}>{l.descrizione}</option>)}
+                  </Select>
+                </Campo>
+                <Campo etichetta="Trattamento">
+                  <Select value={trattamento} onChange={(e) => setTrattamento(e.target.value)}>
+                    {trattamenti.map((t) => <option key={t} value={t}>{t}</option>)}
+                  </Select>
+                </Campo>
               </div>
 
               <OspiteSearch value={ospitePren} onChange={setOspitePren} etichetta="Cliente" />
               {ospitePren.mode === "nuovo" && (
                 <div className="flex flex-col gap-2">
-                  <input className="rounded-md border border-stone-300 px-2 py-1.5 text-sm" placeholder="Telefono" value={telefono} onChange={(e) => setTelefono(e.target.value)} />
-                  <input className="rounded-md border border-stone-300 px-2 py-1.5 text-sm" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
+                  <Input type="tel" placeholder="Telefono" value={telefono} onChange={(e) => setTelefono(e.target.value)} />
+                  <Input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
                 </div>
               )}
 
@@ -699,12 +728,12 @@ export function SituazioneCamere({ puoGestire }: { puoGestire: boolean }) {
                 <div className="text-sm">
                   Totale persone: <span className="font-bold">{personeTotali}</span>
                   {tipiOltreCapienza.map((r) => (
-                    <p key={r.tipoCameraId} className="mt-1 text-xs font-semibold text-amber-700">
+                    <p key={r.tipoCameraId} className="mt-1 text-sm font-medium text-amber-800">
                       {tipiOrdinati.find((t) => t.id === r.tipoCameraId)?.descrizione}: più persone della capienza ({capienzaPerTipo[r.tipoCameraId]}), servono letti aggiunti.
                     </p>
                   ))}
                   {postiLettoInEccesso > 0 && (
-                    <p className="mt-1 text-xs font-semibold text-amber-700">
+                    <p className="mt-1 text-sm font-medium text-amber-800">
                       Le camere scelte ospitano fino a {capienzaTotaleRichiesta} persone, più delle {personeTotali} indicate
                       ({postiLettoInEccesso} {postiLettoInEccesso === 1 ? "posto letto in più" : "posti letto in più"}).
                     </p>
@@ -712,31 +741,24 @@ export function SituazioneCamere({ puoGestire }: { puoGestire: boolean }) {
                 </div>
               )}
 
-              <div>
-                <label className="mb-1 block text-xs text-stone-600">Note</label>
-                <textarea
-                  rows={2}
-                  className="w-full resize-none rounded-md border border-stone-300 px-2 py-1.5 text-sm"
-                  placeholder="Richieste particolari, orario di arrivo, ecc."
-                  value={note}
-                  onChange={(e) => setNote(e.target.value)}
-                />
-              </div>
+              <Campo etichetta="Note">
+                <Textarea rows={2} className="resize-none" placeholder="Richieste particolari, orario di arrivo, ecc." value={note} onChange={(e) => setNote(e.target.value)} />
+              </Campo>
 
               {anteprima && (
                 <div className="rounded-md border border-stone-200 bg-stone-50 p-2.5 text-sm">
-                  <div className="flex justify-between"><span>Subtotale</span><span className="font-mono">{eur(anteprima.subtotale)}</span></div>
-                  <div className="flex justify-between text-xs text-stone-600"><span>Tassa di soggiorno (stimata)</span><span className="font-mono">{eur(anteprima.tassaStimata)}</span></div>
-                  <div className="flex justify-between font-bold"><span>Totale stimato</span><span className="font-mono">{eur(anteprima.totale)}</span></div>
+                  <div className="flex justify-between"><span>Soggiorno</span><span className="font-mono">{eur(anteprima.subtotale)}</span></div>
+                  <div className="flex justify-between text-stone-600"><span>Tassa di soggiorno (stimata)</span><span className="font-mono">{eur(anteprima.tassaStimata)}</span></div>
+                  <div className="flex justify-between border-t border-stone-200 pt-1 font-bold"><span>Totale stimato</span><span className="font-mono">{eur(anteprima.totale)}</span></div>
                   <button
                     type="button"
                     onClick={() => setDettagliAperti((v) => !v)}
-                    className="mt-1.5 text-[11px] font-semibold text-teal-700 underline"
+                    className="mt-1.5 text-xs font-semibold text-teal-800 underline"
                   >
                     {dettagliAperti ? "Nascondi il dettaglio" : "Da cosa deriva questo totale?"}
                   </button>
                   {dettagliAperti && (
-                    <div className="mt-1.5 flex flex-col gap-1 border-t border-stone-200 pt-1.5 text-[11px] text-stone-600">
+                    <div className="mt-1.5 flex flex-col gap-1 border-t border-stone-200 pt-1.5 text-xs text-stone-700">
                       {anteprima.dettaglio.map((d) => (
                         <div key={d.tipoCameraId} className="flex justify-between">
                           <span>{d.quantita}× {d.descrizione} × {d.notti} notti × {eur(d.prezzoNotte)} (media per camera)</span>
@@ -760,39 +782,36 @@ export function SituazioneCamere({ puoGestire }: { puoGestire: boolean }) {
               )}
 
               {anteprima?.avvisi.map((a) => (
-                <p key={a} className="text-xs font-semibold text-amber-700">{a}</p>
+                <Avviso key={a} tipo="avviso">{a}</Avviso>
               ))}
 
               {anteprima && anteprima.tipiSenzaTariffa.length > 0 && (
-                <p className="text-sm font-semibold text-amber-700">
-                  Attenzione: nessuna tariffa impostata per {anteprima.tipiSenzaTariffa.join(", ")} in queste date, il totale sopra è incompleto. Puoi bloccare le camere comunque e sistemare il listino più avanti.
-                </p>
+                <Avviso tipo="avviso">
+                  Nessuna tariffa impostata per {anteprima.tipiSenzaTariffa.join(", ")} in queste date: il totale è incompleto. Puoi bloccare le camere
+                  comunque e sistemare il listino più avanti.
+                </Avviso>
               )}
 
-              {errore && <p className="text-sm font-semibold text-red-700">{errore}</p>}
+              {errore && <Avviso tipo="errore">{errore}</Avviso>}
+              {ospitePren.mode === "vuoto" && <p className="text-xs text-stone-600">Per bloccare le camere indica il cliente.</p>}
 
               <div className="flex gap-2">
-                <button className="flex-1 rounded-md border border-stone-300 px-3 py-2 text-sm font-semibold" onClick={chiudiPannelloVeloce}>
+                <Pulsante className="flex-1" onClick={chiudiPannelloVeloce}>
                   Annulla
-                </button>
-                <button
-                  disabled={salvando || ospitePren.mode === "vuoto"}
-                  onClick={confermaPrenotazioneGenerica}
-                  className="flex-1 rounded-md bg-teal-700 px-3 py-2 text-sm font-bold text-white disabled:opacity-40"
-                >
-                  {salvando ? "..." : "Blocca camere"}
-                </button>
+                </Pulsante>
+                <Pulsante variante="primario" icona={Lock} className="flex-1" disabled={salvando || ospitePren.mode === "vuoto"} onClick={confermaPrenotazioneGenerica}>
+                  {salvando ? "Salvataggio..." : "Blocca camere"}
+                </Pulsante>
               </div>
-              <p className="text-[11px] text-stone-500">Le camere fisiche specifiche si assegnano più avanti, dal dettaglio della prenotazione.</p>
             </div>
           )}
-          <div className="rounded-xl border border-stone-200 bg-white p-4 sm:p-5">
+          <div className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm sm:p-5">
             <div className="mb-3 flex items-center justify-between gap-2">
-              <h2 className="text-xs font-semibold uppercase tracking-wide text-stone-600">Dettaglio</h2>
+              <h2 className="text-sm font-bold text-stone-900">{selezionata ? "Camera selezionata" : "Prenotazioni in questo periodo"}</h2>
               {selezionata && (
-                <button className="text-xs font-semibold text-teal-700 hover:underline" onClick={() => setSelezionata(null)}>
-                  ← Prenotazioni del periodo
-                </button>
+                <Pulsante variante="leggero" dimensione="piccolo" icona={ChevronLeft} onClick={() => setSelezionata(null)}>
+                  Torna all&apos;elenco
+                </Pulsante>
               )}
             </div>
             {selezionata && cellaSelezionata && cameraSelezionata ? (
@@ -800,61 +819,53 @@ export function SituazioneCamere({ puoGestire }: { puoGestire: boolean }) {
                 <div className="text-lg font-bold">Camera {cameraSelezionata.codice}</div>
                 <div className="text-sm text-stone-600">{cameraSelezionata.tipoCameraNome}</div>
                 <span
-                  className="inline-block w-fit rounded-full px-2.5 py-1 text-xs font-semibold"
+                  className="inline-block w-fit rounded px-2 py-0.5 text-xs font-semibold ring-1 ring-inset ring-black/10"
                   style={{ background: STILE[cellaSelezionata.stato].bg, color: STILE[cellaSelezionata.stato].text }}
                 >
                   {ETICHETTA[cellaSelezionata.stato]}
                 </span>
                 {cellaSelezionata.label && <div className="text-sm"><strong>{cellaSelezionata.label}</strong></div>}
                 {(cellaSelezionata.stato === "libera" || cellaSelezionata.stato === "in_partenza") && (
-                  <Link href="/prenotazioni/nuova" className="mt-2 rounded-md bg-teal-700 py-2 text-center text-sm font-bold text-white">
-                    + Nuova prenotazione (camera specifica)
+                  <Link href="/prenotazioni/nuova" className={classePulsante("primario", "normale", "mt-2")}>
+                    <Plus className="h-4 w-4" aria-hidden /> Nuova prenotazione (camera specifica)
                   </Link>
                 )}
                 {cellaSelezionata.prenotazioneId && (
                   <Link
                     href={`/prenotazioni/${cellaSelezionata.prenotazioneId}`}
-                    className="mt-2 rounded-md border border-teal-700 py-2 text-center text-sm font-bold text-teal-700"
+                    className={classePulsante("secondario", "normale", "mt-2")}
                   >
-                    Apri prenotazione #{cellaSelezionata.prenotazioneId}
+                    <ExternalLink className="h-4 w-4" aria-hidden /> Apri prenotazione #{cellaSelezionata.prenotazioneId}
                   </Link>
                 )}
                 {cellaSelezionata.stato === "occupata_generica" && cellaSelezionata.genericiCandidati && (
                   <div className="flex flex-col gap-2">
-                    <p className="text-xs text-stone-500">
-                      Questa camera non e' ancora assegnata: {cellaSelezionata.genericiCandidati.length} prenotazione/i
-                      generica/che di questo tipo occupano la disponibilita' in questo giorno.
+                    <p className="text-sm text-stone-700">
+                      Questa camera non è ancora assegnata: {cellaSelezionata.genericiCandidati.length === 1 ? "una prenotazione" : `${cellaSelezionata.genericiCandidati.length} prenotazioni`}{" "}
+                      di questo tipo occupano la disponibilità in questo giorno. Puoi assegnarle questa camera.
                     </p>
                     {cellaSelezionata.genericiCandidati.map((cand) => (
                       <div key={cand.segmentoId} className="flex items-center justify-between gap-2 rounded-md border border-stone-200 p-2">
                         <div className="flex flex-col">
                           <span className="text-sm font-semibold">{cand.label}</span>
-                          <Link href={`/prenotazioni/${cand.prenotazioneId}`} className="text-xs text-teal-700 underline">
+                          <Link href={`/prenotazioni/${cand.prenotazioneId}`} className="text-xs font-semibold text-teal-800 underline">
                             Apri prenotazione #{cand.prenotazioneId}
                           </Link>
                         </div>
-                        {puoGestire && <button
-                          disabled={assegnando}
-                          onClick={() => assegnaQuestaCamera(cameraSelezionata.id, cand)}
-                          className="rounded-md bg-teal-700 px-2.5 py-1.5 text-xs font-bold text-white disabled:opacity-40"
-                        >
-                          Assegna questa camera
-                        </button>}
+                        {puoGestire && (
+                          <Pulsante variante="primario" dimensione="piccolo" icona={KeyRound} disabled={assegnando} onClick={() => assegnaQuestaCamera(cameraSelezionata.id, cand)}>
+                            Assegna
+                          </Pulsante>
+                        )}
                       </div>
                     ))}
-                    {erroreAssegnazione && <p className="text-sm font-semibold text-red-700">{erroreAssegnazione}</p>}
+                    {erroreAssegnazione && <Avviso tipo="errore">{erroreAssegnazione}</Avviso>}
                   </div>
                 )}
               </div>
             ) : (
               <div className="flex flex-col gap-3">
-                <p className="text-sm text-stone-600">
-                  {puoGestire ? "Clicca una cella per i dettagli, oppure trascina sulle date per prenotare un periodo." : "Clicca una cella per i dettagli."}
-                </p>
-                <div className="border-t border-stone-200 pt-3">
-                  <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-stone-600">
-                    Prenotazioni in questo periodo
-                  </h3>
+                <div>
                   {prenotazioniNelPeriodo.length === 0 ? (
                     <p className="text-sm text-stone-500">Nessuna prenotazione attiva nel periodo visualizzato.</p>
                   ) : (
@@ -865,10 +876,10 @@ export function SituazioneCamere({ puoGestire }: { puoGestire: boolean }) {
                             href={`/prenotazioni/${p.prenotazioneId}`}
                             className="group flex items-center justify-between gap-2 rounded-md border border-transparent px-2 py-1.5 text-sm hover:border-teal-200 hover:bg-teal-50"
                           >
-                            <span className="font-semibold group-hover:text-teal-700 group-hover:underline">{p.label}</span>
-                            <span className="flex items-center gap-1 text-xs text-stone-500">
+                            <span className="font-semibold text-stone-900 group-hover:text-teal-800 group-hover:underline">{p.label}</span>
+                            <span className="flex items-center gap-1 text-xs text-stone-600">
                               {p.cameraCodice ?? "da assegnare"} · {formattaIt(p.dal)}–{formattaIt(p.al)}
-                              <span className="text-teal-700 opacity-0 group-hover:opacity-100">›</span>
+                              <ChevronRight className="h-3.5 w-3.5 text-teal-700" aria-hidden />
                             </span>
                           </Link>
                         </li>
