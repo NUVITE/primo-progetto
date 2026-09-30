@@ -3,7 +3,7 @@
 import { conEsito } from "@/lib/esito";
 import { prisma } from "@/lib/prisma";
 import { calcolaTotaliPrenotazione, creaPrenotazione, type CreaPrenotazioneInput } from "@/lib/prenotazioni";
-import { nottiTraDate, trovaPrezzoNotte } from "@/lib/pricing";
+import { calcolaNotte, nottiTraDate, regoleListino, verificaComposizione, type Composizione } from "@/lib/pricing";
 import { stimaTassaPersona } from "@/lib/tassaSoggiorno";
 import { puo, richiediPermesso } from "@/lib/auth";
 import { PERMESSI } from "@/lib/permessi";
@@ -47,6 +47,8 @@ export async function anteprimaSegmento(input: {
   listinoId: number;
   dataInizio: string;
   dataFine: string;
+  trattamento?: string;
+  composizione?: Composizione;
 }) {
   return conEsito(async () => {
     const utente = await richiediPermesso(PERMESSI.PRENOTAZIONI_GESTISCI);
@@ -63,20 +65,39 @@ export async function anteprimaSegmento(input: {
     const dataFine = new Date(input.dataFine);
     if (dataFine <= dataInizio) return null;
 
+    const composizione = input.composizione ?? { adulti: 1, etaBambini: [] };
+    verificaComposizione(composizione);
+    const listino = await prisma.listino.findFirstOrThrow({ where: { id: input.listinoId, hotelId } });
+    const regole = await regoleListino(prisma, listino.id);
     const notti = nottiTraDate(dataInizio, dataFine);
     let subtotale = 0;
+    let nottiSenzaTariffa = 0;
+    let primaNotte: { righe: { voce: string; importo: number }[] } | null = null;
     for (const notte of notti) {
-      const p = await trovaPrezzoNotte(prisma, input.listinoId, camera.tipoCameraId, notte);
-      if (p) subtotale += p.prezzo;
+      const c = await calcolaNotte(prisma, regole, camera.tipoCameraId, notte, composizione, input.trattamento ?? "");
+      if (c.mancante) nottiSenzaTariffa += 1;
+      else {
+        subtotale += c.lordo;
+        primaNotte ??= { righe: c.righe };
+      }
     }
 
-    // Stima per una persona senza esenzioni: il calcolo vero avviene sugli ospiti effettivi.
+    // Stima per persona senza esenzioni (il calcolo vero avviene sugli ospiti effettivi), per tutte le persone.
     const stima = await stimaTassaPersona(prisma, camera.hotel, notti);
+    const persone = composizione.adulti + composizione.etaBambini.length;
+    const avvisi: string[] = [];
+    if (persone > camera.capienzaAdulti + camera.capienzaBambini) {
+      avvisi.push(`La camera ${camera.codice} ospita ${camera.capienzaAdulti + camera.capienzaBambini} persone: servono letti aggiunti (supplementi).`);
+    }
+    if (listino.minPersone && persone < listino.minPersone) avvisi.push(`Il listino ${listino.descrizione} vale da ${listino.minPersone} persone.`);
 
     return {
       notti: notti.length,
       subtotale,
-      tassaStimata: stima.importo,
+      nottiSenzaTariffa,
+      dettaglioPrimaNotte: primaNotte?.righe ?? [],
+      avvisi,
+      tassaStimata: stima.importo * persone,
       regolamento: stima.riferimento
         ? { comune: camera.hotel.comune.nome, aliquota: stima.riferimento.aliquota, tettoNotti: stima.riferimento.tettoNotti }
         : null,
@@ -90,8 +111,9 @@ export async function anteprimaSegmento(input: {
  * sommata su tutte le camere richieste. Come li', la tassa e' una stima (nessuna esenzione).
  */
 export async function anteprimaGenerica(input: {
-  richieste: { tipoCameraId: number; quantita: number }[];
+  richieste: { tipoCameraId: number; quantita: number; composizione?: Composizione }[];
   listinoId: number;
+  trattamento?: string;
   dataInizio: string;
   dataFine: string;
 }) {
@@ -118,21 +140,28 @@ export async function anteprimaGenerica(input: {
       where: { id: { in: input.richieste.filter((r) => r.quantita > 0).map((r) => r.tipoCameraId) } },
     });
 
+    const listino = await prisma.listino.findFirstOrThrow({ where: { id: input.listinoId, hotelId } });
+    const regole = await regoleListino(prisma, listino.id);
     let subtotale = 0;
     let tassaStimata = 0;
+    let personeTotali = 0;
     const tipiSenzaTariffa = new Set<string>();
     const dettaglio: { tipoCameraId: number; descrizione: string; quantita: number; notti: number; prezzoNotte: number; subtotale: number }[] = [];
     for (const richiesta of input.richieste) {
       if (richiesta.quantita <= 0) continue;
       const descrizioneTipo = tipiRichiesti.find((t) => t.id === richiesta.tipoCameraId)?.descrizione ?? "?";
+      const composizione = richiesta.composizione ?? { adulti: 1, etaBambini: [] };
+      verificaComposizione(composizione);
+      const persone = composizione.adulti + composizione.etaBambini.length;
+      personeTotali += persone * richiesta.quantita;
       let subtotaleCamera = 0;
       for (const notte of notti) {
-        const p = await trovaPrezzoNotte(prisma, input.listinoId, richiesta.tipoCameraId, notte);
-        if (p) subtotaleCamera += p.prezzo;
-        else tipiSenzaTariffa.add(descrizioneTipo);
+        const c = await calcolaNotte(prisma, regole, richiesta.tipoCameraId, notte, composizione, input.trattamento ?? "");
+        if (c.mancante) tipiSenzaTariffa.add(descrizioneTipo);
+        else subtotaleCamera += c.lordo;
       }
       subtotale += subtotaleCamera * richiesta.quantita;
-      tassaStimata += stima.importo * richiesta.quantita;
+      tassaStimata += stima.importo * persone * richiesta.quantita;
       dettaglio.push({
         tipoCameraId: richiesta.tipoCameraId,
         descrizione: descrizioneTipo,
@@ -143,11 +172,18 @@ export async function anteprimaGenerica(input: {
       });
     }
 
+    // Gratuità dei gruppi: stima sul totale persone (il calcolo vero per notte avviene al salvataggio).
+    const avvisi: string[] = [];
+    if (listino.minPersone && personeTotali < listino.minPersone) avvisi.push(`Il listino ${listino.descrizione} vale da ${listino.minPersone} persone (ora ${personeTotali}).`);
+    const gratuiti = listino.gratuitaOgni ? Math.floor(personeTotali / (listino.gratuitaOgni + 1)) : 0;
+    if (gratuiti) avvisi.push(`${gratuiti} ${gratuiti === 1 ? "persona gratuita" : "persone gratuite"} (1 ogni ${listino.gratuitaOgni} paganti): lo sconto si applica al salvataggio.`);
+
     return {
       notti: notti.length,
       subtotale,
       tassaStimata,
       totale: subtotale + tassaStimata,
+      avvisi,
       dettaglio,
       nottiTassabili,
       tipiSenzaTariffa: Array.from(tipiSenzaTariffa),

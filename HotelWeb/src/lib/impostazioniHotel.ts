@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { trovaPrezzoNotte } from "@/lib/pricing";
+import { calcolaNotte, composizioneDi, regoleListino, ricalcolaGratuita } from "@/lib/pricing";
 
 /**
  * Impostazioni che l'hotel gestisce da sé (permesso "Configurare l'hotel" / "Gestire listini"):
@@ -213,14 +213,21 @@ export async function eliminaPeriodo(hotelId: number, id: number) {
 export async function completaNottiSenzaTariffa(hotelId: number) {
   const notti = await prisma.notteSoggiorno.findMany({
     where: { motivoPrezzo: "mancante", segmento: { prenotazione: { hotelId } } },
-    include: { segmento: { include: { listino: true } } },
+    include: { segmento: true },
   });
   let completate = 0;
+  const prenotazioni = new Set<number>();
   for (const n of notti) {
-    const p = await trovaPrezzoNotte(prisma, n.segmento.listinoId, n.segmento.tipoCameraId, n.data);
-    if (!p) continue;
-    await prisma.notteSoggiorno.update({ where: { id: n.id }, data: { prezzo: p.prezzo, motivoPrezzo: n.segmento.listino.tipo } });
+    const regole = await regoleListino(prisma, n.segmento.listinoId);
+    const c = await calcolaNotte(prisma, regole, n.segmento.tipoCameraId, n.data, composizioneDi(n.segmento), n.segmento.trattamento);
+    if (c.mancante) continue;
+    await prisma.notteSoggiorno.update({
+      where: { id: n.id },
+      data: { prezzo: c.lordo, motivoPrezzo: regole.tipo, dettaglio: { righe: c.righe, lordo: c.lordo, quote: c.quote, gratuita: 0 } },
+    });
+    prenotazioni.add(n.segmento.prenotazioneId);
     completate += 1;
   }
+  for (const id of prenotazioni) await ricalcolaGratuita(prisma, id);
   return { completate, ancoraMancanti: notti.length - completate };
 }

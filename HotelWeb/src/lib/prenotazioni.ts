@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
-import type { Prisma, PrismaClient } from "@/generated/prisma/client";
-import { nottiTraDate, trovaPrezzoNotte } from "@/lib/pricing";
+import { Prisma, type PrismaClient } from "@/generated/prisma/client";
+import { calcolaNotte, composizioneDi, nottiTraDate, regoleListino, ricalcolaGratuita, verificaComposizione, type Composizione } from "@/lib/pricing";
 import { ricalcolaTassaPosizione, verificaPosizioneAperta } from "@/lib/tassaSoggiorno";
 
 type Db = PrismaClient | Prisma.TransactionClient;
@@ -17,6 +17,8 @@ export type NuovoSegmentoInput = {
   listinoId: number;
   dataInizio: string; // ISO date (yyyy-mm-dd)
   dataFine: string;
+  // Composizione prenotata (base del prezzo). Assente = 1 adulto.
+  composizione?: Composizione;
 };
 
 export type CreaPrenotazioneInput = {
@@ -26,7 +28,8 @@ export type CreaPrenotazioneInput = {
   segmenti: NuovoSegmentoInput[];
 };
 
-export type RichiestaGenerica = { tipoCameraId: number; quantita: number };
+// composizione = persone in OGNI camera di quel tipo.
+export type RichiestaGenerica = { tipoCameraId: number; quantita: number; composizione?: Composizione };
 
 export type CreaPrenotazioneGenericaInput = {
   ospitePrenotante: OspiteRif;
@@ -73,6 +76,7 @@ export async function creaPrenotazione(hotelId: number, input: CreaPrenotazioneI
     for (const segInput of input.segmenti) {
       await creaSegmento(tx, hotelId, prenotazione.id, segInput);
     }
+    await ricalcolaGratuita(tx, prenotazione.id);
 
     return caricaPrenotazioneCompleta(tx, hotelId, prenotazione.id);
   });
@@ -116,9 +120,11 @@ export async function creaPrenotazioneGenerica(hotelId: number, input: CreaPreno
           listinoId: input.listinoId,
           dataInizio: input.dataInizio,
           dataFine: input.dataFine,
+          composizione: richiesta.composizione,
         });
       }
     }
+    await ricalcolaGratuita(tx, prenotazione.id);
 
     return caricaPrenotazioneCompleta(tx, hotelId, prenotazione.id);
   });
@@ -353,6 +359,8 @@ async function creaSegmento(
 
   const dataInizio = new Date(segInput.dataInizio);
   const dataFine = new Date(segInput.dataFine);
+  const composizione = segInput.composizione ?? { adulti: 1, etaBambini: [] };
+  verificaComposizione(composizione);
   if (dataFine <= dataInizio) {
     throw new Error(`${tipoCamera.descrizione}: la data di partenza deve essere dopo l'arrivo.`);
   }
@@ -384,10 +392,12 @@ async function creaSegmento(
       dataInizio,
       dataFine,
       segmentoPrecedenteId,
+      adulti: composizione.adulti,
+      etaBambini: composizione.etaBambini,
     },
   });
 
-  await generaNotti(db, segmento.id, listino, segInput.tipoCameraId, dataInizio, dataFine);
+  await generaNotti(db, segmento, dataInizio, dataFine);
   // L'intestatario è anche il primo occupante; gli altri si aggiungono al check-in.
   await db.presenza.create({ data: { segmentoId: segmento.id, ospiteId: ospite.id } });
   await ricalcolaTassaPosizione(db, prenotazioneId, ospite.id);
@@ -395,30 +405,76 @@ async function creaSegmento(
   return segmento;
 }
 
-/** Crea le notti di un segmento con il loro prezzo. La tassa la calcola poi ricalcolaTassaPosizione. */
+/**
+ * Crea le notti [dal, al) di un segmento con il loro prezzo, dalla composizione e dal trattamento
+ * del segmento (motore unico in pricing.ts). La tassa la calcola poi ricalcolaTassaPosizione; la
+ * gratuità dei gruppi ricalcolaGratuita sull'intera prenotazione.
+ */
 async function generaNotti(
   db: Db,
-  segmentoId: number,
-  listino: { id: number; tipo: string },
-  tipoCameraId: number,
+  segmento: { id: number; listinoId: number; tipoCameraId: number; trattamento: string; adulti: number; etaBambini: unknown },
   dataInizio: Date,
   dataFine: Date
 ) {
+  const regole = await regoleListino(db, segmento.listinoId);
+  const composizione = composizioneDi(segmento);
   for (const notte of nottiTraDate(dataInizio, dataFine)) {
-    const prezzoInfo = await trovaPrezzoNotte(db, listino.id, tipoCameraId, notte);
+    const calcolo = await calcolaNotte(db, regole, segmento.tipoCameraId, notte, composizione, segmento.trattamento);
     // Nessuna tariffa impostata per questa notte: non blocca piu' la prenotazione (l'operatore
     // puo' bloccare le camere comunque e sistemare il listino piu' avanti — richiesto esplicitamente
     // dall'utente 2026-09-26), ma la notte resta segnata con prezzo 0 e motivo "mancante" cosi'
     // si vede chiaramente nel dettaglio prenotazione che il totale e' incompleto.
     await db.notteSoggiorno.create({
-      data: {
-        segmentoId,
-        data: notte,
-        prezzo: prezzoInfo?.prezzo ?? 0,
-        motivoPrezzo: prezzoInfo ? listino.tipo : "mancante",
-      },
+      data: calcolo.mancante
+        ? { segmentoId: segmento.id, data: notte, prezzo: 0, motivoPrezzo: "mancante" }
+        : {
+            segmentoId: segmento.id,
+            data: notte,
+            prezzo: calcolo.lordo,
+            motivoPrezzo: regole.tipo,
+            dettaglio: { righe: calcolo.righe, lordo: calcolo.lordo, quote: calcolo.quote, gratuita: 0 },
+          },
     });
   }
+}
+
+/**
+ * Ricalcola il prezzo di TUTTE le notti di un segmento con composizione/trattamento/listino attuali
+ * (es. dopo il check-in con persone diverse da quelle prenotate). Solo su richiesta esplicita:
+ * altrimenti vale il prezzo fissato alla prenotazione. La tassa non cambia (dipende dalle presenze).
+ */
+async function riscriviPrezziSegmento(db: Db, segmentoId: number) {
+  const segmento = await db.segmentoSoggiorno.findUniqueOrThrow({ where: { id: segmentoId } });
+  const regole = await regoleListino(db, segmento.listinoId);
+  const composizione = composizioneDi(segmento);
+  const notti = await db.notteSoggiorno.findMany({ where: { segmentoId } });
+  for (const n of notti) {
+    const calcolo = await calcolaNotte(db, regole, segmento.tipoCameraId, n.data, composizione, segmento.trattamento);
+    await db.notteSoggiorno.update({
+      where: { id: n.id },
+      data: calcolo.mancante
+        ? { prezzo: 0, motivoPrezzo: "mancante", dettaglio: Prisma.DbNull }
+        : {
+            prezzo: calcolo.lordo,
+            motivoPrezzo: regole.tipo,
+            dettaglio: { righe: calcolo.righe, lordo: calcolo.lordo, quote: calcolo.quote, gratuita: 0 },
+          },
+    });
+  }
+}
+
+/** Cambia la composizione di una camera prenotata e, se richiesto, ricalcola i prezzi delle sue notti. */
+export async function aggiornaComposizione(hotelId: number, segmentoId: number, composizione: Composizione, ricalcola: boolean) {
+  verificaComposizione(composizione);
+  return prisma.$transaction(async (tx) => {
+    const segmento = await trovaSegmentoDelHotel(tx, hotelId, segmentoId);
+    await tx.segmentoSoggiorno.update({ where: { id: segmentoId }, data: { adulti: composizione.adulti, etaBambini: composizione.etaBambini } });
+    if (ricalcola) {
+      await riscriviPrezziSegmento(tx, segmentoId);
+      await ricalcolaGratuita(tx, segmento.prenotazioneId);
+    }
+    return caricaPrenotazioneCompleta(tx, hotelId, segmento.prenotazioneId);
+  });
 }
 
 /** Aggiunge un nuovo segmento a una prenotazione già esistente (es. un componente del gruppo che arriva dopo). */
@@ -428,6 +484,7 @@ export async function aggiungiSegmentoAPrenotazione(hotelId: number, prenotazion
     await tx.prenotazione.findFirstOrThrow({ where: { id: prenotazioneId, hotelId } });
     if ("id" in segInput.ospite) await verificaPosizioneAperta(tx, prenotazioneId, segInput.ospite.id);
     await creaSegmento(tx, hotelId, prenotazioneId, segInput);
+    await ricalcolaGratuita(tx, prenotazioneId);
     return caricaPrenotazioneCompleta(tx, hotelId, prenotazioneId);
   });
 }
@@ -476,12 +533,12 @@ export async function cambiaDataFineSegmento(hotelId: number, segmentoId: number
           throw new Error(`Nessuna camera di tipo "${segmento.tipoCamera.descrizione}" disponibile per le notti aggiuntive.`);
         }
       }
-      const listino = await tx.listino.findUniqueOrThrow({ where: { id: segmento.listinoId } });
-      await generaNotti(tx, segmentoId, listino, segmento.tipoCameraId, segmento.dataFine, nuovaDataFine);
+      await generaNotti(tx, segmento, segmento.dataFine, nuovaDataFine);
     }
 
     await tx.segmentoSoggiorno.update({ where: { id: segmentoId }, data: { dataFine: nuovaDataFine } });
     await ricalcolaOccupanti(tx, segmento.prenotazioneId, ospiti);
+    await ricalcolaGratuita(tx, segmento.prenotazioneId);
 
     return caricaPrenotazioneCompleta(tx, hotelId, segmento.prenotazioneId);
   });
@@ -532,6 +589,7 @@ export async function cambiaCameraSegmento(hotelId: number, segmentoId: number, 
         listinoId: segmento.listinoId,
         dataInizio: dataCambioIso,
         dataFine: dataFineOriginale.toISOString().slice(0, 10),
+        composizione: composizioneDi(segmento),
       },
       segmentoId
     );

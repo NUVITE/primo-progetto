@@ -118,11 +118,14 @@ model Comune {
 }
 
 model TipoCamera {
-  id          Int    @id @default(autoincrement())
-  hotelId     Int
-  hotel       Hotel  @relation(fields: [hotelId], references: [id])
-  codice      String
-  descrizione String
+  id               Int     @id @default(autoincrement())
+  hotelId          Int
+  hotel            Hotel   @relation(fields: [hotelId], references: [id])
+  codice           String
+  descrizione      String
+  // Letti aggiunti possibili oltre la capienza della camera; animali ammessi in questo tipo.
+  lettiAggiuntiMax Int     @default(0)
+  animaliAmmessi   Boolean @default(false)
 
   camere           Camera[]
   periodiTariffari PeriodoTariffario[]
@@ -272,6 +275,10 @@ model SegmentoSoggiorno {
   dataInizio     DateTime      @db.Date
   dataFine       DateTime      @db.Date
   stato          StatoSegmento @default(PREVISTO)
+  // Composizione prenotata, base del prezzo: adulti e età dei bambini all'arrivo (array di interi).
+  // Al check-in si confronta con le persone reali; il prezzo cambia solo su "Ricalcola".
+  adulti         Int           @default(1)
+  etaBambini     Json?
 
   // Collega un cambio-camera al segmento che lo precede (vedi MODELLO_DATI.md).
   segmentoPrecedenteId Int?               @unique
@@ -298,6 +305,10 @@ model ServizioCatalogo {
   hotel     Hotel    @relation(fields: [hotelId], references: [id])
   nome      String
   prezzo    Decimal  @db.Decimal(10, 2)
+  // "una_tantum" | "per_notte" | "per_persona_notte"
+  addebito  String   @default("una_tantum")
+  // null | "letto_aggiunto" (aumenta la capienza della camera) | "animale" (solo tipi che li ammettono)
+  effetto   String?
   attivo    Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -322,7 +333,10 @@ model ServizioAggiunto {
   // Nome da mostrare: se non c'e' un servizio a catalogo e' obbligatoria (prezzo libero).
   descrizione        String?
   prezzoUnitario     Decimal           @db.Decimal(10, 2)
+  // quantita = unita x notti (x persone) secondo l'addebito, calcolata all'inserimento.
   quantita           Int               @default(1)
+  addebito           String            @default("una_tantum")
+  unita              Int               @default(1)
   data               DateTime?         @db.Date
   note               String?
   createdAt          DateTime          @default(now())
@@ -347,6 +361,8 @@ model NotteSoggiorno {
   prezzo       Decimal           @db.Decimal(10, 2)
   // "base" | "personalizzato" | "gruppo" -- quale regola ha determinato il prezzo.
   motivoPrezzo String
+  // Dettaglio del calcolo: { righe: [{ voce, importo }], lordo, quote, gratuita } (prezzo = lordo - gratuita).
+  dettaglio    Json?
 
   // Una riga di tassa per ogni persona presente quella notte (vedi Presenza).
   tasse TassaNotte[]
@@ -355,16 +371,28 @@ model NotteSoggiorno {
 }
 
 model Listino {
-  id          Int    @id @default(autoincrement())
-  hotelId     Int
-  hotel       Hotel  @relation(fields: [hotelId], references: [id])
-  codice      String
-  descrizione String
+  id                            Int      @id @default(autoincrement())
+  hotelId                       Int
+  hotel                         Hotel    @relation(fields: [hotelId], references: [id])
+  codice                        String
+  descrizione                   String
   // "base" | "personalizzato" | "gruppo"
-  tipo        String @default("base")
+  tipo                          String   @default("base")
+  // "camera": prezzo del periodo = camera per notte; "persona": prezzo per persona per notte.
+  modalita                      String   @default("camera")
+  // Solo a persona: supplemento se in camera c'è una sola persona (doppia uso singola).
+  supplementoSingola            Decimal? @db.Decimal(10, 2)
+  supplementoSingolaPercentuale Boolean  @default(false)
+  // Condizioni dei listini di gruppo: categoria libera (scout, scuola, ecclesiastico...),
+  // minimo di persone (sotto compare un avviso) e 1 gratuito ogni N paganti.
+  categoria                     String?
+  minPersone                    Int?
+  gratuitaOgni                  Int?
 
-  periodi  PeriodoTariffario[]
-  segmenti SegmentoSoggiorno[]
+  periodi                PeriodoTariffario[]
+  segmenti               SegmentoSoggiorno[]
+  supplementiTrattamento SupplementoTrattamento[]
+  riduzioni              RiduzioneListino[]
 
   @@unique([hotelId, codice])
 }
@@ -379,6 +407,40 @@ model PeriodoTariffario {
   al           DateTime   @db.Date
   prezzoNotte  Decimal    @db.Decimal(10, 2)
   createdAt    DateTime   @default(now())
+}
+
+/**
+ * Supplemento per persona per notte di un trattamento rispetto al prezzo del listino
+ * (es. base B&B, Mezza pensione +20). Nessuna riga = trattamento incluso nel prezzo.
+ */
+model SupplementoTrattamento {
+  id            Int         @id @default(autoincrement())
+  listinoId     Int
+  listino       Listino     @relation(fields: [listinoId], references: [id], onDelete: Cascade)
+  trattamentoId Int
+  trattamento   Trattamento @relation(fields: [trattamentoId], references: [id], onDelete: Cascade)
+  importo       Decimal     @db.Decimal(10, 2)
+
+  @@unique([listinoId, trattamentoId])
+}
+
+/**
+ * Riduzione per fascia d'età (età all'arrivo; gli adulti contano come 18). Vale la prima regola
+ * che corrisponde, in ordine di età. dalTerzoLetto: solo per chi occupa il 3° posto o oltre
+ * (bambino con 2 adulti, adulto in letto aggiunto). Si applica alla quota della persona:
+ * prezzo a persona + supplemento trattamento (nei listini a camera, solo al supplemento).
+ */
+model RiduzioneListino {
+  id            Int     @id @default(autoincrement())
+  listinoId     Int
+  listino       Listino @relation(fields: [listinoId], references: [id], onDelete: Cascade)
+  etaDa         Int
+  // null = senza limite superiore
+  etaA          Int?
+  // "percentuale" | "importo" | "gratis"
+  tipo          String
+  valore        Decimal @default(0) @db.Decimal(10, 2)
+  dalTerzoLetto Boolean @default(false)
 }
 
 /**
@@ -612,6 +674,8 @@ model Trattamento {
   nome    String
   attivo  Boolean @default(true)
   ordine  Int     @default(0)
+
+  supplementi SupplementoTrattamento[]
 
   @@unique([hotelId, nome])
 }
