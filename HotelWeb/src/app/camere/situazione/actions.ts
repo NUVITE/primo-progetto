@@ -10,12 +10,7 @@ export async function datiIniziali() {
   return _datiIniziali();
 }
 
-export async function anteprimaGenerica(input: {
-  richieste: { tipoCameraId: number; quantita: number }[];
-  listinoId: number;
-  dataInizio: string;
-  dataFine: string;
-}) {
+export async function anteprimaGenerica(input: Parameters<typeof _anteprimaGenerica>[0]) {
   return _anteprimaGenerica(input);
 }
 

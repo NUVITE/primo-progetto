@@ -87,7 +87,8 @@ export async function anteprimaSegmento(input: {
     const persone = composizione.adulti + composizione.etaBambini.length;
     const avvisi: string[] = [];
     if (persone > camera.capienzaAdulti + camera.capienzaBambini) {
-      avvisi.push(`La camera ${camera.codice} ospita ${camera.capienzaAdulti + camera.capienzaBambini} persone: servono letti aggiunti (supplementi).`);
+      const cap = camera.capienzaAdulti + camera.capienzaBambini;
+      avvisi.push(`La camera ${camera.codice} ospita ${cap} ${cap === 1 ? "persona" : "persone"}: servono letti aggiunti (supplementi).`);
     }
     if (listino.minPersone && persone < listino.minPersone) avvisi.push(`Il listino ${listino.descrizione} vale da ${listino.minPersone} persone.`);
 

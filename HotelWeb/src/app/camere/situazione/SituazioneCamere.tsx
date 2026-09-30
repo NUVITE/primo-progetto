@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { OspiteSearch, type OspiteValue } from "../../prenotazioni/nuova/OspiteSearch";
 import { anteprimaGenerica, assegnaCameraASegmento, datiIniziali, salvaPrenotazioneGenerica } from "./actions";
+import { CampoComposizione } from "@/app/prenotazioni/CampoComposizione";
+import type { Composizione } from "@/lib/pricing";
 
 type Stato = "libera" | "occupata" | "in_arrivo" | "in_partenza" | "fuori_servizio" | "occupata_generica";
 type Candidato = { segmentoId: number; prenotazioneId: number; label: string };
@@ -135,7 +137,9 @@ export function SituazioneCamere({ puoGestire }: { puoGestire: boolean }) {
   const [email, setEmail] = useState("");
   const [trattamenti, setTrattamenti] = useState<string[]>([]);
   const [trattamento, setTrattamento] = useState("");
-  const [numeroPersone, setNumeroPersone] = useState("");
+  // Persone in OGNI camera di quel tipo (base del prezzo); il totale persone si ricava da qui.
+  const [composizioni, setComposizioni] = useState<Record<number, Composizione>>({});
+  const [listinoId, setListinoId] = useState<number | null>(null);
   const [note, setNote] = useState("");
   const [anteprima, setAnteprima] = useState<ValoreDi<typeof anteprimaGenerica>>(null);
   const [salvando, setSalvando] = useState(false);
@@ -147,6 +151,7 @@ export function SituazioneCamere({ puoGestire }: { puoGestire: boolean }) {
   useEffect(() => {
     datiIniziali().then((d) => {
       setListini(d.listini);
+      setListinoId(d.listini[0]?.id ?? null);
       setTrattamenti(d.trattamenti);
       setTrattamento(d.trattamenti[0] ?? "");
       // Capienza di riferimento per tipo camera (usata solo per l'avviso "persone vs camere
@@ -191,13 +196,11 @@ export function SituazioneCamere({ puoGestire }: { puoGestire: boolean }) {
   // Anteprima prezzo/tassa per la prenotazione veloce: ricalcolata quando cambiano le
   // quantita' richieste o il periodo, con un piccolo debounce per non chiamare il server ad ogni tasto.
   useEffect(() => {
-    if (!periodoConfermato || !listini[0]) {
+    if (!periodoConfermato || !listinoId) {
       setAnteprima(null);
       return;
     }
-    const richieste = Object.entries(quantita)
-      .map(([tipoCameraId, q]) => ({ tipoCameraId: Number(tipoCameraId), quantita: q }))
-      .filter((r) => r.quantita > 0);
+    const richieste = richiesteVeloci();
     if (richieste.length === 0) {
       setAnteprima(null);
       return;
@@ -205,7 +208,8 @@ export function SituazioneCamere({ puoGestire }: { puoGestire: boolean }) {
     const timer = setTimeout(() => {
       sbusta(anteprimaGenerica({
         richieste,
-        listinoId: listini[0].id,
+        listinoId,
+        trattamento,
         dataInizio: periodoConfermato.dal,
         dataFine: periodoConfermato.al,
       }))
@@ -213,7 +217,8 @@ export function SituazioneCamere({ puoGestire }: { puoGestire: boolean }) {
         .catch(() => setAnteprima(null));
     }, 200);
     return () => clearTimeout(timer);
-  }, [quantita, periodoConfermato, listini]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quantita, composizioni, periodoConfermato, listinoId, trattamento]);
 
   useEffect(() => {
     function onMouseUp() {
@@ -377,29 +382,37 @@ export function SituazioneCamere({ puoGestire }: { puoGestire: boolean }) {
     setTelefono("");
     setEmail("");
     setTrattamento(trattamenti[0] ?? "");
-    setNumeroPersone("");
+    setComposizioni({});
     setNote("");
     setAnteprima(null);
     setErrore(null);
     setDettagliAperti(false);
   }
 
+  function composizioneDi(tipoCameraId: number): Composizione {
+    return composizioni[tipoCameraId] ?? { adulti: Math.max(1, Math.min(2, capienzaPerTipo[tipoCameraId] ?? 1)), etaBambini: [] };
+  }
+  function richiesteVeloci() {
+    return Object.entries(quantita)
+      .map(([tipoCameraId, q]) => ({ tipoCameraId: Number(tipoCameraId), quantita: q, composizione: composizioneDi(Number(tipoCameraId)) }))
+      .filter((r) => r.quantita > 0);
+  }
   const capienzaTotaleRichiesta = Object.entries(quantita).reduce(
     (tot, [tipoCameraId, q]) => tot + q * (capienzaPerTipo[Number(tipoCameraId)] ?? 0),
     0
   );
   const quantitaTotaleCamere = Object.values(quantita).reduce((t, q) => t + q, 0);
-  const personeNonOspitate =
-    numeroPersone && quantitaTotaleCamere > 0 ? Math.max(0, Number(numeroPersone) - capienzaTotaleRichiesta) : 0;
+  const personeTotali = richiesteVeloci().reduce((t, r) => t + r.quantita * (r.composizione.adulti + r.composizione.etaBambini.length), 0);
+  // Tipi in cui le persone indicate superano la capienza: servono letti aggiunti.
+  const tipiOltreCapienza = richiesteVeloci().filter(
+    (r) => r.composizione.adulti + r.composizione.etaBambini.length > (capienzaPerTipo[r.tipoCameraId] ?? Infinity),
+  );
   // Avviso anche nel verso opposto: camere scelte piu' capienti del necessario (feedback utente 2026-09-26).
-  const postiLettoInEccesso =
-    numeroPersone && quantitaTotaleCamere > 0 ? Math.max(0, capienzaTotaleRichiesta - Number(numeroPersone)) : 0;
+  const postiLettoInEccesso = quantitaTotaleCamere > 0 ? Math.max(0, capienzaTotaleRichiesta - personeTotali) : 0;
 
   async function confermaPrenotazioneGenerica() {
-    if (!periodoConfermato || ospitePren.mode === "vuoto" || !listini[0]) return;
-    const richieste = Object.entries(quantita)
-      .map(([tipoCameraId, q]) => ({ tipoCameraId: Number(tipoCameraId), quantita: q }))
-      .filter((r) => r.quantita > 0);
+    if (!periodoConfermato || ospitePren.mode === "vuoto" || !listinoId) return;
+    const richieste = richiesteVeloci();
     if (richieste.length === 0) {
       setErrore("Indica almeno una camera.");
       return;
@@ -413,12 +426,12 @@ export function SituazioneCamere({ puoGestire }: { puoGestire: boolean }) {
           : { nome: ospitePren.nome, cognome: ospitePren.cognome, telefono: telefono || undefined, email: email || undefined };
       const risultato = await sbusta(salvaPrenotazioneGenerica({
         ospitePrenotante: ospite,
-        listinoId: listini[0].id,
+        listinoId,
         trattamento,
         dataInizio: periodoConfermato.dal,
         dataFine: periodoConfermato.al,
         richieste,
-        numeroPersone: numeroPersone ? Number(numeroPersone) : undefined,
+        numeroPersone: personeTotali || undefined,
         note: note || undefined,
       }));
       chiudiPannelloVeloce();
@@ -635,21 +648,36 @@ export function SituazioneCamere({ puoGestire }: { puoGestire: boolean }) {
                 {tipiOrdinati.map((t) => {
                   const min = minimoLiberoPerTipo(t.id);
                   return (
-                    <div key={t.id} className="flex items-center justify-between gap-2">
-                      <span className="text-sm">{t.descrizione}</span>
-                      <div className="flex items-center gap-2">
-                        {min !== null && <span className="text-[11px] text-stone-500">({min} libere)</span>}
-                        <input
-                          type="number"
-                          min={0}
-                          className="w-16 rounded-md border border-stone-300 px-2 py-1 text-sm"
-                          value={quantita[t.id] ?? 0}
-                          onChange={(e) => setQuantita({ ...quantita, [t.id]: Math.max(0, Number(e.target.value)) })}
-                        />
+                    <div key={t.id} className="flex flex-col gap-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-sm">{t.descrizione}</span>
+                        <div className="flex items-center gap-2">
+                          {min !== null && <span className="text-[11px] text-stone-500">({min} libere)</span>}
+                          <input
+                            type="number"
+                            min={0}
+                            className="w-16 rounded-md border border-stone-300 px-2 py-1 text-sm"
+                            value={quantita[t.id] ?? 0}
+                            onChange={(e) => setQuantita({ ...quantita, [t.id]: Math.max(0, Number(e.target.value)) })}
+                          />
+                        </div>
                       </div>
+                      {(quantita[t.id] ?? 0) > 0 && (
+                        <div className="rounded-md bg-stone-50 px-2 py-1.5">
+                          <p className="text-[11px] text-stone-500">Persone in ogni camera</p>
+                          <CampoComposizione compatto valore={composizioneDi(t.id)} onChange={(c) => setComposizioni({ ...composizioni, [t.id]: c })} />
+                        </div>
+                      )}
                     </div>
                   );
                 })}
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs text-stone-600">Listino</label>
+                <select className="w-full rounded-md border border-stone-300 px-2 py-1.5 text-sm" value={listinoId ?? ""} onChange={(e) => setListinoId(Number(e.target.value))}>
+                  {listini.map((l) => <option key={l.id} value={l.id}>{l.descrizione}</option>)}
+                </select>
               </div>
 
               <div>
@@ -667,29 +695,22 @@ export function SituazioneCamere({ puoGestire }: { puoGestire: boolean }) {
                 </div>
               )}
 
-              <div>
-                <label className="mb-1 block text-xs text-stone-600">Numero persone</label>
-                <input
-                  type="number"
-                  min={1}
-                  className="w-24 rounded-md border border-stone-300 px-2 py-1.5 text-sm"
-                  value={numeroPersone}
-                  onChange={(e) => setNumeroPersone(e.target.value)}
-                />
-                {personeNonOspitate > 0 && (
-                  <p className="mt-1 text-xs font-semibold text-amber-700">
-                    Con le camere scelte dormono al massimo {capienzaTotaleRichiesta}
-                    {capienzaTotaleRichiesta === 1 ? " persona" : " persone"}: {personeNonOspitate}
-                    {personeNonOspitate === 1 ? " persona resta" : " persone restano"} senza camera.
-                  </p>
-                )}
-                {postiLettoInEccesso > 0 && (
-                  <p className="mt-1 text-xs font-semibold text-amber-700">
-                    Le camere scelte ospitano fino a {capienzaTotaleRichiesta} persone, più delle {numeroPersone} indicate
-                    ({postiLettoInEccesso} {postiLettoInEccesso === 1 ? "posto letto in più" : "posti letto in più"}).
-                  </p>
-                )}
-              </div>
+              {quantitaTotaleCamere > 0 && (
+                <div className="text-sm">
+                  Totale persone: <span className="font-bold">{personeTotali}</span>
+                  {tipiOltreCapienza.map((r) => (
+                    <p key={r.tipoCameraId} className="mt-1 text-xs font-semibold text-amber-700">
+                      {tipiOrdinati.find((t) => t.id === r.tipoCameraId)?.descrizione}: più persone della capienza ({capienzaPerTipo[r.tipoCameraId]}), servono letti aggiunti.
+                    </p>
+                  ))}
+                  {postiLettoInEccesso > 0 && (
+                    <p className="mt-1 text-xs font-semibold text-amber-700">
+                      Le camere scelte ospitano fino a {capienzaTotaleRichiesta} persone, più delle {personeTotali} indicate
+                      ({postiLettoInEccesso} {postiLettoInEccesso === 1 ? "posto letto in più" : "posti letto in più"}).
+                    </p>
+                  )}
+                </div>
+              )}
 
               <div>
                 <label className="mb-1 block text-xs text-stone-600">Note</label>
@@ -718,7 +739,7 @@ export function SituazioneCamere({ puoGestire }: { puoGestire: boolean }) {
                     <div className="mt-1.5 flex flex-col gap-1 border-t border-stone-200 pt-1.5 text-[11px] text-stone-600">
                       {anteprima.dettaglio.map((d) => (
                         <div key={d.tipoCameraId} className="flex justify-between">
-                          <span>{d.quantita}× {d.descrizione} × {d.notti} notti × {eur(d.prezzoNotte)}</span>
+                          <span>{d.quantita}× {d.descrizione} × {d.notti} notti × {eur(d.prezzoNotte)} (media per camera)</span>
                           <span className="font-mono">{eur(d.subtotale)}</span>
                         </div>
                       ))}
@@ -726,7 +747,7 @@ export function SituazioneCamere({ puoGestire }: { puoGestire: boolean }) {
                         <div className="flex justify-between">
                           <span>
                             Tassa {anteprima.regolamento.comune}: {eur(anteprima.regolamento.aliquota)}/notte × {anteprima.nottiTassabili} notti
-                            (tetto {anteprima.regolamento.tettoNotti}) × {quantitaTotaleCamere} camere
+                            (tetto {anteprima.regolamento.tettoNotti}) × {personeTotali} persone
                           </span>
                           <span className="font-mono">{eur(anteprima.tassaStimata)}</span>
                         </div>
@@ -737,6 +758,10 @@ export function SituazioneCamere({ puoGestire }: { puoGestire: boolean }) {
                   )}
                 </div>
               )}
+
+              {anteprima?.avvisi.map((a) => (
+                <p key={a} className="text-xs font-semibold text-amber-700">{a}</p>
+              ))}
 
               {anteprima && anteprima.tipiSenzaTariffa.length > 0 && (
                 <p className="text-sm font-semibold text-amber-700">

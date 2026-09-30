@@ -2,6 +2,7 @@
 
 import { conEsito } from "@/lib/esito";
 import {
+  aggiornaComposizione,
   aggiungiSegmentoAPrenotazione,
   assegnaCamera,
   calcolaTotaliPrenotazione,
@@ -29,6 +30,7 @@ import {
   type DichiarazioneInput,
 } from "@/lib/posizioneTassa";
 import { PERMESSI } from "@/lib/permessi";
+import { composizioneDi, composizioneReale, descriviComposizione, stessaComposizione, type Composizione, type DettaglioNotte } from "@/lib/pricing";
 
 import { datiIniziali as _datiIniziali } from "@/app/prenotazioni/nuova/actions";
 
@@ -57,8 +59,29 @@ async function serializza(prenotazione: Awaited<ReturnType<typeof trovaPrenotazi
     gruppoNome: prenotazione.gruppo?.nome ?? null,
     accontoRichiesto: importiVisibili && prenotazione.accontoRichiesto ? Number(prenotazione.accontoRichiesto) : null,
     totali: { subtotale: imp(totali.subtotale), tassa: imp(totali.tassa), servizi: imp(totali.servizi), totale: imp(totali.totale) },
-    segmenti: prenotazione.segmenti.map((s) => ({
+    segmenti: prenotazione.segmenti.map((s) => {
+      const composizione = composizioneDi(s);
+      // Il confronto parte dal check-in: prima c'è solo l'intestatario, non la camera completa.
+      const registrate = s.presenze.filter((p) => p.stato !== "attesa");
+      const reale = composizioneReale(s.dataInizio, s.presenze.map((p) => ({ dataNascita: p.ospite.dataNascita, dal: p.dal })));
+      return {
       id: s.id,
+      composizione,
+      composizioneTesto: descriviComposizione(composizione),
+      // Persone registrate diverse da quelle prenotate: si propone il ricalcolo (mai automatico).
+      composizioneReale:
+        registrate.length > 0 && !stessaComposizione(reale.composizione, composizione)
+          ? { ...reale, testo: descriviComposizione(reale.composizione) }
+          : null,
+      // Dettaglio del calcolo per notte (solo con "Vedere importi").
+      dettaglioNotti: importiVisibili
+        ? s.notti
+            .map((n) => {
+              const d = n.dettaglio as DettaglioNotte | null;
+              return { data: n.data.toISOString().slice(0, 10), prezzo: Number(n.prezzo), righe: d?.righe ?? [], gratuita: d?.gratuita ?? 0, mancante: n.motivoPrezzo === "mancante" };
+            })
+            .sort((a, b) => a.data.localeCompare(b.data))
+        : [],
       cameraId: s.cameraId,
       cameraCodice: s.camera?.codice ?? null,
       tipoCameraId: s.tipoCameraId,
@@ -87,7 +110,8 @@ async function serializza(prenotazione: Awaited<ReturnType<typeof trovaPrenotazi
       // Notti create senza trovare una tariffa (prenotazione bloccata comunque, da sistemare
       // aggiungendo il listino mancante) — vedi generaNottiETasse in src/lib/prenotazioni.ts.
       tariffaIncompleta: s.notti.some((n) => n.motivoPrezzo === "mancante"),
-    })),
+    };
+    }),
     serviziAggiunti: prenotazione.serviziAggiunti.map((s) => ({
       id: s.id,
       nome: s.servizioCatalogo?.nome ?? s.descrizione ?? "Servizio",
@@ -110,6 +134,14 @@ async function serializza(prenotazione: Awaited<ReturnType<typeof trovaPrenotazi
 export async function caricaPrenotazione(id: number) {
   const utente = await richiediPermesso(PERMESSI.PRENOTAZIONI_VEDI);
   return await serializza(await trovaPrenotazione(utente.hotelId, id), utente);
+}
+
+/** Cambia le persone di una camera; con ricalcola=true riscrive anche i prezzi delle sue notti. */
+export async function azioneComposizione(segmentoId: number, composizione: Composizione, ricalcola: boolean) {
+  return conEsito(async () => {
+    const utente = await richiediPermesso(PERMESSI.PRENOTAZIONI_GESTISCI);
+    return serializza(await aggiornaComposizione(utente.hotelId, segmentoId, composizione, ricalcola), utente);
+  });
 }
 
 export async function azioneAccorciaEstendi(segmentoId: number, nuovaDataFine: string) {

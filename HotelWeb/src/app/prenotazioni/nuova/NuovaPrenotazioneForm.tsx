@@ -4,6 +4,8 @@ import { sbusta, type ValoreDi } from "@/lib/esito";
 import { useEffect, useMemo, useState } from "react";
 import { OspiteSearch, type OspiteValue } from "./OspiteSearch";
 import { anteprimaSegmento, datiIniziali, salvaPrenotazione } from "./actions";
+import { CampoComposizione } from "../CampoComposizione";
+import type { Composizione } from "@/lib/pricing";
 
 type Camera = { id: number; codice: string; tipoCameraId: number; tipoCameraNome: string };
 type Listino = { id: number; descrizione: string; tipo: string };
@@ -18,6 +20,7 @@ type Segmento = {
   listinoId: number | null;
   dataInizio: string;
   dataFine: string;
+  composizione: Composizione;
   anteprima: Anteprima | null;
 };
 
@@ -30,6 +33,7 @@ function nuovoSegmento(listinoId: number | null, trattamento: string): Segmento 
     listinoId,
     dataInizio: "",
     dataFine: "",
+    composizione: { adulti: 2, etaBambini: [] },
     anteprima: null,
   };
 }
@@ -65,17 +69,20 @@ export function NuovaPrenotazioneForm() {
       });
   }, []);
 
-  // Ricalcola l'anteprima di un segmento quando cambiano camera/listino/date.
+  // Ricalcola l'anteprima di un segmento quando cambiano camera/listino/date/trattamento/persone.
   useEffect(() => {
     segmenti.forEach((seg, idx) => {
       if (!seg.cameraId || !seg.listinoId || !seg.dataInizio || !seg.dataFine) return;
       const timer = setTimeout(async () => {
+        // Composizione non valida (es. nessuna persona): niente anteprima, l'errore arriva al salvataggio.
         const anteprima = await sbusta(anteprimaSegmento({
           cameraId: seg.cameraId!,
           listinoId: seg.listinoId!,
           dataInizio: seg.dataInizio,
           dataFine: seg.dataFine,
-        }));
+          trattamento: seg.trattamento,
+          composizione: seg.composizione,
+        })).catch(() => null);
         setSegmenti((prev) => {
           const next = [...prev];
           if (next[idx] && next[idx].chiave === seg.chiave) next[idx] = { ...next[idx], anteprima };
@@ -85,7 +92,7 @@ export function NuovaPrenotazioneForm() {
       return () => clearTimeout(timer);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [segmenti.map((s) => `${s.cameraId}-${s.listinoId}-${s.dataInizio}-${s.dataFine}`).join("|")]);
+  }, [segmenti.map((s) => `${s.cameraId}-${s.listinoId}-${s.dataInizio}-${s.dataFine}-${s.trattamento}-${JSON.stringify(s.composizione)}`).join("|")]);
 
   function aggiornaSegmento(idx: number, patch: Partial<Segmento>) {
     setSegmenti((prev) => prev.map((s, i) => (i === idx ? { ...s, ...patch } : s)));
@@ -130,6 +137,7 @@ export function NuovaPrenotazioneForm() {
           listinoId: s.listinoId!,
           dataInizio: s.dataInizio,
           dataFine: s.dataFine,
+          composizione: s.composizione,
         })),
       }));
       setEsito(risultato);
@@ -241,6 +249,22 @@ export function NuovaPrenotazioneForm() {
                   </select>
                 </div>
                 <div>
+                  <label className="mb-1 block text-xs text-stone-600">Listino</label>
+                  <select
+                    className="w-full rounded-md border border-stone-300 px-2 py-1.5 text-sm"
+                    value={seg.listinoId ?? ""}
+                    onChange={(e) => aggiornaSegmento(idx, { listinoId: Number(e.target.value) })}
+                  >
+                    {listini.map((l) => (
+                      <option key={l.id} value={l.id}>{l.descrizione}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="mb-1 block text-xs text-stone-600">Persone in camera (base del prezzo)</label>
+                  <CampoComposizione valore={seg.composizione} onChange={(c) => aggiornaSegmento(idx, { composizione: c })} />
+                </div>
+                <div>
                   <label className="mb-1 block text-xs text-stone-600">Check-in</label>
                   <input
                     type="date"
@@ -265,13 +289,26 @@ export function NuovaPrenotazioneForm() {
               </div>
 
               {seg.anteprima && (
-                <div className="mt-3 flex justify-between rounded-md bg-stone-50 px-3 py-2 text-xs text-stone-600">
-                  <span>{seg.anteprima.notti} notti · € {seg.anteprima.subtotale.toFixed(2)}</span>
-                  {seg.anteprima.regolamento ? (
-                    <span>Tassa stimata ({seg.anteprima.regolamento.comune}): € {seg.anteprima.tassaStimata.toFixed(2)}</span>
-                  ) : (
-                    <span>Nessuna tassa di soggiorno per questo comune</span>
+                <div className="mt-3 rounded-md bg-stone-50 px-3 py-2 text-xs text-stone-600">
+                  <div className="flex flex-wrap justify-between gap-2">
+                    <span>{seg.anteprima.notti} notti · € {seg.anteprima.subtotale.toFixed(2)}</span>
+                    {seg.anteprima.regolamento ? (
+                      <span>Tassa stimata ({seg.anteprima.regolamento.comune}): € {seg.anteprima.tassaStimata.toFixed(2)}</span>
+                    ) : (
+                      <span>Nessuna tassa di soggiorno per questo comune</span>
+                    )}
+                  </div>
+                  {seg.anteprima.dettaglioPrimaNotte.length > 0 && (
+                    <div className="mt-1 text-stone-500">
+                      Prima notte: {seg.anteprima.dettaglioPrimaNotte.map((r) => `${r.voce} = € ${r.importo.toFixed(2)}`).join(" · ")}
+                    </div>
                   )}
+                  {seg.anteprima.nottiSenzaTariffa > 0 && (
+                    <div className="mt-1 font-semibold text-amber-800">{seg.anteprima.nottiSenzaTariffa} notti senza tariffa nel listino: il totale è incompleto.</div>
+                  )}
+                  {seg.anteprima.avvisi.map((a) => (
+                    <div key={a} className="mt-1 font-semibold text-amber-800">{a}</div>
+                  ))}
                 </div>
               )}
             </div>

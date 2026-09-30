@@ -5,12 +5,15 @@ import { sbusta } from "@/lib/esito";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { OspiteSearch, type OspiteValue } from "../nuova/OspiteSearch";
+import { CampoComposizione } from "../CampoComposizione";
+import type { Composizione } from "@/lib/pricing";
 import {
   azioneAccorciaEstendi,
   azioneAggiungiSegmento,
   azioneAggiungiServizio,
   azioneAssegnaCamera,
   azioneCambiaCamera,
+  azioneComposizione,
   azioneModificaServizio,
   azioneRimuoviServizio,
   caricaPrenotazione,
@@ -46,6 +49,9 @@ export function PrenotazioneDettaglio({ iniziale, puoGestire, puoRiaprire }: { i
   const [nuovoTrattamento, setNuovoTrattamento] = useState("");
   const [nuovoDal, setNuovoDal] = useState("");
   const [nuovoAl, setNuovoAl] = useState("");
+  const [nuovaComposizione, setNuovaComposizione] = useState<Composizione>({ adulti: 2, etaBambini: [] });
+  const [modificaComposizione, setModificaComposizione] = useState<{ segmentoId: number; valore: Composizione; ricalcola: boolean } | null>(null);
+  const [dettaglioPrezzo, setDettaglioPrezzo] = useState<number | null>(null);
 
   const [serviziCatalogo, setServiziCatalogo] = useState<ServizioCatalogo[]>([]);
   const [dettagliTotaliAperti, setDettagliTotaliAperti] = useState(false);
@@ -175,9 +181,11 @@ export function PrenotazioneDettaglio({ iniziale, puoGestire, puoRiaprire }: { i
         tipoCameraId: camere.find((c) => c.id === nuovaCameraId)!.tipoCameraId,
         ospite,
         trattamento: nuovoTrattamento,
-        listinoId: listini[0].id,
+        // Stesso listino delle altre camere della prenotazione (es. listino del gruppo).
+        listinoId: prenotazione.segmenti[0]?.listinoId ?? listini[0].id,
         dataInizio: nuovoDal,
         dataFine: nuovoAl,
+        composizione: nuovaComposizione,
       }))
     );
     if (risultato) {
@@ -187,6 +195,14 @@ export function PrenotazioneDettaglio({ iniziale, puoGestire, puoRiaprire }: { i
       setNuovaCameraId(null);
       setNuovoDal("");
       setNuovoAl("");
+    }
+  }
+
+  async function salvaComposizione(segmentoId: number, valore: Composizione, ricalcola: boolean) {
+    const risultato = await eseguendo(() => sbusta(azioneComposizione(segmentoId, valore, ricalcola)));
+    if (risultato) {
+      setPrenotazione(risultato);
+      setModificaComposizione(null);
     }
   }
 
@@ -232,6 +248,56 @@ export function PrenotazioneDettaglio({ iniziale, puoGestire, puoRiaprire }: { i
                         <div className="font-semibold text-amber-700">Da assegnare</div>
                       )}
                       <div className="text-xs text-stone-600">{s.tipoCameraNome}</div>
+                      {modificaComposizione?.segmentoId === s.id ? (
+                        <div className="mt-1 flex flex-col gap-1 rounded-md border border-stone-200 p-2">
+                          <CampoComposizione compatto valore={modificaComposizione.valore} onChange={(v) => setModificaComposizione({ ...modificaComposizione, valore: v })} />
+                          <label className="flex items-center gap-1 text-[11px]">
+                            <input
+                              type="checkbox"
+                              checked={modificaComposizione.ricalcola}
+                              onChange={(e) => setModificaComposizione({ ...modificaComposizione, ricalcola: e.target.checked })}
+                            />
+                            ricalcola anche il prezzo delle notti
+                          </label>
+                          <div className="flex gap-2">
+                            <button
+                              disabled={salvando}
+                              className="text-xs font-semibold text-teal-700"
+                              onClick={() => salvaComposizione(s.id, modificaComposizione.valore, modificaComposizione.ricalcola)}
+                            >
+                              Salva
+                            </button>
+                            <button className="text-xs text-stone-500" onClick={() => setModificaComposizione(null)}>Annulla</button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="mt-1 text-xs">
+                          {s.composizioneTesto}
+                          {puoGestire && (
+                            <button
+                              className="ml-1 font-semibold text-teal-700"
+                              onClick={() => setModificaComposizione({ segmentoId: s.id, valore: s.composizione, ricalcola: false })}
+                            >
+                              Modifica
+                            </button>
+                          )}
+                        </div>
+                      )}
+                      {s.composizioneReale && (
+                        <div className="mt-1 rounded-md bg-amber-50 p-1.5 text-[11px] text-amber-900">
+                          Registrati: {s.composizioneReale.testo}
+                          {s.composizioneReale.senzaData > 0 && ` (${s.composizioneReale.senzaData} senza data di nascita, contati adulti)`} — diverso dal prenotato.
+                          {puoGestire && (
+                            <button
+                              disabled={salvando}
+                              className="ml-1 font-semibold text-teal-700 underline"
+                              onClick={() => salvaComposizione(s.id, s.composizioneReale!.composizione, true)}
+                            >
+                              Ricalcola il prezzo
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </td>
                     <td data-label="Ospiti" className="px-3 py-2">
                       {s.occupanti.map((o) => (
@@ -278,6 +344,35 @@ export function PrenotazioneDettaglio({ iniziale, puoGestire, puoRiaprire }: { i
                     <td data-label="Notti" className="px-3 py-2 font-mono">{s.notti}</td>
                     {importi && <td data-label="Subtotale" className="px-3 py-2 font-mono">
                       {eur(s.subtotale)}
+                      {s.dettaglioNotti.length > 0 && (
+                        <button className="block text-[11px] font-semibold text-teal-700 underline" onClick={() => setDettaglioPrezzo(dettaglioPrezzo === s.id ? null : s.id)}>
+                          {dettaglioPrezzo === s.id ? "nascondi" : "dettaglio"}
+                        </button>
+                      )}
+                      {dettaglioPrezzo === s.id && (
+                        <div className="mt-1 flex min-w-56 flex-col gap-1 rounded-md bg-stone-50 p-2 font-sans text-[11px] text-stone-700">
+                          {s.dettaglioNotti.map((n) => (
+                            <div key={n.data}>
+                              <div className="flex justify-between font-semibold">
+                                <span>{n.data.split("-").reverse().join("/")}</span>
+                                <span className="font-mono">{n.mancante ? "tariffa mancante" : eur(n.prezzo)}</span>
+                              </div>
+                              {n.righe.map((r, i) => (
+                                <div key={i} className="flex justify-between gap-2 pl-2 text-stone-500">
+                                  <span>{r.voce}</span>
+                                  <span className="font-mono">{eur(r.importo)}</span>
+                                </div>
+                              ))}
+                              {n.gratuita > 0 && (
+                                <div className="flex justify-between gap-2 pl-2 text-emerald-700">
+                                  <span>Gratuità gruppo</span>
+                                  <span className="font-mono">−{eur(n.gratuita)}</span>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
                       {s.tariffaIncompleta && (
                         <div className="mt-0.5 text-[11px] font-semibold text-amber-700" title="Manca la tariffa per una o più notti: il subtotale non è completo.">
                           ⚠ tariffa mancante
@@ -389,6 +484,10 @@ export function PrenotazioneDettaglio({ iniziale, puoGestire, puoRiaprire }: { i
                     <label className="mb-1 block text-xs text-stone-600">Check-out</label>
                     <input type="date" className="w-full rounded-md border border-stone-300 px-2 py-1.5 text-sm" value={nuovoAl} onChange={(e) => setNuovoAl(e.target.value)} />
                   </div>
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs text-stone-600">Persone in camera</label>
+                  <CampoComposizione valore={nuovaComposizione} onChange={setNuovaComposizione} />
                 </div>
                 <OspiteSearch value={nuovoOspite} onChange={setNuovoOspite} etichetta="Ospite" />
                 <div className="flex justify-end gap-2">

@@ -67,6 +67,41 @@ export function descriviComposizione(c: Composizione) {
   return `${a} + ${c.etaBambini.length} ${c.etaBambini.length === 1 ? "bambino" : "bambini"} (${c.etaBambini.join(", ")} anni)`;
 }
 
+/** Età compiuta a una data (per le riduzioni vale l'età all'arrivo). */
+export function etaAl(nascita: Date, data: Date) {
+  let eta = data.getUTCFullYear() - nascita.getUTCFullYear();
+  const m = data.getUTCMonth() - nascita.getUTCMonth();
+  if (m < 0 || (m === 0 && data.getUTCDate() < nascita.getUTCDate())) eta -= 1;
+  return eta;
+}
+
+/**
+ * Composizione reale di una camera dalle persone registrate (check-in): chi non ha la data di
+ * nascita conta come adulto. Si confronta con quella prenotata per proporre il ricalcolo.
+ */
+export function composizioneReale(arrivo: Date, persone: { dataNascita: Date | null; dal: Date | null }[]) {
+  const c: Composizione = { adulti: 0, etaBambini: [] };
+  let senzaData = 0;
+  for (const p of persone) {
+    if (!p.dataNascita) {
+      senzaData += 1;
+      c.adulti += 1;
+      continue;
+    }
+    const eta = etaAl(p.dataNascita, p.dal ?? arrivo);
+    if (eta >= ETA_ADULTO) c.adulti += 1;
+    else c.etaBambini.push(eta);
+  }
+  c.etaBambini.sort((a, b) => b - a);
+  return { composizione: c, senzaData };
+}
+
+export function stessaComposizione(a: Composizione, b: Composizione) {
+  const x = [...a.etaBambini].sort((m, n) => m - n).join(",");
+  const y = [...b.etaBambini].sort((m, n) => m - n).join(",");
+  return a.adulti === b.adulti && x === y;
+}
+
 export function verificaComposizione(c: Composizione) {
   if (!Number.isInteger(c.adulti) || c.adulti < 0) throw new Error("Numero di adulti non valido.");
   if (c.adulti + c.etaBambini.length < 1) throw new Error("In camera deve esserci almeno una persona.");
