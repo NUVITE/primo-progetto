@@ -2,6 +2,7 @@ import Link from "next/link";
 import { richiediSuperAdmin } from "@/lib/auth";
 import { elencoRegolamenti } from "@/lib/regolamentiTassa";
 import { NuovaVersione } from "./NuovaVersione";
+import { Suggerimento } from "@/components/Suggerimento";
 
 const it = (iso: string) => iso.split("-").reverse().join("/");
 
@@ -13,13 +14,17 @@ export default async function TassaPiattaformaPage() {
     <div className="flex w-full min-w-0 flex-col gap-4 p-3 sm:p-6">
       <div>
         <h1 className="text-xl font-bold">Tassa di soggiorno</h1>
-        <p className="text-sm text-stone-600">
-          Regolamenti per comune, a versioni datate: una versione usata in soggiorni chiusi non si modifica, se ne crea una nuova da una data.
-        </p>
+        <Suggerimento id="piattaforma-tassa" titolo="Come si aggiorna un regolamento">
+          <p>
+            Ogni comune ha le sue versioni del regolamento, ognuna valida da una data. Se il Comune cambia tariffe o esenzioni crea una{" "}
+            <strong>nuova versione</strong> dalla data di validità: una versione già usata in soggiorni chiusi non si modifica, così i conti passati
+            restano corretti.
+          </p>
+        </Suggerimento>
       </div>
 
       {comuni.map((c) => (
-        <section key={c.id} className="rounded-xl border border-stone-200 bg-white p-4 sm:p-5">
+        <section key={c.id} className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm sm:p-5">
           <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
             <h2 className="font-bold">
               {c.nome} <span className="text-sm font-normal text-stone-500">({c.provincia})</span>

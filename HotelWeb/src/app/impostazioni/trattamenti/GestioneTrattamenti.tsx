@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { sbusta } from "@/lib/esito";
 import { azioneCreaTrattamento, azioneRinominaTrattamento, azioneSpostaTrattamento, azioneTrattamentoAttivo, datiTrattamenti } from "../actions";
+import { Suggerimento } from "@/components/Suggerimento";
 
 type Trattamento = Awaited<ReturnType<typeof datiTrattamenti>>[number];
 
@@ -32,13 +33,17 @@ export function GestioneTrattamenti({ iniziale }: { iniziale: Trattamento[] }) {
     <div className="flex w-full min-w-0 flex-col gap-4 p-3 sm:p-6">
       <div>
         <h1 className="text-xl font-bold">Trattamenti</h1>
-        <p className="text-sm text-stone-600">
-          Le voci che compaiono nelle prenotazioni, in quest&apos;ordine. Rinominare o disattivare non cambia le prenotazioni già fatte.
-        </p>
+        <Suggerimento id="trattamenti" titolo="Come si usano i trattamenti">
+          <p>
+            Sono le voci che si scelgono in ogni prenotazione (B&amp;B, mezza pensione…), nell&apos;ordine indicato qui: usa le frecce per spostarle.
+            Il supplemento di prezzo di ogni trattamento si imposta nei <strong>Listini e tariffe</strong>. Rinominare o disattivare un trattamento
+            non cambia le prenotazioni già fatte.
+          </p>
+        </Suggerimento>
       </div>
-      {errore && <p className="rounded-md bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">{errore}</p>}
+      {errore && <p className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm font-semibold text-red-800">{errore}</p>}
 
-      <section className="rounded-xl border border-stone-200 bg-white p-4 sm:p-5">
+      <section className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm sm:p-5">
         <ul className="flex flex-col">
           {lista.map((t, i) => (
             <li key={t.id} className="flex flex-wrap items-center justify-between gap-2 border-t border-stone-100 py-2 first:border-0">
@@ -53,12 +58,12 @@ export function GestioneTrattamenti({ iniziale }: { iniziale: Trattamento[] }) {
                   <button
                     type="button"
                     disabled={busy}
-                    className="rounded-md bg-teal-700 px-2.5 py-1 text-xs font-bold text-white disabled:opacity-40"
+                    className="inline-flex h-7 items-center justify-center gap-1 rounded-md bg-teal-700 px-2.5 text-xs font-semibold text-white shadow-sm hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-45 pointer-coarse:h-9"
                     onClick={() => esegui(() => sbusta(azioneRinominaTrattamento(t.id, inRinomina.nome)))}
                   >
                     Salva
                   </button>
-                  <button type="button" className="text-xs font-semibold text-stone-600" onClick={() => setInRinomina(null)}>
+                  <button type="button" className="inline-flex h-7 items-center justify-center gap-1 rounded-md border border-stone-300 bg-white px-2.5 text-xs font-semibold text-stone-800 shadow-sm hover:bg-stone-50 disabled:opacity-45 pointer-coarse:h-9" onClick={() => setInRinomina(null)}>
                     Annulla
                   </button>
                 </span>
@@ -85,7 +90,7 @@ export function GestioneTrattamenti({ iniziale }: { iniziale: Trattamento[] }) {
                   >
                     ↓
                   </button>
-                  <button type="button" className="rounded-md px-2 py-1 text-xs font-semibold text-teal-700 hover:bg-teal-50" onClick={() => setInRinomina({ id: t.id, nome: t.nome })}>
+                  <button type="button" className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-semibold text-teal-800 hover:bg-teal-50 pointer-coarse:h-9" onClick={() => setInRinomina({ id: t.id, nome: t.nome })}>
                     Rinomina
                   </button>
                   <button
@@ -111,7 +116,7 @@ export function GestioneTrattamenti({ iniziale }: { iniziale: Trattamento[] }) {
           <button
             type="button"
             disabled={busy || !nuovo.trim()}
-            className="rounded-md bg-teal-700 px-3 py-1.5 text-sm font-bold text-white disabled:opacity-40"
+            className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md bg-teal-700 px-3 text-sm font-semibold text-white shadow-sm hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-45 pointer-coarse:h-10"
             onClick={async () => {
               if (await esegui(() => sbusta(azioneCreaTrattamento(nuovo)))) setNuovo("");
             }}

@@ -71,14 +71,14 @@ export function EditorVersione({ iniziale }: { iniziale: Versione }) {
         </p>
       )}
       {messaggio && (
-        <p className={`rounded-md px-3 py-2 text-sm font-semibold ${messaggio.tipo === "ok" ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-700"}`}>
+        <p className={`rounded-md px-3 py-2 text-sm font-semibold ${messaggio.tipo === "ok" ? "border border-emerald-300 bg-emerald-50 text-emerald-900" : "border border-red-300 bg-red-50 text-red-800"}`}>
           {messaggio.testo}
         </p>
       )}
 
       {/* Dati generali */}
-      <section className="rounded-xl border border-stone-200 bg-white p-4 sm:p-5">
-        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-stone-600">Dati generali</h2>
+      <section className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm sm:p-5">
+        <h2 className="mb-3 text-sm font-bold text-stone-900">Dati generali</h2>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <label className={ETICHETTA}>
             Valida dal
@@ -123,7 +123,7 @@ export function EditorVersione({ iniziale }: { iniziale: Versione }) {
         </div>
         {!ro && (
           <div className="mt-3 flex justify-end">
-            <button type="button" disabled={busy} className="rounded-md bg-teal-700 px-4 py-2 text-sm font-bold text-white disabled:opacity-40" onClick={() => salva(() => sbusta(azioneSalvaDati(v.id, dati)), "Modifiche")}>
+            <button type="button" disabled={busy} className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md bg-teal-700 px-3 text-sm font-semibold text-white shadow-sm hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-45 pointer-coarse:h-10" onClick={() => salva(() => sbusta(azioneSalvaDati(v.id, dati)), "Modifiche")}>
               Salva dati generali
             </button>
           </div>
@@ -131,9 +131,9 @@ export function EditorVersione({ iniziale }: { iniziale: Versione }) {
       </section>
 
       {/* Tariffe */}
-      <section className="rounded-xl border border-stone-200 bg-white p-4 sm:p-5">
-        <h2 className="mb-1 text-xs font-semibold uppercase tracking-wide text-stone-600">Tariffe per categoria di struttura</h2>
-        <p className="mb-3 text-xs text-stone-500">
+      <section className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm sm:p-5">
+        <h2 className="mb-1 text-sm font-bold text-stone-900">Tariffe per categoria di struttura</h2>
+        <p className="mb-3 text-sm text-stone-600">
           La categoria deve essere scritta come in Piattaforma &gt; Hotel. La tariffa predefinita vale per le categorie non previste.
         </p>
         <div className="overflow-x-auto">
@@ -186,7 +186,7 @@ export function EditorVersione({ iniziale }: { iniziale: Versione }) {
                   </td>
                   <td className="py-1.5 md:text-right">
                     {!ro && (
-                      <button type="button" className="text-xs font-semibold text-red-600" onClick={() => setTariffe(tariffe.filter((_, j) => j !== i))}>
+                      <button type="button" className="inline-flex h-7 items-center gap-1 rounded-md border border-red-300 bg-white px-2 text-xs font-semibold text-red-700 shadow-sm hover:bg-red-50 disabled:opacity-45 pointer-coarse:h-9" onClick={() => setTariffe(tariffe.filter((_, j) => j !== i))}>
                         Togli
                       </button>
                     )}
@@ -200,12 +200,12 @@ export function EditorVersione({ iniziale }: { iniziale: Versione }) {
           <div className="mt-3 flex flex-wrap justify-between gap-2">
             <button
               type="button"
-              className="rounded-md border border-teal-700 px-3 py-1.5 text-sm font-semibold text-teal-700"
+              className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md border border-stone-300 bg-white px-3 text-sm font-semibold text-stone-800 shadow-sm hover:bg-stone-50 disabled:opacity-45 pointer-coarse:h-10"
               onClick={() => setTariffe([...tariffe, { categoria: "", importo: 0, tettoNotti: null, modoTetto: "consecutive_struttura", predefinita: false }])}
             >
               + Tariffa
             </button>
-            <button type="button" disabled={busy} className="rounded-md bg-teal-700 px-4 py-2 text-sm font-bold text-white disabled:opacity-40" onClick={() => salva(() => sbusta(azioneSalvaTariffe(v.id, tariffe)), "Tariffe")}>
+            <button type="button" disabled={busy} className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md bg-teal-700 px-3 text-sm font-semibold text-white shadow-sm hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-45 pointer-coarse:h-10" onClick={() => salva(() => sbusta(azioneSalvaTariffe(v.id, tariffe)), "Tariffe")}>
               Salva tariffe
             </button>
           </div>
@@ -213,9 +213,9 @@ export function EditorVersione({ iniziale }: { iniziale: Versione }) {
       </section>
 
       {/* Regole */}
-      <section className="rounded-xl border border-stone-200 bg-white p-4 sm:p-5">
-        <h2 className="mb-1 text-xs font-semibold uppercase tracking-wide text-stone-600">Esenzioni, riduzioni e tetti speciali</h2>
-        <p className="mb-3 text-xs text-stone-500">
+      <section className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm sm:p-5">
+        <h2 className="mb-1 text-sm font-bold text-stone-900">Esenzioni, riduzioni e tetti speciali</h2>
+        <p className="mb-3 text-sm text-stone-600">
           Le regole per età si applicano da sole; le altre le registra la reception sull&apos;ospite. Il limite viene mostrato come avviso, non blocca.
         </p>
         <div className="flex flex-col gap-3">
@@ -241,7 +241,7 @@ export function EditorVersione({ iniziale }: { iniziale: Versione }) {
               </label>
               <div className="flex items-end justify-end sm:col-span-1">
                 {!ro && (
-                  <button type="button" className="text-xs font-semibold text-red-600" onClick={() => setRegole(regole.filter((_, j) => j !== i))}>
+                  <button type="button" className="inline-flex h-7 items-center gap-1 rounded-md border border-red-300 bg-white px-2 text-xs font-semibold text-red-700 shadow-sm hover:bg-red-50 disabled:opacity-45 pointer-coarse:h-9" onClick={() => setRegole(regole.filter((_, j) => j !== i))}>
                     Togli regola
                   </button>
                 )}
@@ -301,7 +301,7 @@ export function EditorVersione({ iniziale }: { iniziale: Versione }) {
           <div className="mt-3 flex flex-wrap justify-between gap-2">
             <button
               type="button"
-              className="rounded-md border border-teal-700 px-3 py-1.5 text-sm font-semibold text-teal-700"
+              className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md border border-stone-300 bg-white px-3 text-sm font-semibold text-stone-800 shadow-sm hover:bg-stone-50 disabled:opacity-45 pointer-coarse:h-10"
               onClick={() =>
                 setRegole([
                   ...regole,
@@ -311,7 +311,7 @@ export function EditorVersione({ iniziale }: { iniziale: Versione }) {
             >
               + Regola
             </button>
-            <button type="button" disabled={busy} className="rounded-md bg-teal-700 px-4 py-2 text-sm font-bold text-white disabled:opacity-40" onClick={() => salva(() => sbusta(azioneSalvaRegole(v.id, regole)), "Regole")}>
+            <button type="button" disabled={busy} className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md bg-teal-700 px-3 text-sm font-semibold text-white shadow-sm hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-45 pointer-coarse:h-10" onClick={() => salva(() => sbusta(azioneSalvaRegole(v.id, regole)), "Regole")}>
               Salva regole
             </button>
           </div>
@@ -345,7 +345,7 @@ export function EditorVersione({ iniziale }: { iniziale: Versione }) {
               </button>
             </span>
           ) : (
-            <button type="button" className="text-xs font-semibold text-red-600" onClick={() => setConfermaElimina(true)}>
+            <button type="button" className="inline-flex h-7 items-center gap-1 rounded-md border border-red-300 bg-white px-2 text-xs font-semibold text-red-700 shadow-sm hover:bg-red-50 disabled:opacity-45 pointer-coarse:h-9" onClick={() => setConfermaElimina(true)}>
               Elimina versione
             </button>
           )}

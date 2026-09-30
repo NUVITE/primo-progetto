@@ -16,6 +16,7 @@ import {
   type FormOccupazione,
   type FormTestata,
 } from "../../componenti";
+import { Suggerimento } from "@/components/Suggerimento";
 
 const domani = (iso: string) => {
   const d = new Date(`${iso}T00:00:00Z`);
@@ -64,23 +65,34 @@ export function NuovaPrenotazioneSala({ contestoIniziale, sala, giorno, fascia }
   return (
     <div className="flex w-full min-w-0 flex-col gap-4 p-3 sm:p-6">
       <div>
-        <Link href="/sale/planning" className="text-xs font-semibold text-teal-700">
+        <Link href="/sale/planning" className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-semibold text-teal-800 hover:bg-teal-50 pointer-coarse:h-9">
           ← Planning sale
         </Link>
         <h1 className="text-xl font-bold">Nuova prenotazione di sala</h1>
-        <p className="text-sm text-stone-600">Le opzioni bloccano la sala come le conferme; alla scadenza compare solo un avviso.</p>
+        <Suggerimento id="nuova-prenotazione-sala" titolo="Come si prenota una sala">
+          <ol className="list-decimal space-y-1 pl-5">
+            <li>Dai un titolo all&apos;evento e indica il cliente (o creane uno con <strong>+ Nuovo</strong>) oppure la prenotazione di camere collegata.</li>
+            <li>
+              Scegli sala, giorno e fascia (o &quot;orario libero&quot; per le ore): sotto vedi subito se la sala è libera e quanto costa. Per più
+              giorni usa <strong>+ Giorno successivo</strong>.
+            </li>
+            <li>
+              Lo stato <strong>Opzione</strong> blocca la sala come una conferma; alla scadenza compare solo un avviso, non si libera da sola.
+            </li>
+          </ol>
+        </Suggerimento>
       </div>
-      {errore && <p className="rounded-md bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">{errore}</p>}
-      <section className="rounded-xl border border-stone-200 bg-white p-4 sm:p-5">
+      {errore && <p className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm font-semibold text-red-800">{errore}</p>}
+      <section className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm sm:p-5">
         <CampiTestata contesto={contesto} valore={testata} onChange={setTestata} onContesto={setContesto} />
       </section>
-      <section className="flex flex-col gap-3 rounded-xl border border-stone-200 bg-white p-4 sm:p-5">
+      <section className="flex flex-col gap-3 rounded-lg border border-stone-200 bg-white p-4 shadow-sm sm:p-5">
         <h2 className="font-bold">Sale e orari</h2>
         {occupazioni.map((o, i) => (
           <div key={i} className="border-t border-stone-100 pt-3 first:border-t-0 first:pt-0">
             <CampiOccupazione contesto={contesto} valore={o} onChange={(n) => setOccupazioni(occupazioni.map((x, j) => (j === i ? n : x)))} />
             {occupazioni.length > 1 && (
-              <button type="button" className="mt-1 text-xs font-semibold text-red-600" onClick={() => setOccupazioni(occupazioni.filter((_, j) => j !== i))}>
+              <button type="button" className="mt-1 inline-flex h-7 items-center gap-1 rounded-md border border-red-300 bg-white px-2 text-xs font-semibold text-red-700 shadow-sm hover:bg-red-50 disabled:opacity-45 pointer-coarse:h-9" onClick={() => setOccupazioni(occupazioni.filter((_, j) => j !== i))}>
                 Togli
               </button>
             )}
@@ -89,7 +101,7 @@ export function NuovaPrenotazioneSala({ contestoIniziale, sala, giorno, fascia }
         <div className="flex flex-wrap gap-3">
           <button
             type="button"
-            className="text-xs font-semibold text-teal-700"
+            className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-semibold text-teal-800 hover:bg-teal-50 pointer-coarse:h-9"
             onClick={() => {
               const ultima = occupazioni[occupazioni.length - 1];
               setOccupazioni([...occupazioni, { ...ultima, giorno: ultima.giorno ? domani(ultima.giorno) : "" }]);
@@ -97,7 +109,7 @@ export function NuovaPrenotazioneSala({ contestoIniziale, sala, giorno, fascia }
           >
             + Giorno successivo (stessa sala e orario)
           </button>
-          <button type="button" className="text-xs font-semibold text-teal-700" onClick={() => setOccupazioni([...occupazioni, occupazioneVuota({ fasciaId: primaFascia })])}>
+          <button type="button" className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-semibold text-teal-800 hover:bg-teal-50 pointer-coarse:h-9" onClick={() => setOccupazioni([...occupazioni, occupazioneVuota({ fasciaId: primaFascia })])}>
             + Altra sala o orario
           </button>
         </div>

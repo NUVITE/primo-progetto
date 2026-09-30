@@ -63,10 +63,10 @@ export function FormHotel({ riferimenti, iniziale, hotelId }: { riferimenti: Rif
 
   return (
     <div className="flex flex-col gap-4">
-      {errore && <p className="rounded-md bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">{errore}</p>}
+      {errore && <p className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm font-semibold text-red-800">{errore}</p>}
 
-      <section className="rounded-xl border border-stone-200 bg-white p-4 sm:p-5">
-        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-stone-600">Struttura</h2>
+      <section className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm sm:p-5">
+        <h2 className="mb-3 text-sm font-bold text-stone-900">Struttura</h2>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <label className={ETICHETTA}>
             Nome dell&apos;hotel *
@@ -82,13 +82,13 @@ export function FormHotel({ riferimenti, iniziale, hotelId }: { riferimenti: Rif
                   <input className={INPUT} placeholder="Codice ISTAT (6 cifre)" maxLength={6} value={nuovoComune.codiceIstat} onChange={(e) => setNuovoComune({ ...nuovoComune, codiceIstat: e.target.value })} />
                 </div>
                 <div className="flex justify-end gap-2">
-                  <button type="button" className="rounded-md px-2.5 py-1 text-xs font-semibold text-stone-600 hover:bg-stone-100" onClick={() => setNuovoComune(null)}>
+                  <button type="button" className="inline-flex h-7 items-center justify-center gap-1 rounded-md border border-stone-300 bg-white px-2.5 text-xs font-semibold text-stone-800 shadow-sm hover:bg-stone-50 disabled:opacity-45 pointer-coarse:h-9" onClick={() => setNuovoComune(null)}>
                     Annulla
                   </button>
                   <button
                     type="button"
                     disabled={busy}
-                    className="rounded-md bg-teal-700 px-2.5 py-1 text-xs font-bold text-white disabled:opacity-40"
+                    className="inline-flex h-7 items-center justify-center gap-1 rounded-md bg-teal-700 px-2.5 text-xs font-semibold text-white shadow-sm hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-45 pointer-coarse:h-9"
                     onClick={() =>
                       esegui(async () => {
                         const c = await sbusta(azioneCreaComune(nuovoComune));
@@ -177,8 +177,8 @@ export function FormHotel({ riferimenti, iniziale, hotelId }: { riferimenti: Rif
         </div>
       </section>
 
-      <section className="rounded-xl border border-stone-200 bg-white p-4 sm:p-5">
-        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-stone-600">Dati fiscali</h2>
+      <section className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm sm:p-5">
+        <h2 className="mb-3 text-sm font-bold text-stone-900">Dati fiscali</h2>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <label className={ETICHETTA}>
             Ragione sociale
@@ -200,9 +200,9 @@ export function FormHotel({ riferimenti, iniziale, hotelId }: { riferimenti: Rif
       </section>
 
       {!hotelId && (
-        <section className="rounded-xl border border-stone-200 bg-white p-4 sm:p-5">
-          <h2 className="mb-1 text-xs font-semibold uppercase tracking-wide text-stone-600">Primo amministratore (facoltativo)</h2>
-          <p className="mb-3 text-xs text-stone-500">Un utente con ruolo Amministratore per questo hotel. Si può aggiungere anche dopo, dalla pagina Utenti.</p>
+        <section className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm sm:p-5">
+          <h2 className="mb-1 text-sm font-bold text-stone-900">Primo amministratore (facoltativo)</h2>
+          <p className="mb-3 text-sm text-stone-600">Un utente con ruolo Amministratore per questo hotel. Si può aggiungere anche dopo, dalla pagina Utenti.</p>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <label className={ETICHETTA}>
               Nome
@@ -225,7 +225,7 @@ export function FormHotel({ riferimenti, iniziale, hotelId }: { riferimenti: Rif
         <button
           type="button"
           disabled={busy || !dati.nome.trim() || !dati.comuneId}
-          className="rounded-md bg-teal-700 px-4 py-2 text-sm font-bold text-white disabled:opacity-40"
+          className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md bg-teal-700 px-3 text-sm font-semibold text-white shadow-sm hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-45 pointer-coarse:h-10"
           onClick={() =>
             esegui(async () => {
               if (hotelId) {

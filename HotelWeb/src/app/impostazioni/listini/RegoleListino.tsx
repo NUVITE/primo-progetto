@@ -10,8 +10,8 @@ type Dati = Awaited<ReturnType<typeof datiListini>>;
 type Listino = Dati["listini"][number];
 type Esegui = (fn: () => Promise<{ listini: Dati; risultato: unknown }>, ok: string) => Promise<boolean>;
 
-const CELLA = "w-full rounded-md border border-stone-300 px-2 py-1 text-sm text-stone-900";
-const BOTTONE = "rounded-md bg-teal-700 px-2.5 py-1 text-xs font-bold text-white disabled:opacity-40";
+const CELLA = "h-8 w-full min-w-0 rounded-md border border-stone-300 bg-white px-2.5 text-sm text-stone-900 hover:border-stone-400 disabled:bg-stone-100 pointer-coarse:h-10";
+const BOTTONE = "inline-flex h-7 items-center justify-center gap-1 rounded-md bg-teal-700 px-2.5 text-xs font-semibold text-white shadow-sm hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-45 pointer-coarse:h-9";
 const numOppureNull = (s: string) => (s.trim() === "" ? null : Number(s.replace(",", ".")));
 const str = (n: number | null | undefined) => (n === null || n === undefined ? "" : String(n));
 
@@ -39,7 +39,7 @@ export function RegoleListino({ listino, trattamenti, busy, esegui }: { listino:
       .join(" · ") || "tutti inclusi nel prezzo";
 
   return (
-    <section className="flex flex-col gap-4 rounded-xl border border-stone-200 bg-white p-4 sm:p-5">
+    <section className="flex flex-col gap-4 rounded-lg border border-stone-200 bg-white p-4 shadow-sm sm:p-5">
       <div>
         <h2 className="font-bold">Regole del listino</h2>
         <AiutoSezione breve="Come si calcola il prezzo di una notte con questo listino.">
@@ -123,7 +123,7 @@ export function RegoleListino({ listino, trattamenti, busy, esegui }: { listino:
             >
               Salva
             </button>
-            <button type="button" className="text-xs font-semibold text-stone-600" onClick={() => setRegole(null)}>
+            <button type="button" className="inline-flex h-7 items-center justify-center gap-1 rounded-md border border-stone-300 bg-white px-2.5 text-xs font-semibold text-stone-800 shadow-sm hover:bg-stone-50 disabled:opacity-45 pointer-coarse:h-9" onClick={() => setRegole(null)}>
               Annulla
             </button>
           </div>
@@ -145,7 +145,7 @@ export function RegoleListino({ listino, trattamenti, busy, esegui }: { listino:
           </div>
           <button
             type="button"
-            className="text-xs font-semibold text-teal-700"
+            className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-semibold text-teal-800 hover:bg-teal-50 pointer-coarse:h-9"
             onClick={() =>
               setRegole({
                 modalita: r.modalita as "camera" | "persona",
@@ -180,7 +180,7 @@ export function RegoleListino({ listino, trattamenti, busy, esegui }: { listino:
           {!supplementi && (
             <button
               type="button"
-              className="text-xs font-semibold text-teal-700"
+              className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-semibold text-teal-800 hover:bg-teal-50 pointer-coarse:h-9"
               onClick={() => setSupplementi(Object.fromEntries(trattamenti.map((t) => [t.id, str(listino.supplementiTrattamento[t.id])])))}
             >
               Modifica
@@ -210,7 +210,7 @@ export function RegoleListino({ listino, trattamenti, busy, esegui }: { listino:
               >
                 Salva
               </button>
-              <button type="button" className="text-xs font-semibold text-stone-600" onClick={() => setSupplementi(null)}>
+              <button type="button" className="inline-flex h-7 items-center justify-center gap-1 rounded-md border border-stone-300 bg-white px-2.5 text-xs font-semibold text-stone-800 shadow-sm hover:bg-stone-50 disabled:opacity-45 pointer-coarse:h-9" onClick={() => setSupplementi(null)}>
                 Annulla
               </button>
             </div>
@@ -248,7 +248,7 @@ export function RegoleListino({ listino, trattamenti, busy, esegui }: { listino:
                     <button
                       type="button"
                       disabled={busy}
-                      className="font-bold text-red-600"
+                      className="inline-flex h-7 items-center gap-1 rounded-md border border-red-300 bg-white px-2 text-xs font-semibold text-red-700 shadow-sm hover:bg-red-50 disabled:opacity-45 pointer-coarse:h-9"
                       onClick={async () => {
                         await esegui(() => sbusta(azioneEliminaRiduzione(listino.id, x.id)), "Riduzione eliminata.");
                         setDaEliminare(null);
@@ -256,7 +256,7 @@ export function RegoleListino({ listino, trattamenti, busy, esegui }: { listino:
                     >
                       Sì
                     </button>{" "}
-                    <button type="button" className="font-semibold text-stone-600" onClick={() => setDaEliminare(null)}>
+                    <button type="button" className="inline-flex h-7 items-center justify-center gap-1 rounded-md border border-stone-300 bg-white px-2.5 text-xs font-semibold text-stone-800 shadow-sm hover:bg-stone-50 disabled:opacity-45 pointer-coarse:h-9" onClick={() => setDaEliminare(null)}>
                       No
                     </button>
                   </span>
@@ -265,14 +265,14 @@ export function RegoleListino({ listino, trattamenti, busy, esegui }: { listino:
                     <>
                       <button
                         type="button"
-                        className="text-xs font-semibold text-teal-700"
+                        className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-semibold text-teal-800 hover:bg-teal-50 pointer-coarse:h-9"
                         onClick={() =>
                           setRiduzione({ id: x.id, f: { etaDa: String(x.etaDa), etaA: str(x.etaA), tipo: x.tipo, valore: x.tipo === "gratis" ? "" : String(x.valore), dalTerzoLetto: x.dalTerzoLetto } })
                         }
                       >
                         Modifica
                       </button>
-                      <button type="button" className="text-xs font-semibold text-red-600" onClick={() => setDaEliminare(x.id)}>
+                      <button type="button" className="inline-flex h-7 items-center gap-1 rounded-md border border-red-300 bg-white px-2 text-xs font-semibold text-red-700 shadow-sm hover:bg-red-50 disabled:opacity-45 pointer-coarse:h-9" onClick={() => setDaEliminare(x.id)}>
                         Elimina
                       </button>
                     </>
@@ -329,7 +329,7 @@ export function RegoleListino({ listino, trattamenti, busy, esegui }: { listino:
         ) : (
           <button
             type="button"
-            className="mt-2 text-xs font-semibold text-teal-700"
+            className="mt-2 inline-flex h-7 items-center justify-center gap-1 rounded-md border border-stone-300 bg-white px-2.5 text-xs font-semibold text-stone-800 shadow-sm hover:bg-stone-50 disabled:opacity-45 pointer-coarse:h-9"
             onClick={() => setRiduzione({ id: 0, f: { etaDa: "0", etaA: "2", tipo: "gratis", valore: "", dalTerzoLetto: false } })}
           >
             + Aggiungi riduzione

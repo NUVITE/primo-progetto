@@ -31,12 +31,12 @@ export function ModuliHotel({ hotelId, attivo, moduli }: { hotelId: number; atti
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
       <section className="flex flex-col gap-3 rounded-xl border border-violet-200 bg-white p-4 sm:p-5">
         <h2 className="text-xs font-semibold uppercase tracking-wide text-violet-700">Stato</h2>
-        {errore && <p className="rounded-md bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">{errore}</p>}
+        {errore && <p className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm font-semibold text-red-800">{errore}</p>}
         <p className="text-sm">
           {attivo ? (
             <span className="font-semibold text-emerald-700">Attivo</span>
           ) : (
-            <span className="font-semibold text-stone-600">Disattivato: gli utenti dell&apos;hotel non possono accedere.</span>
+            <span className="font-semibold text-stone-700">Disattivato: gli utenti dell&apos;hotel non possono accedere.</span>
           )}
         </p>
         {confermaDisattiva ? (
@@ -56,13 +56,13 @@ export function ModuliHotel({ hotelId, attivo, moduli }: { hotelId: number; atti
         ) : (
           <div className="flex flex-wrap gap-2">
             {attivo ? (
-              <button className="rounded-md border border-stone-300 px-3 py-1.5 text-sm font-semibold" onClick={() => setConfermaDisattiva(true)}>
+              <button className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md border border-stone-300 bg-white px-3 text-sm font-semibold text-stone-800 shadow-sm hover:bg-stone-50 disabled:opacity-45 pointer-coarse:h-10" onClick={() => setConfermaDisattiva(true)}>
                 Disattiva hotel
               </button>
             ) : (
               <button
                 disabled={busy}
-                className="rounded-md bg-teal-700 px-3 py-1.5 text-sm font-bold text-white disabled:opacity-40"
+                className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md bg-teal-700 px-3 text-sm font-semibold text-white shadow-sm hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-45 pointer-coarse:h-10"
                 onClick={() => esegui(() => sbusta(azioneImpostaAttivo(hotelId, true)))}
               >
                 Riattiva hotel
@@ -70,7 +70,7 @@ export function ModuliHotel({ hotelId, attivo, moduli }: { hotelId: number; atti
             )}
             <form action={azioneCambiaHotel}>
               <input type="hidden" name="hotelId" value={hotelId} />
-              <button type="submit" className="rounded-md border border-teal-700 px-3 py-1.5 text-sm font-semibold text-teal-700">
+              <button type="submit" className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md border border-stone-300 bg-white px-3 text-sm font-semibold text-stone-800 shadow-sm hover:bg-stone-50 disabled:opacity-45 pointer-coarse:h-10">
                 Lavora su questo hotel
               </button>
             </form>
@@ -80,7 +80,7 @@ export function ModuliHotel({ hotelId, attivo, moduli }: { hotelId: number; atti
 
       <section className="rounded-xl border border-violet-200 bg-white p-4 sm:p-5 lg:col-span-2">
         <h2 className="mb-1 text-xs font-semibold uppercase tracking-wide text-violet-700">Moduli attivi</h2>
-        <p className="mb-3 text-xs text-stone-500">
+        <p className="mb-3 text-sm text-stone-600">
           Planning, prenotazioni, camere, servizi, utenti e ruoli sono sempre inclusi. Un modulo spento nasconde menu e permessi collegati.
         </p>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { datiElencoSale } from "../actions";
 import { ETICHETTA_STATO, it } from "../formato";
+import { Suggerimento } from "@/components/Suggerimento";
 
 export default async function PrenotazioniSalePage() {
   const { elenco, puoGestire } = await datiElencoSale();
@@ -9,12 +10,18 @@ export default async function PrenotazioniSalePage() {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-bold">Prenotazioni sale</h1>
         {puoGestire && (
-          <Link href="/sale/prenotazioni/nuova" className="rounded-md bg-teal-700 px-3 py-1.5 text-sm font-bold text-white">
+          <Link href="/sale/prenotazioni/nuova" className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md bg-teal-700 px-3 text-sm font-semibold text-white shadow-sm hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-45 pointer-coarse:h-10">
             + Nuova prenotazione
           </Link>
         )}
       </div>
-      <div className="rounded-xl border border-stone-200 bg-white p-4 sm:p-5">
+      <Suggerimento id="elenco-sale" titolo="Prenotazioni delle sale">
+        <p>
+          Qui trovi tutti gli eventi, dal più recente. Clicca sul titolo per aprirlo; per vedere le sale libere giorno per giorno usa il{" "}
+          <strong>Planning sale</strong>.
+        </p>
+      </Suggerimento>
+      <div className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm sm:p-5">
         <table className="tabella-responsive w-full text-sm">
           <thead className="text-left text-xs uppercase text-stone-500">
             <tr>

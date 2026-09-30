@@ -4,6 +4,7 @@ import { useState } from "react";
 import { sbusta } from "@/lib/esito";
 import { azioneEliminaCliente, azioneSalvaCliente, datiClienti } from "./actions";
 import { clienteVuoto, FormCliente } from "./FormCliente";
+import { Suggerimento } from "@/components/Suggerimento";
 
 type Dati = Awaited<ReturnType<typeof datiClienti>>;
 
@@ -40,17 +41,22 @@ export function GestioneClienti({ iniziale }: { iniziale: Dati }) {
     <div className="flex w-full min-w-0 flex-col gap-4 p-3 sm:p-6">
       <div>
         <h1 className="text-xl font-bold">Clienti e aziende</h1>
-        <p className="text-sm text-stone-600">Committenti di eventi e sale, e intestatari dei documenti. Gli ospiti che dormono in hotel sono un&apos;anagrafica a parte.</p>
+        <Suggerimento id="clienti" titolo="Chi sono i clienti e le aziende">
+          <p>
+            Sono i committenti di eventi e sale e gli intestatari dei documenti (anche per la fattura elettronica: partita IVA, codice SDI, PEC).
+            Gli ospiti che dormono in hotel sono un&apos;anagrafica a parte, compilata al check-in. Un cliente già usato non si elimina: si disattiva.
+          </p>
+        </Suggerimento>
       </div>
       {messaggio && (
-        <p className={`rounded-md px-3 py-2 text-sm font-semibold ${messaggio.tipo === "ok" ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-700"}`}>
+        <p className={`rounded-md px-3 py-2 text-sm font-semibold ${messaggio.tipo === "ok" ? "border border-emerald-300 bg-emerald-50 text-emerald-900" : "border border-red-300 bg-red-50 text-red-800"}`}>
           {messaggio.testo}
         </p>
       )}
       <div className="flex flex-wrap items-center gap-2">
         <input className="w-full max-w-xs rounded-md border border-stone-300 px-2 py-1.5 text-sm" placeholder="Cerca per nome, P.IVA, comune…" value={cerca} onChange={(e) => setCerca(e.target.value)} />
         {inModifica === null && (
-          <button type="button" className="text-sm font-semibold text-teal-700" onClick={() => setInModifica(0)}>
+          <button type="button" className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md border border-stone-300 bg-white px-3 text-sm font-semibold text-stone-800 shadow-sm hover:bg-stone-50 disabled:opacity-45 pointer-coarse:h-10" onClick={() => setInModifica(0)}>
             + Nuovo cliente
           </button>
         )}
@@ -65,7 +71,7 @@ export function GestioneClienti({ iniziale }: { iniziale: Dati }) {
           }}
         />
       )}
-      <div className="rounded-xl border border-stone-200 bg-white p-4 sm:p-5">
+      <div className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm sm:p-5">
         <table className="tabella-responsive w-full text-sm">
           <thead className="text-left text-xs uppercase text-stone-500">
             <tr>
@@ -111,7 +117,7 @@ export function GestioneClienti({ iniziale }: { iniziale: Dati }) {
                         <button
                           type="button"
                           disabled={busy}
-                          className="font-bold text-red-600"
+                          className="inline-flex h-7 items-center gap-1 rounded-md border border-red-300 bg-white px-2 text-xs font-semibold text-red-700 shadow-sm hover:bg-red-50 disabled:opacity-45 pointer-coarse:h-9"
                           onClick={async () => {
                             await esegui(() => sbusta(azioneEliminaCliente(c.id)), "Cliente eliminato.");
                             setDaEliminare(null);
@@ -119,18 +125,18 @@ export function GestioneClienti({ iniziale }: { iniziale: Dati }) {
                         >
                           Sì, elimina
                         </button>{" "}
-                        <button type="button" className="font-semibold text-stone-600" onClick={() => setDaEliminare(null)}>
+                        <button type="button" className="inline-flex h-7 items-center justify-center gap-1 rounded-md border border-stone-300 bg-white px-2.5 text-xs font-semibold text-stone-800 shadow-sm hover:bg-stone-50 disabled:opacity-45 pointer-coarse:h-9" onClick={() => setDaEliminare(null)}>
                           No
                         </button>
                       </span>
                     ) : (
                       inModifica === null && (
                         <>
-                          <button type="button" className="mr-2 text-xs font-semibold text-teal-700" onClick={() => setInModifica(c.id)}>
+                          <button type="button" className="mr-2 inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-semibold text-teal-800 hover:bg-teal-50 pointer-coarse:h-9" onClick={() => setInModifica(c.id)}>
                             Modifica
                           </button>
                           {c.eventi === 0 && (
-                            <button type="button" className="text-xs font-semibold text-red-600" onClick={() => setDaEliminare(c.id)}>
+                            <button type="button" className="inline-flex h-7 items-center gap-1 rounded-md border border-red-300 bg-white px-2 text-xs font-semibold text-red-700 shadow-sm hover:bg-red-50 disabled:opacity-45 pointer-coarse:h-9" onClick={() => setDaEliminare(c.id)}>
                               Elimina
                             </button>
                           )}

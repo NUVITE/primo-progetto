@@ -9,13 +9,14 @@ import {
   azioneSalvaSala,
   datiConfigurazioneSale,
 } from "./actions";
+import { Suggerimento } from "@/components/Suggerimento";
 
 type Dati = Awaited<ReturnType<typeof datiConfigurazioneSale>>;
 type Sala = Dati["sale"][number];
 type Fascia = Dati["fasce"][number];
 
 const CELLA =
-  "w-full rounded-md border border-stone-300 px-2 py-1 text-sm text-stone-900";
+  "h-8 w-full min-w-0 rounded-md border border-stone-300 bg-white px-2.5 text-sm text-stone-900 hover:border-stone-400 disabled:bg-stone-100 pointer-coarse:h-10";
 const BOTTONE =
   "rounded-md bg-teal-700 px-2.5 py-1 text-xs font-bold text-white disabled:opacity-40";
 const euro = (n: number | null) => (n === null ? "—" : `${n.toFixed(2)} €`);
@@ -244,7 +245,7 @@ export function GestioneSale({ iniziale }: { iniziale: Dati }) {
           </button>
           <button
             type="button"
-            className="text-xs font-semibold text-stone-600"
+            className="inline-flex h-7 items-center justify-center gap-1 rounded-md border border-stone-300 bg-white px-2.5 text-xs font-semibold text-stone-800 shadow-sm hover:bg-stone-50 disabled:opacity-45 pointer-coarse:h-9"
             onClick={() => setSalaInModifica(null)}
           >
             Annulla
@@ -323,7 +324,7 @@ export function GestioneSale({ iniziale }: { iniziale: Dati }) {
             </button>
             <button
               type="button"
-              className="text-xs font-semibold text-stone-600"
+              className="inline-flex h-7 items-center justify-center gap-1 rounded-md border border-stone-300 bg-white px-2.5 text-xs font-semibold text-stone-800 shadow-sm hover:bg-stone-50 disabled:opacity-45 pointer-coarse:h-9"
               onClick={() => setAllestimento(null)}
             >
               Annulla
@@ -369,7 +370,7 @@ export function GestioneSale({ iniziale }: { iniziale: Dati }) {
                 <td className="cella-intera py-1.5 md:text-right">
                   <button
                     type="button"
-                    className="text-xs font-semibold text-teal-700"
+                    className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-semibold text-teal-800 hover:bg-teal-50 pointer-coarse:h-9"
                     onClick={() =>
                       setAllestimento({
                         salaId: s.id,
@@ -396,7 +397,7 @@ export function GestioneSale({ iniziale }: { iniziale: Dati }) {
               <td colSpan={5} className="cella-intera py-1.5">
                 <button
                   type="button"
-                  className="text-xs font-semibold text-teal-700"
+                  className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-semibold text-teal-800 hover:bg-teal-50 pointer-coarse:h-9"
                   onClick={() =>
                     setAllestimento({
                       salaId: s.id,
@@ -478,7 +479,7 @@ export function GestioneSale({ iniziale }: { iniziale: Dati }) {
             </button>
             <button
               type="button"
-              className="text-xs font-semibold text-stone-600"
+              className="inline-flex h-7 items-center justify-center gap-1 rounded-md border border-stone-300 bg-white px-2.5 text-xs font-semibold text-stone-800 shadow-sm hover:bg-stone-50 disabled:opacity-45 pointer-coarse:h-9"
               onClick={() => setFasciaInModifica(null)}
             >
               Annulla
@@ -512,7 +513,7 @@ export function GestioneSale({ iniziale }: { iniziale: Dati }) {
                     <button
                       type="button"
                       disabled={busy}
-                      className="font-bold text-red-600"
+                      className="inline-flex h-7 items-center gap-1 rounded-md border border-red-300 bg-white px-2 text-xs font-semibold text-red-700 shadow-sm hover:bg-red-50 disabled:opacity-45 pointer-coarse:h-9"
                       onClick={async () => {
                         await esegui(
                           () => sbusta(azioneEliminaFascia(fa.id)),
@@ -525,7 +526,7 @@ export function GestioneSale({ iniziale }: { iniziale: Dati }) {
                     </button>{" "}
                     <button
                       type="button"
-                      className="font-semibold text-stone-600"
+                      className="inline-flex h-7 items-center justify-center gap-1 rounded-md border border-stone-300 bg-white px-2.5 text-xs font-semibold text-stone-800 shadow-sm hover:bg-stone-50 disabled:opacity-45 pointer-coarse:h-9"
                       onClick={() => setFasciaDaEliminare(null)}
                     >
                       No
@@ -535,7 +536,7 @@ export function GestioneSale({ iniziale }: { iniziale: Dati }) {
                   <>
                     <button
                       type="button"
-                      className="mr-2 text-xs font-semibold text-teal-700"
+                      className="mr-2 inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-semibold text-teal-800 hover:bg-teal-50 pointer-coarse:h-9"
                       onClick={() =>
                         setFasciaInModifica({
                           id: fa.id,
@@ -552,7 +553,7 @@ export function GestioneSale({ iniziale }: { iniziale: Dati }) {
                     </button>
                     <button
                       type="button"
-                      className="text-xs font-semibold text-red-600"
+                      className="inline-flex h-7 items-center gap-1 rounded-md border border-red-300 bg-white px-2 text-xs font-semibold text-red-700 shadow-sm hover:bg-red-50 disabled:opacity-45 pointer-coarse:h-9"
                       onClick={() => setFasciaDaEliminare(fa.id)}
                     >
                       Elimina
@@ -570,7 +571,7 @@ export function GestioneSale({ iniziale }: { iniziale: Dati }) {
             <td colSpan={5} className="cella-intera py-1.5">
               <button
                 type="button"
-                className="text-xs font-semibold text-teal-700"
+                className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-semibold text-teal-800 hover:bg-teal-50 pointer-coarse:h-9"
                 onClick={() =>
                   setFasciaInModifica({
                     id: 0,
@@ -596,7 +597,14 @@ export function GestioneSale({ iniziale }: { iniziale: Dati }) {
     <div className="flex w-full min-w-0 flex-col gap-4 p-3 sm:p-6">
       <div>
         <h1 className="text-xl font-bold">Sale e fasce orarie</h1>
-        <p className="text-sm text-stone-600">
+        <Suggerimento id="impostazioni-sale" titolo="Come si configurano le sale">
+          <ol className="list-decimal space-y-1 pl-5">
+            <li>Controlla le <strong>fasce orarie</strong> (Mattina, Pomeriggio, Sera, Giornata intera): sono quelle che si prenotano e che dividono il planning.</li>
+            <li>Crea ogni sala con <strong>+ Nuova sala</strong>: capienza, minuti di riassetto tra un evento e l&apos;altro, prezzo per fascia e, se si affitta anche a ore, il prezzo orario.</li>
+            <li>Per ogni sala aggiungi gli <strong>allestimenti</strong> (platea, banchi di scuola, tavoli…) con la loro capienza e l&apos;eventuale costo.</li>
+          </ol>
+        </Suggerimento>
+        <p className="mt-2 text-sm text-stone-700">
           Il prezzo di una sala è quello della fascia se l&apos;orario coincide
           con una fascia a prezzo fisso, altrimenti ore × prezzo orario;
           l&apos;allestimento si aggiunge a parte. Il prezzo resta correggibile
@@ -605,15 +613,15 @@ export function GestioneSale({ iniziale }: { iniziale: Dati }) {
       </div>
       {messaggio && (
         <p
-          className={`rounded-md px-3 py-2 text-sm font-semibold ${messaggio.tipo === "ok" ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-700"}`}
+          className={`rounded-md px-3 py-2 text-sm font-semibold ${messaggio.tipo === "ok" ? "border border-emerald-300 bg-emerald-50 text-emerald-900" : "border border-red-300 bg-red-50 text-red-800"}`}
         >
           {messaggio.testo}
         </p>
       )}
 
-      <section className="rounded-xl border border-stone-200 bg-white p-4 sm:p-5">
+      <section className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm sm:p-5">
         <h2 className="mb-1 font-bold">Fasce orarie</h2>
-        <p className="mb-2 text-xs text-stone-500">
+        <p className="mb-2 text-sm text-stone-600">
           Le fasce &quot;nel planning&quot; dividono le celle del planning (es.
           Mattina, Pomeriggio, Sera); quelle che ne coprono altre (es. Giornata
           intera) servono solo per prenotare e dare il prezzo. &quot;24:00&quot;
@@ -638,7 +646,7 @@ export function GestioneSale({ iniziale }: { iniziale: Dati }) {
         {!salaInModifica && (
           <button
             type="button"
-            className="text-sm font-semibold text-teal-700"
+            className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md border border-stone-300 bg-white px-3 text-sm font-semibold text-stone-800 shadow-sm hover:bg-stone-50 disabled:opacity-45 pointer-coarse:h-10"
             onClick={() =>
               setSalaInModifica({ id: 0, f: formDaSala(null, dati.fasce) })
             }
@@ -657,7 +665,7 @@ export function GestioneSale({ iniziale }: { iniziale: Dati }) {
       {dati.sale.map((s) => (
         <section
           key={s.id}
-          className={`rounded-xl border border-stone-200 bg-white p-4 sm:p-5 ${s.attiva ? "" : "opacity-70"}`}
+          className={`rounded-lg border border-stone-200 bg-white p-4 shadow-sm sm:p-5 ${s.attiva ? "" : "opacity-70"}`}
         >
           {salaInModifica?.id === s.id ? (
             editorSala()
@@ -692,7 +700,7 @@ export function GestioneSale({ iniziale }: { iniziale: Dati }) {
               {!salaInModifica && (
                 <button
                   type="button"
-                  className="text-xs font-semibold text-teal-700"
+                  className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-semibold text-teal-800 hover:bg-teal-50 pointer-coarse:h-9"
                   onClick={() =>
                     setSalaInModifica({
                       id: s.id,

@@ -10,8 +10,8 @@ import { azioneAnteprima, datiContesto } from "./actions";
 type Anteprima = Awaited<ReturnType<typeof anteprimaOccupazione>>;
 export type Contesto = Awaited<ReturnType<typeof datiContesto>>;
 
-export const CELLA = "w-full rounded-md border border-stone-300 px-2 py-1 text-sm text-stone-900";
-export const BOTTONE = "rounded-md bg-teal-700 px-3 py-1.5 text-xs font-bold text-white disabled:opacity-40";
+export const CELLA = "h-8 w-full min-w-0 rounded-md border border-stone-300 bg-white px-2.5 text-sm text-stone-900 hover:border-stone-400 disabled:bg-stone-100 pointer-coarse:h-10";
+export const BOTTONE = "inline-flex h-7 items-center justify-center gap-1 rounded-md bg-teal-700 px-2.5 text-xs font-semibold text-white shadow-sm hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-45 pointer-coarse:h-9";
 export { ETICHETTA_STATO, euro, it } from "./formato";
 import { ETICHETTA_STATO, euro } from "./formato";
 
@@ -223,7 +223,7 @@ export function CampiTestata({
               ))}
             </select>
             {!nuovoCliente && (
-              <button type="button" className="shrink-0 text-xs font-semibold text-teal-700" onClick={() => setNuovoCliente(true)}>
+              <button type="button" className="shrink-0 inline-flex h-7 items-center justify-center gap-1 rounded-md border border-stone-300 bg-white px-2.5 text-xs font-semibold text-stone-800 shadow-sm hover:bg-stone-50 disabled:opacity-45 pointer-coarse:h-9" onClick={() => setNuovoCliente(true)}>
                 + Nuovo
               </button>
             )}

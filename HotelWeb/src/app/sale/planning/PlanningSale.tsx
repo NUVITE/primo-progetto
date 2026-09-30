@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { datiPlanningSale } from "../actions";
+import { Suggerimento } from "@/components/Suggerimento";
 
 type Dati = Awaited<ReturnType<typeof datiPlanningSale>>;
 
@@ -28,23 +29,29 @@ export function PlanningSale({ dati, dal, giorni }: { dati: Dati; dal: string; g
     <div className="flex w-full min-w-0 flex-col gap-4 p-3 sm:p-6">
       <div className="flex flex-wrap items-center gap-2">
         <h1 className="mr-auto text-xl font-bold">Planning sale</h1>
-        <button type="button" className="rounded-md border border-stone-300 bg-white px-2.5 py-1 text-sm" onClick={() => vai(sposta(dal, -7))}>
+        <button type="button" className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md border border-stone-300 bg-white px-3 text-sm font-semibold text-stone-800 shadow-sm hover:bg-stone-50 pointer-coarse:h-10" onClick={() => vai(sposta(dal, -7))}>
           ← 7 giorni
         </button>
-        <button type="button" className="rounded-md border border-stone-300 bg-white px-2.5 py-1 text-sm" onClick={() => vai(oggi)}>
+        <button type="button" className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md border border-stone-300 bg-white px-3 text-sm font-semibold text-stone-800 shadow-sm hover:bg-stone-50 pointer-coarse:h-10" onClick={() => vai(oggi)}>
           Oggi
         </button>
         <input type="date" className="rounded-md border border-stone-300 px-2 py-1 text-sm" value={dal} onChange={(e) => e.target.value && vai(e.target.value)} />
-        <button type="button" className="rounded-md border border-stone-300 bg-white px-2.5 py-1 text-sm" onClick={() => vai(sposta(dal, 7))}>
+        <button type="button" className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md border border-stone-300 bg-white px-3 text-sm font-semibold text-stone-800 shadow-sm hover:bg-stone-50 pointer-coarse:h-10" onClick={() => vai(sposta(dal, 7))}>
           7 giorni →
         </button>
         {dati.puoGestire && (
-          <Link href="/sale/prenotazioni/nuova" className="rounded-md bg-teal-700 px-3 py-1.5 text-sm font-bold text-white">
+          <Link href="/sale/prenotazioni/nuova" className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md bg-teal-700 px-3 text-sm font-semibold text-white shadow-sm hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-45 pointer-coarse:h-10">
             + Nuova
           </Link>
         )}
       </div>
-      <div className="flex flex-wrap gap-3 text-xs text-stone-600">
+      <Suggerimento id="planning-sale" titolo="Come si usa il planning delle sale">
+        <p>
+          Ogni riga è una sala, ogni giorno è diviso nelle fasce (M, P, S). Clicca una fascia <strong>libera</strong> per prenotarla (sala, giorno e
+          fascia sono già compilati); clicca una fascia colorata per aprire l&apos;evento. Giallo = opzione, verde petrolio = confermata.
+        </p>
+      </Suggerimento>
+      <div className="flex flex-wrap gap-3 text-sm text-stone-700">
         <span className="flex items-center gap-1">
           <span className="inline-block h-3 w-3 rounded-sm border border-stone-300 bg-white" /> Libera
         </span>
@@ -137,7 +144,7 @@ export function PlanningSale({ dati, dal, giorni }: { dati: Dati; dal: string; g
           </table>
         </div>
       )}
-      <p className="text-xs text-stone-500">
+      <p className="text-sm text-stone-600">
         Dal {dal.split("-").reverse().join("/")} per {giorni} giorni. Clicca una fascia libera per prenotarla, una occupata per aprire l&apos;evento.
       </p>
     </div>

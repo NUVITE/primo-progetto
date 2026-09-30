@@ -13,9 +13,9 @@ export function AggiornaTabelle({ iniziale }: { iniziale: Stato }) {
   const [busy, setBusy] = useState(false);
 
   return (
-    <section className="rounded-xl border border-stone-200 bg-white p-4 sm:p-5">
+    <section className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm sm:p-5">
       {messaggio && (
-        <p className={`mb-3 rounded-md px-3 py-2 text-sm font-semibold ${messaggio.tipo === "ok" ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-700"}`}>
+        <p className={`mb-3 rounded-md px-3 py-2 text-sm font-semibold ${messaggio.tipo === "ok" ? "border border-emerald-300 bg-emerald-50 text-emerald-900" : "border border-red-300 bg-red-50 text-red-800"}`}>
           {messaggio.testo}
         </p>
       )}
@@ -47,7 +47,7 @@ export function AggiornaTabelle({ iniziale }: { iniziale: Stato }) {
       <button
         type="button"
         disabled={busy}
-        className="mt-4 rounded-md bg-teal-700 px-4 py-2 text-sm font-bold text-white disabled:opacity-40"
+        className="mt-4 inline-flex h-8 items-center justify-center gap-1.5 rounded-md bg-teal-700 px-3 text-sm font-semibold text-white shadow-sm hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-45 pointer-coarse:h-10"
         onClick={async () => {
           setMessaggio(null);
           setBusy(true);

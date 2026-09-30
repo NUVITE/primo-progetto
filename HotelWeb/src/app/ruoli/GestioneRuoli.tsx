@@ -4,6 +4,7 @@ import { sbusta } from "@/lib/esito";
 import { CATALOGO_PERMESSI, permessiCheRichiedono, permessiEffettivi, type Permesso } from "@/lib/permessi";
 import { useState } from "react";
 import { azioneCreaRuolo, azioneEliminaRuolo, azioneImpostaPermessi, azioneRinominaRuolo, datiRuoli } from "./actions";
+import { Suggerimento } from "@/components/Suggerimento";
 
 type Dati = Awaited<ReturnType<typeof datiRuoli>>;
 type Ruolo = Dati["ruoli"][number];
@@ -45,18 +46,21 @@ export function GestioneRuoli({ iniziale }: { iniziale: Dati }) {
     <div className="flex w-full min-w-0 flex-col gap-6 p-3 sm:p-6">
       <div>
         <h1 className="text-xl font-bold">Ruoli</h1>
-        <p className="text-sm text-stone-600">
-          I ruoli di <strong>{dati.hotelNome}</strong> e cosa può fare ciascuno. Le modifiche valgono subito per tutti gli utenti con quel ruolo.
-        </p>
+        <Suggerimento id="ruoli" titolo="Come si usano i ruoli">
+          <p>
+            Un ruolo è un insieme di permessi (per esempio Reception, Direttore, Governante). Spunta cosa può fare ciascun ruolo in{" "}
+            <strong>{dati.hotelNome}</strong>: le modifiche valgono subito per tutti gli utenti con quel ruolo.
+          </p>
+        </Suggerimento>
       </div>
 
-      {errore && <p className="rounded-md bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">{errore}</p>}
+      {errore && <p className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm font-semibold text-red-800">{errore}</p>}
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-3">
         {dati.ruoli.map((r) => {
           const puoModificare = modificabile(r);
           return (
-            <section key={r.id} className="flex min-w-0 flex-col gap-3 rounded-xl border border-stone-200 bg-white p-4">
+            <section key={r.id} className="flex min-w-0 flex-col gap-3 rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 {inRinomina?.id === r.id ? (
                   <div className="flex flex-1 flex-wrap gap-2">
@@ -68,19 +72,19 @@ export function GestioneRuoli({ iniziale }: { iniziale: Dati }) {
                     />
                     <button
                       disabled={busy || !inRinomina.nome.trim()}
-                      className="rounded-md bg-teal-700 px-2.5 py-1 text-xs font-bold text-white disabled:opacity-40"
+                      className="inline-flex h-7 items-center justify-center gap-1 rounded-md bg-teal-700 px-2.5 text-xs font-semibold text-white shadow-sm hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-45 pointer-coarse:h-9"
                       onClick={() => eseguendo(() => sbusta(azioneRinominaRuolo(r.id, inRinomina.nome)))}
                     >
                       Salva
                     </button>
-                    <button className="rounded-md px-2.5 py-1 text-xs font-semibold text-stone-600 hover:bg-stone-100" onClick={() => setInRinomina(null)}>
+                    <button className="inline-flex h-7 items-center justify-center gap-1 rounded-md border border-stone-300 bg-white px-2.5 text-xs font-semibold text-stone-800 shadow-sm hover:bg-stone-50 disabled:opacity-45 pointer-coarse:h-9" onClick={() => setInRinomina(null)}>
                       Annulla
                     </button>
                   </div>
                 ) : (
                   <div>
                     <h2 className="font-bold">{r.nome}</h2>
-                    <p className="text-xs text-stone-500">
+                    <p className="text-sm text-stone-600">
                       {r.utenti === 0 ? "Nessun utente" : r.utenti === 1 ? "1 utente" : `${r.utenti} utenti`}
                       {!puoModificare && " · ha permessi che tu non hai: non modificabile"}
                     </p>
@@ -88,12 +92,12 @@ export function GestioneRuoli({ iniziale }: { iniziale: Dati }) {
                 )}
                 {puoModificare && inRinomina?.id !== r.id && (
                   <div className="flex gap-1">
-                    <button className="rounded-md px-2 py-1 text-xs font-semibold text-teal-700 hover:bg-teal-50" onClick={() => setInRinomina({ id: r.id, nome: r.nome })}>
+                    <button className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-semibold text-teal-800 hover:bg-teal-50 pointer-coarse:h-9" onClick={() => setInRinomina({ id: r.id, nome: r.nome })}>
                       Rinomina
                     </button>
                     {r.utenti === 0 && (
                       <button
-                        className="rounded-md px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50"
+                        className="inline-flex h-7 items-center gap-1 rounded-md border border-red-300 bg-white px-2 text-xs font-semibold text-red-700 shadow-sm hover:bg-red-50 disabled:opacity-45 pointer-coarse:h-9"
                         onClick={() => {
                           setErrore(null);
                           setDaEliminare(r.id);
@@ -151,8 +155,8 @@ export function GestioneRuoli({ iniziale }: { iniziale: Dati }) {
         })}
       </div>
 
-      <section className="min-w-0 rounded-xl border border-stone-200 bg-white p-4 sm:p-5">
-        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-stone-600">Nuovo ruolo</h2>
+      <section className="min-w-0 rounded-lg border border-stone-200 bg-white p-4 shadow-sm sm:p-5">
+        <h2 className="mb-3 text-sm font-bold text-stone-900">Nuovo ruolo</h2>
         <div className="flex flex-wrap items-end gap-3">
           <label className="flex w-full flex-col text-xs text-stone-600 sm:w-64">
             Nome
@@ -176,7 +180,7 @@ export function GestioneRuoli({ iniziale }: { iniziale: Dati }) {
           </label>
           <button
             disabled={busy || !nuovoNome.trim()}
-            className="rounded-md bg-teal-700 px-3 py-1.5 text-sm font-bold text-white disabled:opacity-40"
+            className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md bg-teal-700 px-3 text-sm font-semibold text-white shadow-sm hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-45 pointer-coarse:h-10"
             onClick={() =>
               eseguendo(async () => {
                 const permessi = dati.ruoli.find((r) => r.id === copiaDa)?.permessi ?? [];

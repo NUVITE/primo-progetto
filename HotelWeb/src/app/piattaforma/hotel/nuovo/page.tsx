@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { datiModulo } from "../actions";
 import { FormHotel, HOTEL_VUOTO } from "../FormHotel";
+import { Suggerimento } from "@/components/Suggerimento";
 
 export default async function NuovoHotelPage() {
   const riferimenti = await datiModulo();
@@ -9,9 +10,12 @@ export default async function NuovoHotelPage() {
       <div>
         <Link href="/piattaforma/hotel" className="text-sm text-teal-700">← Hotel</Link>
         <h1 className="text-xl font-bold">Nuovo hotel</h1>
-        <p className="text-sm text-stone-600">
-          Alla creazione l&apos;hotel riceve i ruoli predefiniti e un listino base. Camere e tariffe si configurano poi dall&apos;hotel stesso.
-        </p>
+        <Suggerimento id="nuovo-hotel" titolo="Cosa succede alla creazione">
+          <p>
+            L&apos;hotel riceve i ruoli predefiniti, un listino base, i trattamenti e le fasce orarie delle sale. Se indichi un amministratore, può
+            entrare subito e configurare camere e tariffe dall&apos;hotel stesso.
+          </p>
+        </Suggerimento>
       </div>
       <FormHotel riferimenti={riferimenti} iniziale={HOTEL_VUOTO} />
     </div>

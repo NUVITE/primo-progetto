@@ -17,7 +17,7 @@ import { Suggerimento } from "@/components/Suggerimento";
 type Dati = Awaited<ReturnType<typeof datiListini>>;
 type Periodo = { dal: string; al: string; prezzoNotte: string };
 
-const CELLA = "w-full rounded-md border border-stone-300 px-2 py-1 text-sm text-stone-900";
+const CELLA = "h-8 w-full min-w-0 rounded-md border border-stone-300 bg-white px-2.5 text-sm text-stone-900 hover:border-stone-400 disabled:bg-stone-100 pointer-coarse:h-10";
 const it = (iso: string) => iso.split("-").reverse().join("/");
 const vuoto = (): Periodo => ({ dal: "", al: "", prezzoNotte: "" });
 
@@ -70,7 +70,7 @@ export function GestioneListini({ iniziale }: { iniziale: Dati }) {
         <p>Ogni modifica vale per le nuove prenotazioni: quelle già fatte conservano il prezzo concordato.</p>
       </Suggerimento>
       {messaggio && (
-        <p className={`rounded-md px-3 py-2 text-sm font-semibold ${messaggio.tipo === "ok" ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-700"}`}>
+        <p className={`rounded-md px-3 py-2 text-sm font-semibold ${messaggio.tipo === "ok" ? "border border-emerald-300 bg-emerald-50 text-emerald-900" : "border border-red-300 bg-red-50 text-red-800"}`}>
           {messaggio.testo}
         </p>
       )}
@@ -99,26 +99,26 @@ export function GestioneListini({ iniziale }: { iniziale: Dati }) {
             <button
               type="button"
               disabled={busy}
-              className="rounded-md bg-teal-700 px-2.5 py-1 text-xs font-bold text-white disabled:opacity-40"
+              className="inline-flex h-7 items-center justify-center gap-1 rounded-md bg-teal-700 px-2.5 text-xs font-semibold text-white shadow-sm hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-45 pointer-coarse:h-9"
               onClick={async () => {
                 if (await esegui(() => sbusta(azioneCreaListino(nuovoListino.codice, nuovoListino.descrizione, nuovoListino.gruppo)), () => "Listino creato.")) setNuovoListino(null);
               }}
             >
               Crea
             </button>
-            <button type="button" className="text-xs font-semibold text-stone-600" onClick={() => setNuovoListino(null)}>
+            <button type="button" className="inline-flex h-7 items-center justify-center gap-1 rounded-md border border-stone-300 bg-white px-2.5 text-xs font-semibold text-stone-800 shadow-sm hover:bg-stone-50 disabled:opacity-45 pointer-coarse:h-9" onClick={() => setNuovoListino(null)}>
               Annulla
             </button>
           </span>
         ) : (
-          <button type="button" className="text-sm font-semibold text-teal-700" onClick={() => setNuovoListino({ codice: "", descrizione: "", gruppo: false })}>
+          <button type="button" className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md border border-stone-300 bg-white px-3 text-sm font-semibold text-stone-800 shadow-sm hover:bg-stone-50 disabled:opacity-45 pointer-coarse:h-10" onClick={() => setNuovoListino({ codice: "", descrizione: "", gruppo: false })}>
             + Nuovo listino
           </button>
         )}
         <button
           type="button"
           disabled={busy}
-          className="ml-auto rounded-md border border-stone-300 px-3 py-1.5 text-xs font-semibold text-stone-700 disabled:opacity-40"
+          className="ml-auto inline-flex h-8 items-center justify-center gap-1.5 rounded-md border border-stone-300 bg-white px-3 text-sm font-semibold text-stone-800 shadow-sm hover:bg-stone-50 disabled:opacity-45 pointer-coarse:h-10"
           title="Prenotazioni fatte quando la tariffa mancava: usa i prezzi attuali del listino"
           onClick={() =>
             esegui(
@@ -139,7 +139,7 @@ export function GestioneListini({ iniziale }: { iniziale: Dati }) {
           {rinomina === null ? (
             <>
               Codice <span className="font-mono">{listino.codice}</span>
-              <button type="button" className="text-xs font-semibold text-teal-700" onClick={() => setRinomina(listino.descrizione)}>
+              <button type="button" className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-semibold text-teal-800 hover:bg-teal-50 pointer-coarse:h-9" onClick={() => setRinomina(listino.descrizione)}>
                 Rinomina
               </button>
             </>
@@ -149,14 +149,14 @@ export function GestioneListini({ iniziale }: { iniziale: Dati }) {
               <button
                 type="button"
                 disabled={busy}
-                className="rounded-md bg-teal-700 px-2.5 py-1 text-xs font-bold text-white"
+                className="inline-flex h-7 items-center justify-center gap-1 rounded-md bg-teal-700 px-2.5 text-xs font-semibold text-white shadow-sm hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-45 pointer-coarse:h-9"
                 onClick={async () => {
                   if (await esegui(() => sbusta(azioneRinominaListino(listino.id, rinomina)))) setRinomina(null);
                 }}
               >
                 Salva
               </button>
-              <button type="button" className="text-xs font-semibold text-stone-600" onClick={() => setRinomina(null)}>
+              <button type="button" className="inline-flex h-7 items-center justify-center gap-1 rounded-md border border-stone-300 bg-white px-2.5 text-xs font-semibold text-stone-800 shadow-sm hover:bg-stone-50 disabled:opacity-45 pointer-coarse:h-9" onClick={() => setRinomina(null)}>
                 Annulla
               </button>
             </>
@@ -178,7 +178,7 @@ export function GestioneListini({ iniziale }: { iniziale: Dati }) {
         const tipo = dati.tipi.find((x) => x.id === t.tipoCameraId)!;
         const nuovo = nuovi[t.tipoCameraId] ?? vuoto();
         return (
-          <section key={t.tipoCameraId} className="rounded-xl border border-stone-200 bg-white p-4 sm:p-5">
+          <section key={t.tipoCameraId} className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm sm:p-5">
             <h2 className="mb-2 font-bold">{tipo.descrizione}</h2>
             {t.buchi.length > 0 && (
               <p className="mb-2 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-900">
@@ -212,14 +212,14 @@ export function GestioneListini({ iniziale }: { iniziale: Dati }) {
                         <button
                           type="button"
                           disabled={busy}
-                          className="mr-2 rounded-md bg-teal-700 px-2.5 py-1 text-xs font-bold text-white"
+                          className="mr-2 inline-flex h-7 items-center justify-center gap-1 rounded-md bg-teal-700 px-2.5 text-xs font-semibold text-white shadow-sm hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-45 pointer-coarse:h-9"
                           onClick={async () => {
                             if (await esegui(() => sbusta(azioneModificaPeriodo(p.id, numero(modifica.p))), () => "Periodo aggiornato.")) setModifica(null);
                           }}
                         >
                           Salva
                         </button>
-                        <button type="button" className="text-xs font-semibold text-stone-600" onClick={() => setModifica(null)}>
+                        <button type="button" className="inline-flex h-7 items-center justify-center gap-1 rounded-md border border-stone-300 bg-white px-2.5 text-xs font-semibold text-stone-800 shadow-sm hover:bg-stone-50 disabled:opacity-45 pointer-coarse:h-9" onClick={() => setModifica(null)}>
                           Annulla
                         </button>
                       </td>
@@ -232,12 +232,12 @@ export function GestioneListini({ iniziale }: { iniziale: Dati }) {
                       <td className="cella-intera py-1.5 md:text-right">
                         <button
                           type="button"
-                          className="mr-2 text-xs font-semibold text-teal-700"
+                          className="mr-2 inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-semibold text-teal-800 hover:bg-teal-50 pointer-coarse:h-9"
                           onClick={() => setModifica({ id: p.id, p: { dal: p.dal, al: p.al, prezzoNotte: String(p.prezzoNotte) } })}
                         >
                           Modifica
                         </button>
-                        <button type="button" disabled={busy} className="text-xs font-semibold text-red-600" onClick={() => esegui(() => sbusta(azioneEliminaPeriodo(p.id)), () => "Periodo eliminato.")}>
+                        <button type="button" disabled={busy} className="inline-flex h-7 items-center gap-1 rounded-md border border-red-300 bg-white px-2 text-xs font-semibold text-red-700 shadow-sm hover:bg-red-50 disabled:opacity-45 pointer-coarse:h-9" onClick={() => esegui(() => sbusta(azioneEliminaPeriodo(p.id)), () => "Periodo eliminato.")}>
                           Elimina
                         </button>
                       </td>
@@ -266,7 +266,7 @@ export function GestioneListini({ iniziale }: { iniziale: Dati }) {
                     <button
                       type="button"
                       disabled={busy || !nuovo.dal || !nuovo.al || nuovo.prezzoNotte === ""}
-                      className="rounded-md bg-teal-700 px-2.5 py-1 text-xs font-bold text-white disabled:opacity-40"
+                      className="inline-flex h-7 items-center justify-center gap-1 rounded-md bg-teal-700 px-2.5 text-xs font-semibold text-white shadow-sm hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-45 pointer-coarse:h-9"
                       onClick={async () => {
                         if (await esegui(() => sbusta(azioneCreaPeriodo(listino.id, t.tipoCameraId, numero(nuovo))), () => "Periodo aggiunto.")) {
                           setNuovi({ ...nuovi, [t.tipoCameraId]: vuoto() });

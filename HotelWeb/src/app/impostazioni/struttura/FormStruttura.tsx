@@ -4,6 +4,7 @@ import { useState } from "react";
 import { sbusta } from "@/lib/esito";
 import type { caricaStruttura, DatiStruttura } from "@/lib/impostazioniHotel";
 import { azioneSalvaStruttura } from "../actions";
+import { Suggerimento } from "@/components/Suggerimento";
 
 type Struttura = Awaited<ReturnType<typeof caricaStruttura>>;
 
@@ -28,16 +29,22 @@ export function FormStruttura({ iniziale }: { iniziale: Struttura }) {
     <div className="flex w-full min-w-0 flex-col gap-4 p-3 sm:p-6">
       <div>
         <h1 className="text-xl font-bold">Dati della struttura</h1>
-        <p className="text-sm text-stone-600">Intestazione di documenti e ricevute, contatti e orari.</p>
+        <Suggerimento id="struttura" titolo="A cosa servono questi dati">
+          <p>
+            Ragione sociale, partita IVA, indirizzo e contatti compaiono nell&apos;intestazione di ricevute e documenti; gli orari di check-in e
+            check-out sono quelli comunicati agli ospiti. Nome, comune e categoria dell&apos;hotel li gestisce il fornitore del programma, perché
+            decidono la tassa di soggiorno.
+          </p>
+        </Suggerimento>
       </div>
       {messaggio && (
-        <p className={`rounded-md px-3 py-2 text-sm font-semibold ${messaggio.tipo === "ok" ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-700"}`}>
+        <p className={`rounded-md px-3 py-2 text-sm font-semibold ${messaggio.tipo === "ok" ? "border border-emerald-300 bg-emerald-50 text-emerald-900" : "border border-red-300 bg-red-50 text-red-800"}`}>
           {messaggio.testo}
         </p>
       )}
 
       <section className="rounded-xl border border-stone-200 bg-stone-50 p-4 text-sm sm:p-5">
-        <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-stone-600">Gestiti dalla piattaforma</h2>
+        <h2 className="mb-2 text-sm font-bold text-stone-900">Gestiti dalla piattaforma</h2>
         <dl className="grid grid-cols-1 gap-2 sm:grid-cols-4">
           <div>
             <dt className="text-xs text-stone-500">Nome</dt>
@@ -56,11 +63,11 @@ export function FormStruttura({ iniziale }: { iniziale: Struttura }) {
             <dd className="font-semibold">{s.sistemaIstat ? ISTAT[s.sistemaIstat] ?? s.sistemaIstat : "Non configurata"}</dd>
           </div>
         </dl>
-        <p className="mt-2 text-xs text-stone-500">Per cambiarli rivolgiti al gestore della piattaforma: influiscono su tassa di soggiorno e adempimenti.</p>
+        <p className="mt-2 text-sm text-stone-600">Per cambiarli rivolgiti al gestore della piattaforma: influiscono su tassa di soggiorno e adempimenti.</p>
       </section>
 
-      <section className="rounded-xl border border-stone-200 bg-white p-4 sm:p-5">
-        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-stone-600">Dati fiscali</h2>
+      <section className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm sm:p-5">
+        <h2 className="mb-3 text-sm font-bold text-stone-900">Dati fiscali</h2>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <label className={ETICHETTA}>
             Ragione sociale
@@ -81,8 +88,8 @@ export function FormStruttura({ iniziale }: { iniziale: Struttura }) {
         </div>
       </section>
 
-      <section className="rounded-xl border border-stone-200 bg-white p-4 sm:p-5">
-        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-stone-600">Indirizzo, contatti e orari</h2>
+      <section className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm sm:p-5">
+        <h2 className="mb-3 text-sm font-bold text-stone-900">Indirizzo, contatti e orari</h2>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <label className={`${ETICHETTA} sm:col-span-2`}>
             Indirizzo
@@ -115,7 +122,7 @@ export function FormStruttura({ iniziale }: { iniziale: Struttura }) {
         <button
           type="button"
           disabled={busy}
-          className="rounded-md bg-teal-700 px-4 py-2 text-sm font-bold text-white disabled:opacity-40"
+          className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md bg-teal-700 px-3 text-sm font-semibold text-white shadow-sm hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-45 pointer-coarse:h-10"
           onClick={async () => {
             setMessaggio(null);
             setBusy(true);

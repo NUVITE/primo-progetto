@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { DatiCliente } from "@/lib/clienti";
 
-const CELLA = "w-full rounded-md border border-stone-300 px-2 py-1 text-sm text-stone-900";
+const CELLA = "h-8 w-full min-w-0 rounded-md border border-stone-300 bg-white px-2.5 text-sm text-stone-900 hover:border-stone-400 disabled:bg-stone-100 pointer-coarse:h-10";
 
 export const clienteVuoto = (): DatiCliente => ({
   tipo: "azienda",
@@ -70,16 +70,16 @@ export function FormCliente({
       </div>
       <label className="flex flex-col gap-1 text-xs font-semibold text-stone-600">
         Note
-        <textarea className={CELLA} rows={2} value={d.note} onChange={(e) => set({ note: e.target.value })} />
+        <textarea className={`${CELLA} h-auto py-1.5`} rows={2} value={d.note} onChange={(e) => set({ note: e.target.value })} />
       </label>
       <label className="flex items-center gap-2 text-sm">
         <input type="checkbox" checked={d.attivo} onChange={(e) => set({ attivo: e.target.checked })} /> Attivo
       </label>
       <div className="flex gap-2">
-        <button type="button" disabled={busy} className="rounded-md bg-teal-700 px-2.5 py-1 text-xs font-bold text-white disabled:opacity-40" onClick={() => onSalva(d)}>
+        <button type="button" disabled={busy} className="inline-flex h-7 items-center justify-center gap-1 rounded-md bg-teal-700 px-2.5 text-xs font-semibold text-white shadow-sm hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-45 pointer-coarse:h-9" onClick={() => onSalva(d)}>
           Salva cliente
         </button>
-        <button type="button" className="text-xs font-semibold text-stone-600" onClick={onAnnulla}>
+        <button type="button" className="inline-flex h-7 items-center justify-center gap-1 rounded-md border border-stone-300 bg-white px-2.5 text-xs font-semibold text-stone-800 shadow-sm hover:bg-stone-50 disabled:opacity-45 pointer-coarse:h-9" onClick={onAnnulla}>
           Annulla
         </button>
       </div>

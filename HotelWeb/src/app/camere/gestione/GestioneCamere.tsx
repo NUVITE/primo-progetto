@@ -12,6 +12,7 @@ import {
   azioneImpostaCameraAttiva,
   datiGestione,
 } from "./actions";
+import { Suggerimento } from "@/components/Suggerimento";
 
 type Dati = Awaited<ReturnType<typeof datiGestione>>;
 
@@ -56,13 +57,20 @@ export function GestioneCamere({ iniziale }: { iniziale: Dati }) {
   return (
     <div className="flex w-full min-w-0 flex-col gap-6 p-3 sm:p-6">
       <h1 className="text-xl font-bold">Gestione camere</h1>
+      <Suggerimento id="gestione-camere" titolo="Come si configurano le camere">
+        <ol className="list-decimal space-y-1 pl-5">
+          <li>Crea i <strong>tipi camera</strong> (singola, doppia, suite…): i prezzi dei listini sono per tipo. Qui indichi anche quanti letti aggiunti sono possibili e se gli animali sono ammessi.</li>
+          <li>Aggiungi le <strong>camere</strong> con numero, tipo, piano e capienza.</li>
+          <li>Per una camera in manutenzione usa <strong>Fuori servizio</strong>: nel periodo indicato non si può prenotare.</li>
+        </ol>
+      </Suggerimento>
 
-      {errore && <p className="rounded-md bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">{errore}</p>}
+      {errore && <p className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm font-semibold text-red-800">{errore}</p>}
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         {/* Tipi camera */}
-        <section className="min-w-0 rounded-xl border border-stone-200 bg-white p-4 sm:p-5">
-          <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-stone-600">Tipi camera</h2>
+        <section className="min-w-0 rounded-lg border border-stone-200 bg-white p-4 shadow-sm sm:p-5">
+          <h2 className="mb-3 text-sm font-bold text-stone-900">Tipi camera</h2>
           <table className="mb-4 w-full text-sm">
             <thead className="text-left text-xs uppercase text-stone-500">
               <tr><th className="pb-1">Codice</th><th className="pb-1">Descrizione</th><th className="pb-1" title="Letti aggiunti possibili oltre la capienza">Letti agg.</th><th className="pb-1">Animali</th></tr>
@@ -103,7 +111,7 @@ export function GestioneCamere({ iniziale }: { iniziale: Dati }) {
             <input className="min-w-0 flex-1 rounded-md border border-stone-300 px-2 py-1.5 text-sm" placeholder="Descrizione (es. Tripla)" value={nuovoTipoDescrizione} onChange={(e) => setNuovoTipoDescrizione(e.target.value)} />
             <button
               disabled={busy || !nuovoTipoCodice || !nuovoTipoDescrizione}
-              className="rounded-md bg-teal-700 px-3 py-1.5 text-sm font-bold text-white disabled:opacity-40"
+              className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md bg-teal-700 px-3 text-sm font-semibold text-white shadow-sm hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-45 pointer-coarse:h-10"
               onClick={() =>
                 eseguendo(async () => {
                   const r = await sbusta(azioneCreaTipoCamera(nuovoTipoCodice, nuovoTipoDescrizione));
@@ -119,8 +127,8 @@ export function GestioneCamere({ iniziale }: { iniziale: Dati }) {
         </section>
 
         {/* Manutenzione */}
-        <section className="min-w-0 rounded-xl border border-stone-200 bg-white p-4 sm:p-5">
-          <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-stone-600">Fuori servizio / manutenzione</h2>
+        <section className="min-w-0 rounded-lg border border-stone-200 bg-white p-4 shadow-sm sm:p-5">
+          <h2 className="mb-3 text-sm font-bold text-stone-900">Fuori servizio / manutenzione</h2>
           <table className="tabella-responsive mb-4 w-full text-sm">
             <thead className="text-left text-xs uppercase text-stone-500">
               <tr><th className="pb-1">Camera</th><th className="pb-1">Dal</th><th className="pb-1">Al</th><th className="pb-1">Motivo</th><th /></tr>
@@ -133,7 +141,7 @@ export function GestioneCamere({ iniziale }: { iniziale: Dati }) {
                   <td data-label="Al" className="py-1.5 font-mono">{formattaIt(i.al)}</td>
                   <td data-label="Motivo" className="py-1.5">{i.motivo}</td>
                   <td className="cella-intera py-1.5 md:text-right">
-                    <button className="text-xs font-semibold text-red-600" onClick={() => eseguendo(() => sbusta(azioneEliminaIndisponibilita(i.id)))}>
+                    <button className="inline-flex h-7 items-center gap-1 rounded-md border border-red-300 bg-white px-2 text-xs font-semibold text-red-700 shadow-sm hover:bg-red-50 disabled:opacity-45 pointer-coarse:h-9" onClick={() => eseguendo(() => sbusta(azioneEliminaIndisponibilita(i.id)))}>
                       Rimuovi
                     </button>
                   </td>
@@ -162,7 +170,7 @@ export function GestioneCamere({ iniziale }: { iniziale: Dati }) {
             <input className="min-w-[12rem] flex-1 rounded-md border border-stone-300 px-2 py-1.5 text-sm" placeholder="Motivo (es. rifacimento bagno)" value={nuovaIndisp.motivo} onChange={(e) => setNuovaIndisp({ ...nuovaIndisp, motivo: e.target.value })} />
             <button
               disabled={busy || !nuovaIndisp.dal || !nuovaIndisp.al || !nuovaIndisp.motivo}
-              className="rounded-md bg-teal-700 px-3 py-1.5 text-sm font-bold text-white disabled:opacity-40"
+              className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md bg-teal-700 px-3 text-sm font-semibold text-white shadow-sm hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-45 pointer-coarse:h-10"
               onClick={() =>
                 eseguendo(async () => {
                   const r = await sbusta(azioneCreaIndisponibilita(nuovaIndisp));
@@ -178,8 +186,8 @@ export function GestioneCamere({ iniziale }: { iniziale: Dati }) {
       </div>
 
       {/* Camere */}
-      <section className="min-w-0 rounded-xl border border-stone-200 bg-white p-4 sm:p-5">
-        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-stone-600">Camere</h2>
+      <section className="min-w-0 rounded-lg border border-stone-200 bg-white p-4 shadow-sm sm:p-5">
+        <h2 className="mb-3 text-sm font-bold text-stone-900">Camere</h2>
         <table className="tabella-responsive mb-4 w-full text-sm">
           <thead className="text-left text-xs uppercase text-stone-500">
             <tr><th className="pb-1">Codice</th><th className="pb-1">Piano</th><th className="pb-1">Tipo</th><th className="pb-1">Cap. adulti</th><th className="pb-1">Cap. bambini</th><th className="pb-1">Attiva</th></tr>
@@ -238,7 +246,7 @@ export function GestioneCamere({ iniziale }: { iniziale: Dati }) {
           </div>
           <button
             disabled={busy || !nuovaCamera.codice || !nuovaCamera.tipoCameraId}
-            className="rounded-md bg-teal-700 px-3 py-1.5 text-sm font-bold text-white disabled:opacity-40"
+            className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md bg-teal-700 px-3 text-sm font-semibold text-white shadow-sm hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-45 pointer-coarse:h-10"
             onClick={() =>
               eseguendo(async () => {
                 const r = await sbusta(azioneCreaCamera(nuovaCamera));

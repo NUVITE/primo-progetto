@@ -1,6 +1,7 @@
 import { richiediPermesso } from "@/lib/auth";
 import { PERMESSI } from "@/lib/permessi";
 import { prisma } from "@/lib/prisma";
+import { Suggerimento } from "@/components/Suggerimento";
 
 const it = (d: Date) => d.toISOString().slice(0, 10).split("-").reverse().join("/");
 
@@ -29,18 +30,22 @@ export default async function RegoleTassaPage() {
     <div className="flex w-full min-w-0 flex-col gap-4 p-3 sm:p-6">
       <div>
         <h1 className="text-xl font-bold">Regole tassa di soggiorno</h1>
-        <p className="text-sm text-stone-600">
-          {hotel.comune.nome}: regolamento in vigore oggi. Per correzioni rivolgiti al gestore della piattaforma.
-        </p>
+        <Suggerimento id="regole-tassa" titolo="A cosa serve questa pagina">
+          <p>
+            Riassume il regolamento della tassa di soggiorno di <strong>{hotel.comune.nome}</strong> in vigore oggi: tariffe, tetto di notti,
+            esenzioni e riduzioni. Il calcolo nelle prenotazioni è automatico; se noti qualcosa di diverso dal regolamento del Comune avvisa il
+            fornitore del programma.
+          </p>
+        </Suggerimento>
       </div>
 
       {!versione ? (
-        <p className="rounded-xl border border-stone-200 bg-white p-5 text-sm text-stone-600">
+        <p className="rounded-lg border border-stone-200 bg-white p-5 shadow-sm text-sm text-stone-600">
           Nel comune di {hotel.comune.nome} oggi non si applica la tassa di soggiorno.
         </p>
       ) : (
         <>
-          <section className="rounded-xl border border-stone-200 bg-white p-4 sm:p-5">
+          <section className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm sm:p-5">
             <div className="text-sm">
               <strong>In vigore dal {it(versione.validoDal)}</strong>
               {versione.attoRiferimento && <span className="text-stone-600"> — {versione.attoRiferimento}</span>}
@@ -69,8 +74,8 @@ export default async function RegoleTassaPage() {
             {versione.note && <p className="mt-3 text-xs text-stone-600">{versione.note}</p>}
           </section>
 
-          <section className="rounded-xl border border-stone-200 bg-white p-4 sm:p-5">
-            <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-stone-600">Esenzioni, riduzioni e tetti speciali</h2>
+          <section className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm sm:p-5">
+            <h2 className="mb-3 text-sm font-bold text-stone-900">Esenzioni, riduzioni e tetti speciali</h2>
             <ul className="flex flex-col gap-2">
               {versione.regole.map((r) => (
                 <li key={r.id} className="border-t border-stone-100 pt-2 text-sm">
@@ -90,8 +95,8 @@ export default async function RegoleTassaPage() {
             </ul>
           </section>
 
-          <section className="rounded-xl border border-stone-200 bg-white p-4 sm:p-5">
-            <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-stone-600">Tutte le tariffe del comune</h2>
+          <section className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm sm:p-5">
+            <h2 className="mb-3 text-sm font-bold text-stone-900">Tutte le tariffe del comune</h2>
             <table className="tabella-responsive w-full text-sm">
               <thead className="text-left text-xs uppercase text-stone-500">
                 <tr>

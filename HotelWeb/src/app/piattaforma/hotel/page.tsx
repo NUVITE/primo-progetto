@@ -13,9 +13,9 @@ export default async function HotelPiattaformaPage() {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h1 className="text-xl font-bold">Hotel</h1>
-          <p className="text-sm text-stone-600">Tutte le strutture della piattaforma. Visibile solo ai superadmin.</p>
+          <p className="text-sm text-stone-700">Tutte le strutture della piattaforma (visibile solo al gestore della piattaforma). Clicca un hotel per moduli, dati e stato.</p>
         </div>
-        <Link href="/piattaforma/hotel/nuovo" className="rounded-md bg-teal-700 px-4 py-2 text-sm font-bold text-white">
+        <Link href="/piattaforma/hotel/nuovo" className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md bg-teal-700 px-3 text-sm font-semibold text-white shadow-sm hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-45 pointer-coarse:h-10">
           + Nuovo hotel
         </Link>
       </div>

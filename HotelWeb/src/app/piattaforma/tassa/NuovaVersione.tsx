@@ -23,7 +23,7 @@ export function NuovaVersione({ comuneId, versioni }: { comuneId: number; versio
   }
   return (
     <div className="mt-2 flex flex-col gap-2 rounded-md border border-dashed border-stone-300 p-3">
-      {errore && <p className="rounded-md bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">{errore}</p>}
+      {errore && <p className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm font-semibold text-red-800">{errore}</p>}
       <div className="flex flex-wrap items-end gap-3">
         <label className="flex flex-col text-xs text-stone-600">
           Valida dal
@@ -52,7 +52,7 @@ export function NuovaVersione({ comuneId, versioni }: { comuneId: number; versio
         <button
           type="button"
           disabled={busy || !dal}
-          className="rounded-md bg-teal-700 px-3 py-1.5 text-sm font-bold text-white disabled:opacity-40"
+          className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md bg-teal-700 px-3 text-sm font-semibold text-white shadow-sm hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-45 pointer-coarse:h-10"
           onClick={async () => {
             setErrore(null);
             setBusy(true);
@@ -68,7 +68,7 @@ export function NuovaVersione({ comuneId, versioni }: { comuneId: number; versio
         >
           Crea
         </button>
-        <button type="button" className="rounded-md px-3 py-1.5 text-sm font-semibold text-stone-600 hover:bg-stone-100" onClick={() => setAperto(false)}>
+        <button type="button" className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md border border-stone-300 bg-white px-3 text-sm font-semibold text-stone-800 shadow-sm hover:bg-stone-50 disabled:opacity-45 pointer-coarse:h-10" onClick={() => setAperto(false)}>
           Annulla
         </button>
       </div>
