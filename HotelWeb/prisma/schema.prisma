@@ -13,35 +13,41 @@ datasource db {
 }
 
 model Hotel {
-  id             Int      @id @default(autoincrement())
-  comuneId       Int
-  comune         Comune   @relation(fields: [comuneId], references: [id])
-  nome           String
+  id                     Int       @id @default(autoincrement())
+  comuneId               Int
+  comune                 Comune    @relation(fields: [comuneId], references: [id])
+  nome                   String
   // Usata per scegliere il regolamento della tassa di soggiorno (RegolamentoTassaComune.categoriaStruttura).
-  categoria      String?
+  categoria              String?
   // Dati anagrafici e fiscali della struttura (intestazione fatture, adempimenti).
-  ragioneSociale String?
-  partitaIva     String?
-  codiceFiscale  String?
-  indirizzo      String?
-  cap            String?
-  telefono       String?
-  email          String?
-  pec            String?
+  ragioneSociale         String?
+  partitaIva             String?
+  codiceFiscale          String?
+  indirizzo              String?
+  cap                    String?
+  telefono               String?
+  email                  String?
+  pec                    String?
   // Hotel disattivato: nessun utente dell'hotel puo' accedere (il superadmin lo vede ancora).
-  attivo         Boolean  @default(true)
+  attivo                 Boolean   @default(true)
   // Codici dei moduli opzionali attivi (vedi src/lib/moduli.ts). Null = nessuno.
-  moduli         Json?
+  moduli                 Json?
   // Sistema regionale per la statistica ISTAT: "ROSS1000" (es. Lazio) | "SPOT" (Puglia) | null.
   // Decide quali liste di motivo/mezzo compaiono al check-in (valori nativi, vedi src/lib/istat.ts).
-  sistemaIstat   String?
+  sistemaIstat           String?
   // Orari mostrati a reception e ospiti ("HH:MM").
-  orarioCheckIn  String?
-  orarioCheckOut String?
+  orarioCheckIn          String?
+  orarioCheckOut         String?
   // Giorni di validità proposti per una nuova opzione (modificabili nella singola prenotazione).
-  giorniOpzione  Int      @default(3)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  giorniOpzione          Int       @default(3)
+  // Alloggiati Web (Polizia): utente in chiaro, password e chiave del servizio web CIFRATE
+  // (src/lib/cifratura.ts). verificatoIl = ultima prova di accesso riuscita.
+  alloggiatiUtente       String?
+  alloggiatiPassword     String?   @db.Text
+  alloggiatiWskey        String?   @db.Text
+  alloggiatiVerificatoIl DateTime?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
 
   camere           Camera[]
   tipiCamera       TipoCamera[]
@@ -626,25 +632,29 @@ model TassaNotte {
  * L'id è anche l'identificativo stabile per ISTAT (idswh / codiceclientesr): non cambia mai.
  */
 model Presenza {
-  id               Int               @id @default(autoincrement())
-  segmentoId       Int
-  segmento         SegmentoSoggiorno @relation(fields: [segmentoId], references: [id], onDelete: Cascade)
-  ospiteId         Int
-  ospite           Ospite            @relation(fields: [ospiteId], references: [id])
-  dal              DateTime?         @db.Date
-  al               DateTime?         @db.Date
-  tipoAlloggiato   Int?
-  capoOspiteId     Int?
-  stato            String            @default("attesa")
-  arrivoIl         DateTime?
-  partenzaIl       DateTime?
+  id                Int               @id @default(autoincrement())
+  segmentoId        Int
+  segmento          SegmentoSoggiorno @relation(fields: [segmentoId], references: [id], onDelete: Cascade)
+  ospiteId          Int
+  ospite            Ospite            @relation(fields: [ospiteId], references: [id])
+  dal               DateTime?         @db.Date
+  al                DateTime?         @db.Date
+  tipoAlloggiato    Int?
+  capoOspiteId      Int?
+  stato             String            @default("attesa")
+  arrivoIl          DateTime?
+  partenzaIl        DateTime?
   // Dati ISTAT con i valori nativi del sistema dell'hotel (Ross1000 o SPOT).
-  occupaPostoLetto Boolean           @default(true)
-  motivoViaggio    String?
-  mezzoArrivo      String?
-  mezzoMovimento   String?
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
+  occupaPostoLetto  Boolean           @default(true)
+  motivoViaggio     String?
+  mezzoArrivo       String?
+  mezzoMovimento    String?
+  // Schedina di Polizia: inviata (con il servizio web o caricando il file) e ultimo scarto ricevuto.
+  schedinaInviataIl DateTime?
+  schedinaInvioId   Int?
+  schedinaErrore    String?           @db.Text
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
 
   tasse TassaNotte[]
 
@@ -883,4 +893,35 @@ model Pagamento {
   motivoStorno   String?
 
   @@index([prenotazioneId])
+}
+
+/**
+ * Un invio di schedine alla Polizia: con il servizio web o con il file caricato a mano sul portale.
+ */
+model InvioAlloggiati {
+  id        Int      @id @default(autoincrement())
+  hotelId   Int
+  il        DateTime @default(now())
+  da        String
+  // "servizio" | "file"
+  modalita  String
+  righe     Int
+  accettate Int
+  // Esito riga per riga: [{ presenzaId, nome, esito, errore }]
+  dettaglio Json?
+
+  @@index([hotelId, il])
+}
+
+/**
+ * Ricevuta PDF della Polizia per un giorno di invii: va conservata 5 anni.
+ */
+model RicevutaAlloggiati {
+  id          Int      @id @default(autoincrement())
+  hotelId     Int
+  data        DateTime @db.Date
+  pdf         Bytes    @db.LongBlob
+  scaricataIl DateTime @default(now())
+
+  @@unique([hotelId, data])
 }

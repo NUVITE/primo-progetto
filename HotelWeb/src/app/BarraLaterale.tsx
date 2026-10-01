@@ -9,6 +9,8 @@ import type { Modulo } from "@/lib/moduli";
 import { effettuaLogout } from "./logout-action";
 import { HotelSwitcher } from "./HotelSwitcher";
 import { COOKIE_BARRA, menuVisibile, voceAttiva, type GruppoMenu, type PreferenzeBarra } from "./menu";
+import { PERMESSI } from "@/lib/permessi";
+import { AvvisiAdempimenti } from "./AvvisiAdempimenti";
 
 export type DatiBarra = {
   nomeUtente: string;
@@ -61,6 +63,7 @@ export function Cornice({ dati, preferenze, children }: { dati: DatiBarra; prefe
           </button>
           <span className="truncate font-bold">{dati.hotelNome}</span>
         </header>
+        <AvvisiAdempimenti attivo={dati.permessi.includes(PERMESSI.ADEMPIMENTI_INVIA)} />
         <main className="flex min-w-0 flex-1 flex-col">{children}</main>
       </div>
 

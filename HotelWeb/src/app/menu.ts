@@ -20,6 +20,7 @@ export const MENU: GruppoMenu[] = [
     voci: [
       { href: "/", label: "Planning camere", permesso: PERMESSI.PRENOTAZIONI_VEDI },
       { href: "/prenotazioni", label: "Prenotazioni", permesso: PERMESSI.PRENOTAZIONI_VEDI },
+      { href: "/schedine", label: "Schedine Polizia", permesso: PERMESSI.ADEMPIMENTI_INVIA },
       { href: "/sale/planning", label: "Planning sale", permesso: PERMESSI.SALE_VEDI, modulo: "sale" },
       { href: "/sale/prenotazioni", label: "Prenotazioni sale", permesso: PERMESSI.SALE_VEDI, modulo: "sale" },
       { href: "/tassa-soggiorno", label: "Regole tassa di soggiorno", permesso: PERMESSI.PRENOTAZIONI_VEDI },
@@ -43,6 +44,7 @@ export const MENU: GruppoMenu[] = [
       { href: "/camere/gestione", label: "Camere", permesso: PERMESSI.CAMERE_GESTISCI },
       { href: "/impostazioni/listini", label: "Listini e tariffe", permesso: PERMESSI.LISTINI_GESTISCI },
       { href: "/impostazioni/trattamenti", label: "Trattamenti", permesso: PERMESSI.HOTEL_CONFIGURA },
+      { href: "/impostazioni/adempimenti", label: "Adempimenti (Polizia, ISTAT)", permesso: PERMESSI.HOTEL_CONFIGURA },
       { href: "/impostazioni/sale", label: "Sale e fasce orarie", permesso: PERMESSI.SALE_CONFIGURA, modulo: "sale" },
       { href: "/utenti", label: "Utenti", permesso: PERMESSI.UTENTI_GESTISCI },
       { href: "/ruoli", label: "Ruoli", permesso: PERMESSI.RUOLI_GESTISCI },
