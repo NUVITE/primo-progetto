@@ -479,25 +479,32 @@ model RiduzioneListino {
  * (PosizioneTassa.definitiva) non si modifica più: si crea una versione nuova.
  */
 model RegolamentoTassa {
-  id               Int       @id @default(autoincrement())
-  comuneId         Int
-  comune           Comune    @relation(fields: [comuneId], references: [id])
-  validoDal        DateTime  @db.Date
-  validoAl         DateTime? @db.Date
-  attoRiferimento  String?
-  fonteUrl         String?   @db.VarChar(500)
-  note             String?   @db.Text
+  id                Int       @id @default(autoincrement())
+  comuneId          Int
+  comune            Comune    @relation(fields: [comuneId], references: [id])
+  validoDal         DateTime  @db.Date
+  validoAl          DateTime? @db.Date
+  attoRiferimento   String?
+  fonteUrl          String?   @db.VarChar(500)
+  note              String?   @db.Text
   // Punti non chiariti dalle fonti, da mostrare come avviso (es. "Tariffa alberghi 1,50 o 2,00?").
-  daConfermare     String?   @db.Text
+  daConfermare      String?   @db.Text
   // I residenti nel comune sono fuori campo (non "esenti": nei rendiconti vanno contati a parte).
-  esclusiResidenti Boolean   @default(true)
+  esclusiResidenti  Boolean   @default(true)
   // Finestra stagionale "MM-GG" (null = tutto l'anno).
-  stagionalitaDal  String?
-  stagionalitaAl   String?
+  stagionalitaDal   String?
+  stagionalitaAl    String?
   // Il conteggio delle notti consecutive riparte il 1° gennaio ("nell'anno solare").
-  azzeraAnnoSolare Boolean   @default(true)
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  azzeraAnnoSolare  Boolean   @default(true)
+  // Rendiconto al Comune: periodo ("trimestrale" | "semestrale"), giorno del mese successivo alla
+  // fine del periodo entro cui si presenta, giorno del versamento se diverso (31 = fine mese) e
+  // promemoria degli altri obblighi (comunicazione per ospite, soglie, dichiarazione annuale).
+  rendicontoPeriodo String    @default("trimestrale")
+  rendicontoGiorno  Int       @default(16)
+  versamentoGiorno  Int?
+  rendicontoNota    String?   @db.Text
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   tariffe    TariffaTassa[]
   regole     RegolaTassa[]

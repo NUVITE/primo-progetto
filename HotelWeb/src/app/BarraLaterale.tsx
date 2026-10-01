@@ -45,14 +45,14 @@ export function Cornice({ dati, preferenze, children }: { dati: DatiBarra; prefe
   return (
     <div className="flex min-h-screen w-full">
       <aside
-        className={`barra-${pref.tema} sticky top-0 z-40 hidden h-screen flex-shrink-0 flex-col lg:flex ${pref.compatta ? "w-16" : "w-64"}`}
+        className={`barra-${pref.tema} sticky top-0 z-40 hidden h-screen flex-shrink-0 flex-col lg:flex print:hidden ${pref.compatta ? "w-16" : "w-64"}`}
         style={{ background: "var(--sb-bg)", color: "var(--sb-fg)" }}
       >
         <ContenutoBarra dati={dati} gruppi={gruppi} pref={pref} aggiorna={aggiorna} compatta={pref.compatta} />
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-stone-200 bg-white px-3 lg:hidden">
+        <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-stone-200 bg-white px-3 lg:hidden print:hidden">
           <button
             type="button"
             aria-label="Apri menu"
@@ -63,7 +63,7 @@ export function Cornice({ dati, preferenze, children }: { dati: DatiBarra; prefe
           </button>
           <span className="truncate font-bold">{dati.hotelNome}</span>
         </header>
-        <AvvisiAdempimenti attivo={dati.permessi.includes(PERMESSI.ADEMPIMENTI_INVIA)} />
+        <div className="print:hidden"><AvvisiAdempimenti attivo={dati.permessi.includes(PERMESSI.ADEMPIMENTI_INVIA)} /></div>
         <main className="flex min-w-0 flex-1 flex-col">{children}</main>
       </div>
 
