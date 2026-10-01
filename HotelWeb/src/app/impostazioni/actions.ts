@@ -3,6 +3,7 @@
 import { richiediPermesso } from "@/lib/auth";
 import { conEsito } from "@/lib/esito";
 import { PERMESSI } from "@/lib/permessi";
+import { aggiungiChiusura, eliminaChiusura } from "@/lib/chiusure";
 import {
   caricaStruttura,
   completaNottiSenzaTariffa,
@@ -35,6 +36,22 @@ export async function azioneSalvaStruttura(dati: DatiStruttura) {
     const u = await richiediPermesso(PERMESSI.HOTEL_CONFIGURA);
     await salvaStruttura(u.hotelId, dati);
     return caricaStruttura(u.hotelId);
+  });
+}
+
+// --- Periodi di chiusura (ISTAT) ---
+
+export async function azioneAggiungiChiusura(d: { dal: string; al: string; nota: string }) {
+  return conEsito(async () => {
+    const u = await richiediPermesso(PERMESSI.HOTEL_CONFIGURA);
+    return aggiungiChiusura(u.hotelId, d);
+  });
+}
+
+export async function azioneEliminaChiusura(id: number) {
+  return conEsito(async () => {
+    const u = await richiediPermesso(PERMESSI.HOTEL_CONFIGURA);
+    return eliminaChiusura(u.hotelId, id);
   });
 }
 

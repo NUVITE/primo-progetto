@@ -1,9 +1,11 @@
 import { richiediPermesso } from "@/lib/auth";
 import { caricaStruttura } from "@/lib/impostazioniHotel";
+import { elencoChiusure } from "@/lib/chiusure";
 import { PERMESSI } from "@/lib/permessi";
 import { FormStruttura } from "./FormStruttura";
 
 export default async function StrutturaPage() {
   const u = await richiediPermesso(PERMESSI.HOTEL_CONFIGURA);
-  return <FormStruttura iniziale={await caricaStruttura(u.hotelId)} />;
+  const [struttura, chiusure] = await Promise.all([caricaStruttura(u.hotelId), elencoChiusure(u.hotelId)]);
+  return <FormStruttura iniziale={struttura} chiusure={chiusure} />;
 }

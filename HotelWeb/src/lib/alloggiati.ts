@@ -156,6 +156,7 @@ export async function fileSchedine(hotelId: number) {
 
 /** Dopo aver caricato il file sul portale: segna come comunicate le schedine contenute. */
 export async function segnaInviateDaFile(hotelId: number, presenzaIds: number[], utente: string) {
+  const giorni = new Map((await schedineDaInviare(hotelId)).map((r) => [r.presenzaId, Math.min(30, Math.max(1, r.notti))]));
   const valide = await prisma.presenza.findMany({
     where: { id: { in: presenzaIds }, schedinaInviataIl: null, segmento: { prenotazione: { hotelId } } },
     include: { ospite: true },
@@ -171,7 +172,12 @@ export async function segnaInviateDaFile(hotelId: number, presenzaIds: number[],
       dettaglio: valide.map((p) => ({ presenzaId: p.id, nome: `${p.ospite.cognome} ${p.ospite.nome}`, esito: true, errore: null })),
     },
   });
-  await prisma.presenza.updateMany({ where: { id: { in: valide.map((p) => p.id) } }, data: { schedinaInviataIl: new Date(), schedinaInvioId: invio.id, schedinaErrore: null } });
+  // Si conservano i giorni dichiarati: servono a riconciliare con le notti della tassa di soggiorno.
+  await prisma.$transaction(
+    valide.map((p) =>
+      prisma.presenza.update({ where: { id: p.id }, data: { schedinaInviataIl: new Date(), schedinaInvioId: invio.id, schedinaErrore: null, schedinaGiorni: giorni.get(p.id) ?? null } }),
+    ),
+  );
   return invio.id;
 }
 
@@ -308,8 +314,11 @@ export async function inviaSchedine(hotelId: number, utente: string) {
   const invio = await prisma.invioAlloggiati.create({
     data: { hotelId, da: utente, modalita: "servizio", righe: dettaglio.length, accettate: accettate.length, dettaglio },
   });
+  const giorni = new Map(pronte.map((r) => [r.presenzaId, Math.min(30, Math.max(1, r.notti))]));
   await prisma.$transaction([
-    prisma.presenza.updateMany({ where: { id: { in: accettate.map((d) => d.presenzaId) } }, data: { schedinaInviataIl: new Date(), schedinaInvioId: invio.id, schedinaErrore: null } }),
+    ...accettate.map((d) =>
+      prisma.presenza.update({ where: { id: d.presenzaId }, data: { schedinaInviataIl: new Date(), schedinaInvioId: invio.id, schedinaErrore: null, schedinaGiorni: giorni.get(d.presenzaId) ?? null } }),
+    ),
     ...dettaglio.filter((d) => !d.esito).map((d) => prisma.presenza.update({ where: { id: d.presenzaId }, data: { schedinaErrore: d.errore } })),
   ]);
   return { inviate: dettaglio.length, accettate: accettate.length, scartate: dettaglio.filter((d) => !d.esito) };

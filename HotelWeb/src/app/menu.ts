@@ -21,6 +21,7 @@ export const MENU: GruppoMenu[] = [
       { href: "/", label: "Planning camere", permesso: PERMESSI.PRENOTAZIONI_VEDI },
       { href: "/prenotazioni", label: "Prenotazioni", permesso: PERMESSI.PRENOTAZIONI_VEDI },
       { href: "/schedine", label: "Schedine Polizia", permesso: PERMESSI.ADEMPIMENTI_INVIA },
+      { href: "/istat", label: "ISTAT movimento turistico", permesso: PERMESSI.ADEMPIMENTI_INVIA },
       { href: "/sale/planning", label: "Planning sale", permesso: PERMESSI.SALE_VEDI, modulo: "sale" },
       { href: "/sale/prenotazioni", label: "Prenotazioni sale", permesso: PERMESSI.SALE_VEDI, modulo: "sale" },
       { href: "/tassa-soggiorno", label: "Regole tassa di soggiorno", permesso: PERMESSI.PRENOTAZIONI_VEDI },

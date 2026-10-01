@@ -5,6 +5,8 @@ import { sbusta } from "@/lib/esito";
 import type { caricaStruttura, DatiStruttura } from "@/lib/impostazioniHotel";
 import { azioneSalvaStruttura } from "../actions";
 import { Suggerimento } from "@/components/Suggerimento";
+import type { elencoChiusure } from "@/lib/chiusure";
+import { CalendarioChiusure } from "./CalendarioChiusure";
 
 type Struttura = Awaited<ReturnType<typeof caricaStruttura>>;
 
@@ -13,7 +15,7 @@ const ETICHETTA = "flex flex-col text-xs text-stone-600";
 
 const ISTAT: Record<string, string> = { ROSS1000: "Ross1000", SPOT: "SPOT - DMS Puglia" };
 
-export function FormStruttura({ iniziale }: { iniziale: Struttura }) {
+export function FormStruttura({ iniziale, chiusure }: { iniziale: Struttura; chiusure: Awaited<ReturnType<typeof elencoChiusure>> }) {
   const [dati, setDati] = useState<DatiStruttura>(iniziale.dati);
   const [messaggio, setMessaggio] = useState<{ tipo: "ok" | "errore"; testo: string } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -145,6 +147,8 @@ export function FormStruttura({ iniziale }: { iniziale: Struttura }) {
           Salva
         </button>
       </div>
+
+      <CalendarioChiusure iniziale={chiusure} />
     </div>
   );
 }

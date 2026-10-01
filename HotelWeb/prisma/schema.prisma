@@ -46,6 +46,14 @@ model Hotel {
   alloggiatiPassword     String?   @db.Text
   alloggiatiWskey        String?   @db.Text
   alloggiatiVerificatoIl DateTime?
+  // ISTAT Ross1000 (es. Lazio): codice struttura e credenziali di trasmissione (password CIFRATA),
+  // indirizzo del servizio della regione. istatPrimoGiorno: primo giorno da comunicare (per SPOT
+  // prima di quel giorno va l'avvio con gli ospiti presenti).
+  ross1000Codice         String?
+  ross1000Utente         String?
+  ross1000Password       String?   @db.Text
+  ross1000Indirizzo      String?
+  istatPrimoGiorno       DateTime? @db.Date
   createdAt              DateTime  @default(now())
   updatedAt              DateTime  @updatedAt
 
@@ -653,6 +661,8 @@ model Presenza {
   schedinaInviataIl DateTime?
   schedinaInvioId   Int?
   schedinaErrore    String?           @db.Text
+  // Giorni di permanenza dichiarati alla Polizia nella schedina (per riconciliare con la tassa).
+  schedinaGiorni    Int?
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
 
@@ -924,4 +934,36 @@ model RicevutaAlloggiati {
   scaricataIl DateTime @default(now())
 
   @@unique([hotelId, data])
+}
+
+/**
+ * Periodo in cui la struttura è chiusa (all'ISTAT si comunica "chiuso", camere e letti a zero).
+ */
+model PeriodoChiusura {
+  id      Int      @id @default(autoincrement())
+  hotelId Int
+  dal     DateTime @db.Date
+  al      DateTime @db.Date
+  nota    String?
+
+  @@index([hotelId, dal])
+}
+
+/**
+ * Giorno comunicato all'ISTAT (Ross1000 inviato col servizio web, SPOT caricato con il file del mese).
+ * impronta = hash del movimento inviato: se i dati del giorno cambiano dopo l'invio, va rinviato.
+ */
+model InvioIstat {
+  id       Int      @id @default(autoincrement())
+  hotelId  Int
+  sistema  String
+  giorno   DateTime @db.Date
+  // "inviato" | "caricato" | "errore"
+  stato    String
+  impronta String?
+  esito    String?  @db.Text
+  il       DateTime @default(now())
+  da       String
+
+  @@unique([hotelId, giorno])
 }
