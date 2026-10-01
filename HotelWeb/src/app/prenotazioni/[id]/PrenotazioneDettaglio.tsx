@@ -3,11 +3,12 @@
 import { SezioneTassa } from "./SezioneTassa";
 import { sbusta } from "@/lib/esito";
 import { Fragment, useEffect, useState } from "react";
-import { ArrowLeft, BedDouble, CalendarRange, Check, ChevronDown, ChevronUp, KeyRound, LogIn, Pencil, Plus, RefreshCw, Repeat, Trash2, Users } from "lucide-react";
+import { ArrowLeft, Ban, BedDouble, CalendarRange, Check, ChevronDown, ChevronUp, KeyRound, LogIn, Pencil, Plus, RefreshCw, Repeat, Trash2, Users } from "lucide-react";
 import { Avviso, Campo, classePulsante, Etichetta, Input, IntestazionePagina, Pulsante, Select, Sezione, Spunta } from "@/components/ui";
 import { AiutoSezione, Esempio } from "@/components/AiutoSezione";
 import { Suggerimento } from "@/components/Suggerimento";
 import { statoPrenotazione } from "../stato";
+import { BarraStato, PannelloPagamenti } from "./StatoEPagamenti";
 import Link from "next/link";
 import { OspiteSearch, type OspiteValue } from "../nuova/OspiteSearch";
 import { CampoComposizione } from "../CampoComposizione";
@@ -17,6 +18,7 @@ import {
   azioneAggiungiSegmento,
   azioneAggiungiServizio,
   azioneAssegnaCamera,
+  azioneAnnullaCamera,
   azioneCambiaCamera,
   azioneComposizione,
   azioneModificaServizio,
@@ -37,11 +39,22 @@ function eur(n: number) {
 }
 
 /** puoGestire=false: sola lettura. Gli importi arrivano già azzerati dal server se non visibili. */
-export function PrenotazioneDettaglio({ iniziale, puoGestire, puoRiaprire }: { iniziale: Prenotazione; puoGestire: boolean; puoRiaprire: boolean }) {
+export function PrenotazioneDettaglio({
+  iniziale,
+  puoGestire: puoGestireRuolo,
+  puoRiaprire,
+  puoIncassare,
+}: {
+  iniziale: Prenotazione;
+  puoGestire: boolean;
+  puoRiaprire: boolean;
+  puoIncassare: boolean;
+}) {
   const [prenotazione, setPrenotazione] = useState(iniziale);
   const [camere, setCamere] = useState<Camera[]>([]);
   const [listini, setListini] = useState<Listino[]>([]);
   const [errore, setErrore] = useState<string | null>(null);
+  const [cameraDaAnnullare, setCameraDaAnnullare] = useState<number | null>(null);
   const [salvando, setSalvando] = useState(false);
 
   const [modificaFine, setModificaFine] = useState<{ segmentoId: number; valore: string } | null>(null);
@@ -214,6 +227,9 @@ export function PrenotazioneDettaglio({ iniziale, puoGestire, puoRiaprire }: { i
   }
 
   const importi = prenotazione.importiVisibili;
+  const annullata = prenotazione.stato === "ANNULLATA";
+  const puoGestire = puoGestireRuolo && !annullata;
+  const camereAttive = prenotazione.segmenti.filter((s) => !s.annullata).length;
   const it = (iso: string) => iso.split("-").reverse().join("/");
   const nomeListino = (id: number) => listini.find((l) => l.id === id)?.descrizione ?? "";
   const stato = statoPrenotazione(prenotazione.stato);
@@ -252,6 +268,8 @@ export function PrenotazioneDettaglio({ iniziale, puoGestire, puoRiaprire }: { i
         </ol>
       </Suggerimento>
 
+      <BarraStato prenotazione={prenotazione} puoGestire={puoGestireRuolo} puoIncassare={puoIncassare} salvando={salvando} esegui={eseguendo} aggiorna={setPrenotazione} />
+
       {errore && <Avviso tipo="errore">{errore}</Avviso>}
 
       <div className="flex flex-col gap-4 xl:flex-row xl:items-start">
@@ -259,12 +277,14 @@ export function PrenotazioneDettaglio({ iniziale, puoGestire, puoRiaprire }: { i
           {prenotazione.segmenti.map((s) => (
             <Sezione
               key={s.id}
+              className={s.annullata ? "opacity-60" : undefined}
               titolo={
                 <span className="flex flex-wrap items-center gap-2">
                   <BedDouble className="h-4 w-4 text-teal-700" aria-hidden />
                   {s.cameraCodice ? `Camera ${s.cameraCodice}` : "Camera da assegnare"}
                   <span className="font-normal text-stone-600">{s.tipoCameraNome}</span>
-                  {!s.cameraCodice && <Etichetta tono="ambra">da assegnare</Etichetta>}
+                  {!s.cameraCodice && !s.annullata && <Etichetta tono="ambra">da assegnare</Etichetta>}
+                  {s.annullata && <Etichetta tono="neutro">annullata</Etichetta>}
                 </span>
               }
               descrizione={
@@ -274,10 +294,12 @@ export function PrenotazioneDettaglio({ iniziale, puoGestire, puoRiaprire }: { i
                 </>
               }
               azioni={
-                <Link href={`/prenotazioni/${prenotazione.id}/checkin/${s.id}`} className={classePulsante("primario", "piccolo")}>
-                  <LogIn className="h-3.5 w-3.5" aria-hidden />
-                  {s.occupanti.every((o) => o.stato === "attesa") ? "Check-in" : "Ospiti e check-out"}
-                </Link>
+                !s.annullata && !annullata && (
+                  <Link href={`/prenotazioni/${prenotazione.id}/checkin/${s.id}`} className={classePulsante("primario", "piccolo")}>
+                    <LogIn className="h-3.5 w-3.5" aria-hidden />
+                    {s.occupanti.every((o) => o.stato === "attesa") ? "Check-in" : "Ospiti e check-out"}
+                  </Link>
+                )
               }
             >
               <div className="grid gap-4 md:grid-cols-3">
@@ -332,7 +354,7 @@ export function PrenotazioneDettaglio({ iniziale, puoGestire, puoRiaprire }: { i
                 {importi && (
                   <div>
                     <p className="mb-1 text-xs font-semibold text-stone-700">Importi</p>
-                    <dl className="space-y-0.5 text-sm">
+                    <dl className={`space-y-0.5 text-sm ${s.annullata ? "text-stone-400 line-through" : ""}`} title={s.annullata ? "Camera annullata: non si addebita" : undefined}>
                       <div className="flex justify-between gap-2"><dt>Soggiorno</dt><dd className="font-mono">{eur(s.subtotale)}</dd></div>
                       <div className="flex justify-between gap-2 text-stone-600"><dt>Tassa di soggiorno</dt><dd className="font-mono">{eur(s.tassa)}</dd></div>
                     </dl>
@@ -404,7 +426,7 @@ export function PrenotazioneDettaglio({ iniziale, puoGestire, puoRiaprire }: { i
                 </div>
               )}
 
-              {puoGestire && (
+              {puoGestire && !s.annullata && (
                 <div className="mt-3 flex flex-wrap gap-2 border-t border-stone-100 pt-3">
                   {!s.cameraId && (
                     <Pulsante dimensione="piccolo" icona={KeyRound} onClick={() => setAssegnaCameraState({ segmentoId: s.id, cameraId: null })}>
@@ -419,6 +441,32 @@ export function PrenotazioneDettaglio({ iniziale, puoGestire, puoRiaprire }: { i
                   <Pulsante dimensione="piccolo" icona={CalendarRange} onClick={() => setModificaFine({ segmentoId: s.id, valore: s.dataFine })}>
                     Cambia partenza
                   </Pulsante>
+                  {camereAttive > 1 &&
+                    s.occupanti.every((o) => o.stato === "attesa") &&
+                    (cameraDaAnnullare === s.id ? (
+                      <span className="flex flex-wrap items-center gap-2 text-sm">
+                        <span className="font-semibold text-red-800">Annullare solo questa camera?</span>
+                        <Pulsante
+                          variante="pericolo"
+                          dimensione="piccolo"
+                          disabled={salvando}
+                          onClick={async () => {
+                            const r = await eseguendo(() => sbusta(azioneAnnullaCamera(s.id)));
+                            if (r) setPrenotazione(r);
+                            setCameraDaAnnullare(null);
+                          }}
+                        >
+                          Sì, annulla la camera
+                        </Pulsante>
+                        <Pulsante dimensione="piccolo" onClick={() => setCameraDaAnnullare(null)}>
+                          No
+                        </Pulsante>
+                      </span>
+                    ) : (
+                      <Pulsante variante="pericolo" dimensione="piccolo" icona={Ban} onClick={() => setCameraDaAnnullare(s.id)}>
+                        Annulla questa camera
+                      </Pulsante>
+                    ))}
                 </div>
               )}
 
@@ -740,14 +788,20 @@ export function PrenotazioneDettaglio({ iniziale, puoGestire, puoRiaprire }: { i
         </div>
 
         {importi && (
-          <Sezione titolo="Riepilogo" className="xl:sticky xl:top-6 xl:w-80 xl:flex-shrink-0">
+          <div className="flex flex-col gap-4 xl:w-80 xl:flex-shrink-0">
+          <Sezione titolo="Riepilogo">
             <dl className="space-y-1 text-sm">
               <div className="flex justify-between"><dt>Soggiorno</dt><dd className="font-mono">{eur(prenotazione.totali.subtotale)}</dd></div>
               <div className="flex justify-between"><dt>Tassa di soggiorno</dt><dd className="font-mono">{eur(prenotazione.totali.tassa)}</dd></div>
               {prenotazione.totali.servizi > 0 && (
                 <div className="flex justify-between"><dt>Servizi aggiuntivi</dt><dd className="font-mono">{eur(prenotazione.totali.servizi)}</dd></div>
               )}
-              <div className="flex justify-between border-t border-stone-200 pt-1 text-base font-bold"><dt>Totale</dt><dd className="font-mono">{eur(prenotazione.totali.totale)}</dd></div>
+              <div className="flex justify-between border-t border-stone-200 pt-1 text-base font-bold"><dt>{annullata ? "Dovuto (penale)" : "Totale"}</dt><dd className="font-mono">{eur(prenotazione.totali.totale)}</dd></div>
+              <div className="flex justify-between"><dt>Pagato</dt><dd className="font-mono">{eur(prenotazione.totali.pagato)}</dd></div>
+              <div className={`flex justify-between font-bold ${prenotazione.totali.daPagare > 0 ? "text-amber-900" : "text-emerald-800"}`}>
+                <dt>{prenotazione.totali.daPagare < 0 ? "Da restituire" : "Da pagare"}</dt>
+                <dd className="font-mono">{eur(Math.abs(prenotazione.totali.daPagare))}</dd>
+              </div>
             </dl>
             {prenotazione.segmenti.some((s) => s.tariffaIncompleta) && (
               <Avviso tipo="avviso" className="mt-3">
@@ -780,6 +834,8 @@ export function PrenotazioneDettaglio({ iniziale, puoGestire, puoRiaprire }: { i
               </div>
             )}
           </Sezione>
+          <PannelloPagamenti prenotazione={prenotazione} puoGestire={puoGestire} puoIncassare={puoIncassare && importi} salvando={salvando} esegui={eseguendo} aggiorna={setPrenotazione} />
+          </div>
         )}
       </div>
     </div>

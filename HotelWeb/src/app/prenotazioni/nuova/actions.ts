@@ -12,6 +12,7 @@ import { elencoTrattamenti } from "@/lib/impostazioniHotel";
 
 export async function datiIniziali() {
   const { hotelId } = await richiediPermesso(PERMESSI.PRENOTAZIONI_VEDI);
+  const hotel = await prisma.hotel.findUniqueOrThrow({ where: { id: hotelId } });
   const [camere, tipiCamera, listini, serviziCatalogo, trattamenti] = await Promise.all([
     prisma.camera.findMany({ where: { hotelId, attivo: true }, include: { tipoCamera: true }, orderBy: { codice: "asc" } }),
     prisma.tipoCamera.findMany({ where: { hotelId } }),
@@ -35,6 +36,8 @@ export async function datiIniziali() {
       .map((s) => ({ id: s.id, nome: s.nome, prezzo: Number(s.prezzo), addebito: s.addebito, effetto: s.effetto })),
     // Trattamenti attivi configurati dall'hotel (Impostazioni > Trattamenti), nell'ordine scelto.
     trattamenti: trattamenti.map((t) => t.nome),
+    // Scadenza proposta per le nuove opzioni (Impostazioni > Struttura).
+    giorniOpzione: hotel.giorniOpzione,
   };
 }
 

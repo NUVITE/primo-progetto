@@ -118,7 +118,8 @@ async function verificaEffetto(effetto: string | null, prenotazioneId: number, s
 
 /** Aggiunge un servizio extra a una prenotazione, verificando che prenotazione/servizio/segmenti appartengano all'hotel. */
 export async function aggiungiServizioAPrenotazione(hotelId: number, prenotazioneId: number, input: AggiungiServizioInput) {
-  await prisma.prenotazione.findFirstOrThrow({ where: { id: prenotazioneId, hotelId } });
+  const prenotazione = await prisma.prenotazione.findFirstOrThrow({ where: { id: prenotazioneId, hotelId } });
+  if (prenotazione.stato === "ANNULLATA") throw new Error("La prenotazione è annullata: non si possono aggiungere servizi.");
 
   const catalogo = input.servizioCatalogoId
     ? await prisma.servizioCatalogo.findFirstOrThrow({ where: { id: input.servizioCatalogoId, hotelId } })

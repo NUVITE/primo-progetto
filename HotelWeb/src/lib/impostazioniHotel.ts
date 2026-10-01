@@ -24,6 +24,7 @@ export type DatiStruttura = {
   pec: string;
   orarioCheckIn: string;
   orarioCheckOut: string;
+  giorniOpzione: string;
 };
 
 export async function caricaStruttura(hotelId: number) {
@@ -42,6 +43,7 @@ export async function caricaStruttura(hotelId: number) {
       pec: t(h.pec),
       orarioCheckIn: t(h.orarioCheckIn),
       orarioCheckOut: t(h.orarioCheckOut),
+      giorniOpzione: String(h.giorniOpzione),
     } satisfies DatiStruttura,
   };
 }
@@ -55,9 +57,12 @@ export async function salvaStruttura(hotelId: number, d: DatiStruttura) {
   for (const [nome, v] of [["check-in", d.orarioCheckIn], ["check-out", d.orarioCheckOut]] as const) {
     if (v.trim() && !ora.test(v.trim())) throw new Error(`Orario di ${nome} nel formato HH:MM.`);
   }
+  const giorniOpzione = Number(d.giorniOpzione || 0);
+  if (!(Number.isInteger(giorniOpzione) && giorniOpzione >= 0 && giorniOpzione <= 60)) throw new Error("Giorni di opzione: da 0 a 60 (0 = nessuna scadenza proposta).");
   await prisma.hotel.update({
     where: { id: hotelId },
     data: {
+      giorniOpzione,
       ragioneSociale: txt(d.ragioneSociale),
       partitaIva,
       codiceFiscale: txt(d.codiceFiscale)?.toUpperCase() ?? null,

@@ -53,6 +53,8 @@ export function NuovaPrenotazioneForm() {
   const [gruppoNome, setGruppoNome] = useState("");
   const [segmenti, setSegmenti] = useState<Segmento[]>([]);
   const [accontoRichiesto, setAccontoRichiesto] = useState("");
+  const [accontoEntro, setAccontoEntro] = useState("");
+  const [scadenzaOpzione, setScadenzaOpzione] = useState("");
 
   const [trattamenti, setTrattamenti] = useState<string[]>([]);
   const [salvando, setSalvando] = useState(false);
@@ -65,6 +67,11 @@ export function NuovaPrenotazioneForm() {
         setCamere(d.camere);
         setListini(d.listini);
         setTrattamenti(d.trattamenti);
+        if (d.giorniOpzione > 0) {
+          const scad = new Date();
+          scad.setDate(scad.getDate() + d.giorniOpzione);
+          setScadenzaOpzione(`${scad.getFullYear()}-${String(scad.getMonth() + 1).padStart(2, "0")}-${String(scad.getDate()).padStart(2, "0")}`);
+        }
         setSegmenti([nuovoSegmento(d.listini[0]?.id ?? null, d.trattamenti[0] ?? "")]);
         setCaricato(true);
       })
@@ -133,6 +140,8 @@ export function NuovaPrenotazioneForm() {
         ospitePrenotante: ospiteValueToInput(ospitePrenotante),
         gruppoNome: gruppoAttivo && gruppoNome.trim() ? gruppoNome.trim() : undefined,
         accontoRichiesto: accontoRichiesto ? Number(accontoRichiesto) : undefined,
+        scadenzaOpzione: scadenzaOpzione || undefined,
+        accontoEntro: accontoEntro || undefined,
         segmenti: segmenti.map((s) => ({
           cameraId: s.cameraId!,
           tipoCameraId: camere.find((c) => c.id === s.cameraId)!.tipoCameraId,
@@ -323,8 +332,16 @@ export function NuovaPrenotazioneForm() {
             <div className="flex justify-between text-stone-600"><dt>Tassa di soggiorno (stimata)</dt><dd className="font-mono">€ {totali.tassa.toFixed(2)}</dd></div>
             <div className="flex justify-between border-t border-stone-200 pt-1 text-base font-bold"><dt>Totale stimato</dt><dd className="font-mono">€ {totali.totale.toFixed(2)}</dd></div>
           </dl>
-          <Campo etichetta="Acconto richiesto" className="mt-4 w-40">
-            <Input inputMode="decimal" value={accontoRichiesto} onChange={(e) => setAccontoRichiesto(e.target.value)} placeholder="€ 0,00" />
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            <Campo etichetta="Acconto richiesto">
+              <Input inputMode="decimal" value={accontoRichiesto} onChange={(e) => setAccontoRichiesto(e.target.value)} placeholder="€ 0,00" />
+            </Campo>
+            <Campo etichetta="Acconto entro il">
+              <Input type="date" value={accontoEntro} onChange={(e) => setAccontoEntro(e.target.value)} />
+            </Campo>
+          </div>
+          <Campo etichetta="Opzione valida fino al" aiuto="La prenotazione nasce in opzione: a scadenza compare un avviso, non si annulla da sola." className="mt-2">
+            <Input type="date" value={scadenzaOpzione} onChange={(e) => setScadenzaOpzione(e.target.value)} />
           </Campo>
 
           {errore && <Avviso tipo="errore" className="mt-3">{errore}</Avviso>}

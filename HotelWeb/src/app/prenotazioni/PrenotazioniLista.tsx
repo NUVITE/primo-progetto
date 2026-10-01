@@ -6,10 +6,15 @@ import { useEffect, useState } from "react";
 import { Campo, Etichetta, Input } from "@/components/ui";
 import { azioneCercaPrenotazioni } from "./actions";
 import { statoPrenotazione } from "./stato";
+import type { RigaElenco as Riga } from "./righe";
 
-type Riga = Awaited<ReturnType<typeof azioneCercaPrenotazioni>>[number];
+/** Etichetta della scadenza di un'opzione (solo se scaduta o vicina). */
+function EtichettaOpzione({ opzione }: { opzione: Riga["opzione"] }) {
+  if (!opzione || opzione.stato === "valida") return null;
+  return <Etichetta tono={opzione.stato === "scaduta" ? "rosso" : "ambra"}>{opzione.stato === "scaduta" ? `opzione scaduta il ${opzione.data}` : `scade il ${opzione.data}`}</Etichetta>;
+}
 
-export function PrenotazioniLista({ iniziale }: { iniziale: Riga[] }) {
+export function PrenotazioniLista({ iniziale, soloOpzioni = false }: { iniziale: Riga[]; soloOpzioni?: boolean }) {
   const [query, setQuery] = useState("");
   const [risultati, setRisultati] = useState<Riga[] | null>(null);
   const [cercando, setCercando] = useState(false);
@@ -30,7 +35,13 @@ export function PrenotazioniLista({ iniziale }: { iniziale: Riga[] }) {
   }, [query]);
 
   const righe = risultati ?? iniziale;
-  const vuoto = cercando ? "Ricerca in corso..." : query.trim().length >= 2 ? "Nessuna prenotazione trovata." : "Nessuna prenotazione ancora.";
+  const vuoto = cercando
+    ? "Ricerca in corso..."
+    : query.trim().length >= 2
+      ? "Nessuna prenotazione trovata."
+      : soloOpzioni
+        ? "Nessuna opzione scaduta o in scadenza."
+        : "Nessuna prenotazione ancora.";
 
   return (
     <div className="flex flex-col gap-3">
@@ -42,7 +53,11 @@ export function PrenotazioniLista({ iniziale }: { iniziale: Riga[] }) {
       </Campo>
 
       <p className="text-sm text-stone-600">
-        {risultati ? `${righe.length} ${righe.length === 1 ? "risultato" : "risultati"} per “${query.trim()}”` : "Ultime prenotazioni inserite"}
+        {risultati
+          ? `${righe.length} ${righe.length === 1 ? "risultato" : "risultati"} per “${query.trim()}”`
+          : soloOpzioni
+            ? "Opzioni scadute o che scadono entro 2 giorni: confermale o annullale dal dettaglio."
+            : "Ultime prenotazioni inserite"}
       </p>
 
       {/* Telefono: una scheda per prenotazione al posto della tabella. */}
@@ -56,6 +71,7 @@ export function PrenotazioniLista({ iniziale }: { iniziale: Riga[] }) {
                   <span className="flex flex-wrap items-center gap-2">
                     <span className="font-bold text-stone-900">{p.ospitePrenotante}</span>
                     <Etichetta tono={stato.tono}>{stato.testo}</Etichetta>
+                    <EtichettaOpzione opzione={p.opzione} />
                   </span>
                   {p.periodo && (
                     <span className="flex items-center gap-1.5 text-sm text-stone-700">
@@ -113,7 +129,10 @@ export function PrenotazioniLista({ iniziale }: { iniziale: Riga[] }) {
                     )}
                   </td>
                   <td className="px-4 py-2">
-                    <Etichetta tono={stato.tono}>{stato.testo}</Etichetta>
+                    <span className="flex flex-wrap gap-1">
+                      <Etichetta tono={stato.tono}>{stato.testo}</Etichetta>
+                      <EtichettaOpzione opzione={p.opzione} />
+                    </span>
                   </td>
                   <td className="px-4 py-2 text-right font-mono text-stone-500">#{p.id}</td>
                 </tr>

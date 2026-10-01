@@ -9,6 +9,7 @@ export const PERMESSI = {
   PRENOTAZIONI_VEDI: "prenotazioni.vedi",
   PRENOTAZIONI_GESTISCI: "prenotazioni.gestisci",
   IMPORTI_VEDI: "importi.vedi",
+  PAGAMENTI_REGISTRA: "pagamenti.registra",
   SOGGIORNI_RIAPRI: "soggiorni.riapri",
   CAMERE_GESTISCI: "camere.gestisci",
   HOTEL_CONFIGURA: "hotel.configura",
@@ -32,6 +33,7 @@ export const CATALOGO_PERMESSI: { area: string; modulo?: Modulo; voci: { permess
       { permesso: PERMESSI.PRENOTAZIONI_VEDI, nome: "Vedere prenotazioni", descrizione: "Planning, elenco e dettaglio in sola lettura" },
       { permesso: PERMESSI.PRENOTAZIONI_GESTISCI, nome: "Gestire prenotazioni", descrizione: "Creare, modificare, dividere soggiorni, assegnare camere, aggiungere servizi" },
       { permesso: PERMESSI.IMPORTI_VEDI, nome: "Vedere importi", descrizione: "Prezzi, tassa di soggiorno e totali (senza, gli importi sono nascosti)" },
+      { permesso: PERMESSI.PAGAMENTI_REGISTRA, nome: "Registrare pagamenti", descrizione: "Incassare acconti e saldi, registrare rimborsi e stornare un incasso sbagliato" },
       { permesso: PERMESSI.SOGGIORNI_RIAPRI, nome: "Riaprire soggiorni chiusi", descrizione: "Rettificare un soggiorno dopo il check-out (tassa definitiva): resta traccia di chi e quando" },
     ],
   },
@@ -70,6 +72,7 @@ const IMPLICAZIONI: Partial<Record<Permesso, Permesso[]>> = {
   [PERMESSI.SALE_GESTISCI]: [PERMESSI.SALE_VEDI],
   [PERMESSI.SALE_CONFIGURA]: [PERMESSI.SALE_VEDI],
   [PERMESSI.SOGGIORNI_RIAPRI]: [PERMESSI.PRENOTAZIONI_GESTISCI],
+  [PERMESSI.PAGAMENTI_REGISTRA]: [PERMESSI.PRENOTAZIONI_VEDI, PERMESSI.IMPORTI_VEDI],
 };
 
 /** Normalizza l'elenco salvato su DB: scarta codici sconosciuti e aggiunge le implicazioni. */
@@ -87,7 +90,7 @@ export const RUOLI_PREDEFINITI: { nome: string; permessi: Permesso[] }[] = [
   { nome: "Direttore", permessi: TUTTI_I_PERMESSI.filter((p) => p !== PERMESSI.RUOLI_GESTISCI) },
   {
     nome: "Reception",
-    permessi: [PERMESSI.PRENOTAZIONI_VEDI, PERMESSI.PRENOTAZIONI_GESTISCI, PERMESSI.IMPORTI_VEDI, PERMESSI.SALE_VEDI, PERMESSI.SALE_GESTISCI],
+    permessi: [PERMESSI.PRENOTAZIONI_VEDI, PERMESSI.PRENOTAZIONI_GESTISCI, PERMESSI.IMPORTI_VEDI, PERMESSI.PAGAMENTI_REGISTRA, PERMESSI.SALE_VEDI, PERMESSI.SALE_GESTISCI],
   },
   {
     nome: "Eventi / Commerciale",

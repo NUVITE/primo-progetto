@@ -1,32 +1,18 @@
 import Link from "next/link";
-import { elencoPrenotazioni } from "@/lib/prenotazioni";
+import { elencoPrenotazioni, opzioniDaSeguire } from "@/lib/prenotazioni";
 import { richiediPermesso } from "@/lib/auth";
 import { PERMESSI } from "@/lib/permessi";
 import { PrenotazioniLista } from "./PrenotazioniLista";
 import { Plus } from "lucide-react";
 import { classePulsante, IntestazionePagina } from "@/components/ui";
 import { Suggerimento } from "@/components/Suggerimento";
+import { righeElenco } from "./righe";
 
-function isoGiorno(d: Date) {
-  return d.toISOString().slice(0, 10).split("-").reverse().join("/");
-}
-
-export default async function ElencoPrenotazioniPage() {
+export default async function ElencoPrenotazioniPage({ searchParams }: { searchParams: Promise<{ filtro?: string }> }) {
   const { hotelId } = await richiediPermesso(PERMESSI.PRENOTAZIONI_VEDI);
-  const prenotazioni = await elencoPrenotazioni(hotelId);
-
-  const iniziale = prenotazioni.map((p) => {
-    const dal = p.segmenti.length ? new Date(Math.min(...p.segmenti.map((s) => s.dataInizio.getTime()))) : null;
-    const al = p.segmenti.length ? new Date(Math.max(...p.segmenti.map((s) => s.dataFine.getTime()))) : null;
-    return {
-      id: p.id,
-      ospitePrenotante: `${p.ospitePrenotante.nome} ${p.ospitePrenotante.cognome}`,
-      gruppoNome: p.gruppo?.nome ?? null,
-      camere: p.segmenti.map((s) => s.camera?.codice ?? `${s.tipoCamera.descrizione} (da assegnare)`).join(", ") || null,
-      periodo: dal && al ? `${isoGiorno(dal)} – ${isoGiorno(al)}` : null,
-      stato: p.stato,
-    };
-  });
+  const { filtro } = await searchParams;
+  const soloOpzioni = filtro === "opzioni";
+  const [ultime, opzioni] = await Promise.all([soloOpzioni ? Promise.resolve([]) : elencoPrenotazioni(hotelId), opzioniDaSeguire(hotelId)]);
 
   return (
     <div className="flex w-full min-w-0 flex-col gap-4 p-3 sm:p-6">
@@ -42,11 +28,22 @@ export default async function ElencoPrenotazioniPage() {
       <Suggerimento id="elenco-prenotazioni" titolo="Come si trova una prenotazione">
         <p>
           Scrivi un nome o un cognome nella ricerca: trova chi ha prenotato e chiunque sia registrato nelle camere, anche nelle prenotazioni
-          passate. Clicca sul nome per aprire la prenotazione. Per vedere chi arriva in un certo periodo usa il <strong>Planning camere</strong>.
+          passate. Clicca sul nome per aprire la prenotazione. Con <strong>Opzioni da seguire</strong> vedi le opzioni scadute o in scadenza, da
+          confermare o annullare. Per vedere chi arriva in un certo periodo usa il <strong>Planning camere</strong>.
         </p>
       </Suggerimento>
 
-      <PrenotazioniLista iniziale={iniziale} />
+      <div className="flex flex-wrap gap-2" role="tablist">
+        <Link href="/prenotazioni" role="tab" aria-selected={!soloOpzioni} className={classePulsante(soloOpzioni ? "secondario" : "primario", "piccolo")}>
+          Ultime prenotazioni
+        </Link>
+        <Link href="/prenotazioni?filtro=opzioni" role="tab" aria-selected={soloOpzioni} className={classePulsante(soloOpzioni ? "primario" : "secondario", "piccolo")}>
+          Opzioni da seguire
+          {opzioni.length > 0 && <span className="ml-1 rounded-full bg-amber-400 px-1.5 text-xs font-bold text-amber-950">{opzioni.length}</span>}
+        </Link>
+      </div>
+
+      <PrenotazioniLista key={soloOpzioni ? "opzioni" : "ultime"} iniziale={righeElenco(soloOpzioni ? opzioni : ultime)} soloOpzioni={soloOpzioni} />
     </div>
   );
 }

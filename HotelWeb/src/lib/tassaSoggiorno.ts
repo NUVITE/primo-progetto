@@ -147,15 +147,17 @@ export async function ricalcolaTassaPosizione(
   ]);
   // Le notti di una persona sono quelle delle camere in cui ha una Presenza, limitate al suo periodo
   // (può arrivare dopo o partire prima degli altri occupanti).
-  const presenze = await db.presenza.findMany({
+  const tutteLePresenze = await db.presenza.findMany({
     where: { ospiteId, segmento: { prenotazioneId } },
     include: { segmento: { include: { notti: { orderBy: { data: "asc" } } } } },
   });
+  // Le camere annullate non pagano la tassa: le loro righe si cancellano e non si ricalcolano.
+  const presenze = tutteLePresenze.filter((p) => p.segmento.stato !== "ANNULLATO");
   const nottiDi = (p: (typeof presenze)[number]) =>
     p.segmento.notti.filter((n) => (!p.dal || n.data >= p.dal) && (!p.al || n.data < p.al)).map((n) => ({ ...n, presenzaId: p.id }));
   const notti = presenze.flatMap(nottiDi);
 
-  await db.tassaNotte.deleteMany({ where: { presenzaId: { in: presenze.map((p) => p.id) } } });
+  await db.tassaNotte.deleteMany({ where: { presenzaId: { in: tutteLePresenze.map((p) => p.id) } } });
   if (notti.length === 0) return;
 
   // Ogni catena di presenze (una camera e i suoi eventuali cambi camera) è la sequenza di notti di

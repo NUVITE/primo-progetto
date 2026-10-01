@@ -38,6 +38,8 @@ model Hotel {
   // Orari mostrati a reception e ospiti ("HH:MM").
   orarioCheckIn  String?
   orarioCheckOut String?
+  // Giorni di validità proposti per una nuova opzione (modificabili nella singola prenotazione).
+  giorniOpzione  Int      @default(3)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -236,10 +238,22 @@ model Prenotazione {
   // di prezzo/tassa, che restano per camera/notte come nel resto del motore.
   numeroPersone      Int?
   note               String?
+  // Opzione: valida fino a (alla scadenza solo un avviso, non si annulla da sola); acconto entro.
+  scadenzaOpzione    DateTime?         @db.Date
+  accontoEntro       DateTime?         @db.Date
+  confermataIl       DateTime?
+  // Annullamento: chi, quando, perché ("cliente" | "no_show" | "errore" | "altro"). penale = parte
+  // degli incassi trattenuta: è l'unico importo dovuto di una prenotazione annullata.
+  annullataIl        DateTime?
+  annullataDa        String?
+  motivoAnnullamento String?
+  notaAnnullamento   String?
+  penale             Decimal?          @db.Decimal(10, 2)
   createdAt          DateTime          @default(now())
   updatedAt          DateTime          @updatedAt
 
   segmenti         SegmentoSoggiorno[]
+  pagamenti        Pagamento[]
   serviziAggiunti  ServizioAggiunto[]
   posizioniTassa   PosizioneTassa[]
   prenotazioniSala PrenotazioneSala[]
@@ -845,4 +859,28 @@ model ServizioSala {
   data               DateTime?         @db.Date
   note               String?
   createdAt          DateTime          @default(now())
+}
+
+/**
+ * Incasso o rimborso registrato su una prenotazione (non è un documento fiscale: ricevute e fatture
+ * arriveranno con la fatturazione). tipo: "acconto" | "saldo" | "rimborso"; importo sempre positivo,
+ * il rimborso si sottrae. Un pagamento sbagliato non si cancella: si storna con motivo.
+ */
+model Pagamento {
+  id             Int          @id @default(autoincrement())
+  prenotazioneId Int
+  prenotazione   Prenotazione @relation(fields: [prenotazioneId], references: [id])
+  data           DateTime     @db.Date
+  importo        Decimal      @db.Decimal(10, 2)
+  // "contanti" | "carta" | "bancomat" | "bonifico" | "assegno" | "altro"
+  metodo         String
+  tipo           String
+  nota           String?
+  registratoDa   String
+  createdAt      DateTime     @default(now())
+  stornatoIl     DateTime?
+  stornatoDa     String?
+  motivoStorno   String?
+
+  @@index([prenotazioneId])
 }

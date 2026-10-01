@@ -115,6 +115,11 @@ export function FormStruttura({ iniziale }: { iniziale: Struttura }) {
             Check-out entro le
             <input {...campo("orarioCheckOut", "time")} />
           </label>
+          <label className={ETICHETTA}>
+            Giorni di validità di un&apos;opzione
+            <input min={0} max={60} {...campo("giorniOpzione", "number")} />
+            <span className="text-xs font-normal text-stone-600">Scadenza proposta per le nuove opzioni (modificabile in ogni prenotazione; 0 = nessuna).</span>
+          </label>
         </div>
       </section>
 

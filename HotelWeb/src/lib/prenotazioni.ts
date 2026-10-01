@@ -25,6 +25,9 @@ export type CreaPrenotazioneInput = {
   ospitePrenotante: OspiteRif;
   gruppoNome?: string;
   accontoRichiesto?: number;
+  // Opzione valida fino al / acconto entro il (ISO): assente = proposta dell'hotel (giorni di opzione).
+  scadenzaOpzione?: string;
+  accontoEntro?: string;
   segmenti: NuovoSegmentoInput[];
 };
 
@@ -35,6 +38,8 @@ export type CreaPrenotazioneGenericaInput = {
   ospitePrenotante: OspiteRif;
   gruppoNome?: string;
   accontoRichiesto?: number;
+  scadenzaOpzione?: string;
+  accontoEntro?: string;
   listinoId: number;
   trattamento: string;
   dataInizio: string;
@@ -70,6 +75,7 @@ export async function creaPrenotazione(hotelId: number, input: CreaPrenotazioneI
         gruppoId,
         ospitePrenotanteId,
         accontoRichiesto: input.accontoRichiesto,
+        ...(await scadenzeIniziali(tx, hotelId, input)),
       },
     });
 
@@ -105,6 +111,7 @@ export async function creaPrenotazioneGenerica(hotelId: number, input: CreaPreno
         gruppoId,
         ospitePrenotanteId,
         accontoRichiesto: input.accontoRichiesto,
+        ...(await scadenzeIniziali(tx, hotelId, input)),
         numeroPersone: input.numeroPersone,
         note: input.note,
       },
@@ -160,16 +167,44 @@ type PrenotazioneCompleta = Awaited<ReturnType<typeof caricaPrenotazioneCompleta
 
 /** Totali sempre ricalcolati dalle notti/tasse/servizi salvati — mai un numero scritto a mano. */
 export function calcolaTotaliPrenotazione(prenotazione: PrenotazioneCompleta) {
-  const subtotale = prenotazione.segmenti.reduce(
-    (tot, seg) => tot + seg.notti.reduce((s, n) => s + Number(n.prezzo), 0),
-    0
-  );
-  const tassa = prenotazione.segmenti.reduce(
+  const pagato = pagatoNetto(prenotazione.pagamenti);
+  // Prenotazione annullata: l'unico importo dovuto è la penale trattenuta (se c'è).
+  if (prenotazione.stato === "ANNULLATA") {
+    const penale = Number(prenotazione.penale ?? 0);
+    return { subtotale: 0, tassa: 0, servizi: 0, totale: penale, pagato, daPagare: arrotonda2(penale - pagato) };
+  }
+  const attivi = prenotazione.segmenti.filter((s) => s.stato !== "ANNULLATO");
+  const idAttivi = new Set(attivi.map((s) => s.id));
+  const subtotale = attivi.reduce((tot, seg) => tot + seg.notti.reduce((s, n) => s + Number(n.prezzo), 0), 0);
+  const tassa = attivi.reduce(
     (tot, seg) => tot + seg.notti.reduce((s, n) => s + n.tasse.reduce((t, x) => t + Number(x.importo), 0), 0),
     0
   );
-  const servizi = prenotazione.serviziAggiunti.reduce((tot, s) => tot + Number(s.prezzoUnitario) * s.quantita, 0);
-  return { subtotale, tassa, servizi, totale: subtotale + tassa + servizi };
+  // Un servizio legato solo a camere annullate non si addebita più.
+  const servizi = prenotazione.serviziAggiunti
+    .filter((s) => s.segmenti.length === 0 || s.segmenti.some((sg) => idAttivi.has(sg.segmentoId)))
+    .reduce((tot, s) => tot + Number(s.prezzoUnitario) * s.quantita, 0);
+  const totale = arrotonda2(subtotale + tassa + servizi);
+  return { subtotale, tassa, servizi, totale, pagato, daPagare: arrotonda2(totale - pagato) };
+}
+
+const arrotonda2 = (n: number) => Math.round(n * 100) / 100;
+
+/** Incassato al netto di rimborsi e storni. */
+export function pagatoNetto(pagamenti: { importo: unknown; tipo: string; stornatoIl: Date | null }[]) {
+  return arrotonda2(
+    pagamenti.filter((p) => !p.stornatoIl).reduce((t, p) => t + (p.tipo === "rimborso" ? -1 : 1) * Number(p.importo), 0),
+  );
+}
+
+async function scadenzeIniziali(db: Db, hotelId: number, input: { scadenzaOpzione?: string; accontoEntro?: string }) {
+  const hotel = await db.hotel.findUniqueOrThrow({ where: { id: hotelId } });
+  const oggi = new Date(new Date().toISOString().slice(0, 10));
+  const proposta = new Date(oggi.getTime() + hotel.giorniOpzione * 24 * 60 * 60 * 1000);
+  return {
+    scadenzaOpzione: input.scadenzaOpzione ? new Date(input.scadenzaOpzione) : hotel.giorniOpzione > 0 ? proposta : null,
+    accontoEntro: input.accontoEntro ? new Date(input.accontoEntro) : null,
+  };
 }
 
 export async function elencoPrenotazioni(hotelId: number) {
@@ -182,6 +217,20 @@ export async function elencoPrenotazioni(hotelId: number) {
     },
     orderBy: { createdAt: "desc" },
     take: 50,
+  });
+}
+
+/** Opzioni da seguire: scadute o in scadenza entro 2 giorni (da confermare o annullare). */
+export async function opzioniDaSeguire(hotelId: number) {
+  const limite = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
+  return prisma.prenotazione.findMany({
+    where: { hotelId, stato: "OPZIONE", scadenzaOpzione: { lte: limite } },
+    include: {
+      ospitePrenotante: true,
+      gruppo: true,
+      segmenti: { select: { dataInizio: true, dataFine: true, camera: { select: { codice: true } }, tipoCamera: { select: { descrizione: true } } } },
+    },
+    orderBy: { scadenzaOpzione: "asc" },
   });
 }
 
@@ -230,6 +279,7 @@ async function caricaPrenotazioneCompleta(db: Db, hotelId: number, id: number) {
           presenze: { include: { ospite: true }, orderBy: { id: "asc" } },
         },
       },
+      pagamenti: { orderBy: [{ data: "asc" }, { id: "asc" }] },
       serviziAggiunti: {
         orderBy: { createdAt: "asc" },
         include: { servizioCatalogo: true, segmenti: { include: { segmento: { include: { ospite: true, camera: true } } } } },
@@ -238,11 +288,13 @@ async function caricaPrenotazioneCompleta(db: Db, hotelId: number, id: number) {
   });
 }
 
-async function trovaSegmentoDelHotel(db: Db, hotelId: number, segmentoId: number) {
+/** Camera della prenotazione, sempre dell'hotel. Una camera annullata non si modifica (solo annullaCamera la legge così). */
+async function trovaSegmentoDelHotel(db: Db, hotelId: number, segmentoId: number, ancheAnnullato = false) {
   const segmento = await db.segmentoSoggiorno.findFirstOrThrow({
     where: { id: segmentoId, prenotazione: { hotelId } },
     include: { camera: true, tipoCamera: true, ospite: true },
   });
+  if (!ancheAnnullato && segmento.stato === "ANNULLATO") throw new Error("Questa camera è annullata: non si può modificare.");
   return segmento;
 }
 
@@ -481,7 +533,8 @@ export async function aggiornaComposizione(hotelId: number, segmentoId: number, 
 export async function aggiungiSegmentoAPrenotazione(hotelId: number, prenotazioneId: number, segInput: NuovoSegmentoInput) {
   return prisma.$transaction(async (tx) => {
     // Verifica che la prenotazione appartenga all'hotel prima di aggiungerci qualcosa.
-    await tx.prenotazione.findFirstOrThrow({ where: { id: prenotazioneId, hotelId } });
+    const p = await tx.prenotazione.findFirstOrThrow({ where: { id: prenotazioneId, hotelId } });
+    if (p.stato === "ANNULLATA") throw new Error("La prenotazione è annullata: riattivala prima di aggiungere camere.");
     if ("id" in segInput.ospite) await verificaPosizioneAperta(tx, prenotazioneId, segInput.ospite.id);
     await creaSegmento(tx, hotelId, prenotazioneId, segInput);
     await ricalcolaGratuita(tx, prenotazioneId);
@@ -611,5 +664,164 @@ export async function cambiaCameraSegmento(hotelId: number, segmentoId: number, 
     await ricalcolaOccupanti(tx, segmento.prenotazioneId, presenze.map((p) => p.ospiteId));
 
     return caricaPrenotazioneCompleta(tx, hotelId, segmento.prenotazioneId);
+  });
+}
+
+// ---------------- Stato della prenotazione (conferma, annullamento, riattivazione) ----------------
+
+export const MOTIVI_ANNULLAMENTO = { cliente: "Annullata dal cliente", no_show: "Mancato arrivo (no-show)", errore: "Errore di inserimento", altro: "Altro" } as const;
+export type MotivoAnnullamento = keyof typeof MOTIVI_ANNULLAMENTO;
+
+/** Nessuno degli ospiti è arrivato: si può annullare (dopo l'arrivo si usano partenza anticipata e check-out). */
+async function verificaNessunArrivo(db: Db, where: Prisma.PresenzaWhereInput, cosa: string) {
+  const arrivato = await db.presenza.findFirst({ where: { ...where, stato: { not: "attesa" } }, include: { ospite: true } });
+  if (arrivato) {
+    throw new Error(
+      `${arrivato.ospite.nome} ${arrivato.ospite.cognome} è già arrivato: ${cosa} non si può annullare. Usa "Cambia partenza" o il check-out.`,
+    );
+  }
+}
+
+export async function confermaPrenotazione(hotelId: number, id: number) {
+  return prisma.$transaction(async (tx) => {
+    const p = await tx.prenotazione.findFirstOrThrow({ where: { id, hotelId } });
+    if (p.stato !== "OPZIONE") throw new Error("Si può confermare solo una prenotazione in opzione.");
+    await tx.prenotazione.update({ where: { id }, data: { stato: "CONFERMATA", confermataIl: new Date() } });
+    return caricaPrenotazioneCompleta(tx, hotelId, id);
+  });
+}
+
+/**
+ * Annulla tutta la prenotazione: camere libere subito, tassa azzerata, storico conservato.
+ * Con incassi già fatti si decide: trattenerli come penale o registrarne il rimborso.
+ */
+export async function annullaPrenotazione(
+  hotelId: number,
+  id: number,
+  dati: { motivo: MotivoAnnullamento; nota: string; incassi: "trattieni" | "rimborsa" | null; metodoRimborso?: string },
+  utente: string,
+) {
+  if (!(dati.motivo in MOTIVI_ANNULLAMENTO)) throw new Error("Indica il motivo dell'annullamento.");
+  return prisma.$transaction(async (tx) => {
+    const p = await tx.prenotazione.findFirstOrThrow({ where: { id, hotelId }, include: { pagamenti: true } });
+    if (p.stato === "ANNULLATA") throw new Error("La prenotazione è già annullata.");
+    await verificaNessunArrivo(tx, { segmento: { prenotazioneId: id } }, "la prenotazione");
+    const incassato = pagatoNetto(p.pagamenti);
+    if (incassato > 0 && !dati.incassi) throw new Error(`Sono stati incassati € ${incassato.toFixed(2)}: indica se trattenerli come penale o rimborsarli.`);
+    let penale: number | null = null;
+    if (incassato > 0 && dati.incassi === "trattieni") penale = incassato;
+    if (incassato > 0 && dati.incassi === "rimborsa") {
+      await tx.pagamento.create({
+        data: {
+          prenotazioneId: id,
+          data: new Date(new Date().toISOString().slice(0, 10)),
+          importo: incassato,
+          metodo: dati.metodoRimborso || "altro",
+          tipo: "rimborso",
+          nota: "Rimborso per annullamento",
+          registratoDa: utente,
+        },
+      });
+    }
+    await tx.segmentoSoggiorno.updateMany({ where: { prenotazioneId: id }, data: { stato: "ANNULLATO" } });
+    await tx.prenotazione.update({
+      where: { id },
+      data: { stato: "ANNULLATA", annullataIl: new Date(), annullataDa: utente, motivoAnnullamento: dati.motivo, notaAnnullamento: dati.nota.trim() || null, penale },
+    });
+    const ospiti = await tx.presenza.findMany({ where: { segmento: { prenotazioneId: id } }, select: { ospiteId: true } });
+    await ricalcolaOccupanti(tx, id, ospiti.map((o) => o.ospiteId));
+    return caricaPrenotazioneCompleta(tx, hotelId, id);
+  });
+}
+
+/** Annulla una sola camera di una prenotazione con più camere (es. il gruppo si è ridotto). */
+export async function annullaCamera(hotelId: number, segmentoId: number) {
+  return prisma.$transaction(async (tx) => {
+    const segmento = await trovaSegmentoDelHotel(tx, hotelId, segmentoId, true);
+    if (segmento.stato === "ANNULLATO") throw new Error("La camera è già annullata.");
+    await verificaNessunArrivo(tx, { segmentoId }, "la camera");
+    const attive = await tx.segmentoSoggiorno.count({ where: { prenotazioneId: segmento.prenotazioneId, stato: { not: "ANNULLATO" } } });
+    if (attive <= 1) throw new Error("È l'ultima camera della prenotazione: per liberarla annulla l'intera prenotazione.");
+    await tx.segmentoSoggiorno.update({ where: { id: segmentoId }, data: { stato: "ANNULLATO" } });
+    await ricalcolaOccupanti(tx, segmento.prenotazioneId, await occupanti(tx, segmentoId));
+    await ricalcolaGratuita(tx, segmento.prenotazioneId);
+    return caricaPrenotazioneCompleta(tx, hotelId, segmento.prenotazioneId);
+  });
+}
+
+/** Riattiva una prenotazione annullata (torna in opzione) se tutte le sue camere sono ancora libere. */
+export async function riattivaPrenotazione(hotelId: number, id: number) {
+  return prisma.$transaction(async (tx) => {
+    const p = await tx.prenotazione.findFirstOrThrow({ where: { id, hotelId }, include: { segmenti: { include: { camera: true, tipoCamera: true } } } });
+    if (p.stato !== "ANNULLATA") throw new Error("La prenotazione non è annullata.");
+    for (const s of p.segmenti) {
+      const libera = s.cameraId
+        ? await cameraDisponibile(tx, s.cameraId, s.dataInizio, s.dataFine, s.id)
+        : (await capacitaLiberaPerTipo(tx, s.tipoCameraId, s.dataInizio, s.dataFine, s.id)) > 0;
+      if (!libera) throw new Error(`Non si può riattivare: ${s.camera ? `la camera ${s.camera.codice}` : `nessuna camera "${s.tipoCamera.descrizione}"`} è libera nel periodo.`);
+    }
+    await tx.segmentoSoggiorno.updateMany({ where: { prenotazioneId: id }, data: { stato: "PREVISTO" } });
+    await tx.prenotazione.update({
+      where: { id },
+      data: { stato: "OPZIONE", annullataIl: null, annullataDa: null, motivoAnnullamento: null, notaAnnullamento: null, penale: null, ...(await scadenzeIniziali(tx, hotelId, {})) },
+    });
+    const ospiti = await tx.presenza.findMany({ where: { segmento: { prenotazioneId: id } }, select: { ospiteId: true } });
+    await ricalcolaOccupanti(tx, id, ospiti.map((o) => o.ospiteId));
+    await ricalcolaGratuita(tx, id);
+    return caricaPrenotazioneCompleta(tx, hotelId, id);
+  });
+}
+
+export async function impostaScadenze(hotelId: number, id: number, d: { scadenzaOpzione: string; accontoEntro: string; accontoRichiesto: number | null }) {
+  if (d.accontoRichiesto !== null && !(d.accontoRichiesto >= 0)) throw new Error("Acconto non valido.");
+  return prisma.$transaction(async (tx) => {
+    await tx.prenotazione.findFirstOrThrow({ where: { id, hotelId } });
+    await tx.prenotazione.update({
+      where: { id },
+      data: {
+        scadenzaOpzione: d.scadenzaOpzione ? new Date(d.scadenzaOpzione) : null,
+        accontoEntro: d.accontoEntro ? new Date(d.accontoEntro) : null,
+        accontoRichiesto: d.accontoRichiesto,
+      },
+    });
+    return caricaPrenotazioneCompleta(tx, hotelId, id);
+  });
+}
+
+// ---------------- Pagamenti ----------------
+
+export const METODI_PAGAMENTO = { contanti: "Contanti", carta: "Carta di credito", bancomat: "Bancomat", bonifico: "Bonifico", assegno: "Assegno", altro: "Altro" } as const;
+export const TIPI_PAGAMENTO = { acconto: "Acconto", saldo: "Saldo", rimborso: "Rimborso" } as const;
+
+export async function registraPagamento(
+  hotelId: number,
+  prenotazioneId: number,
+  d: { data: string; importo: number; metodo: string; tipo: string; nota: string },
+  utente: string,
+) {
+  if (!d.data) throw new Error("Indica la data del pagamento.");
+  if (!(d.importo > 0)) throw new Error("L'importo deve essere maggiore di zero.");
+  if (!(d.metodo in METODI_PAGAMENTO)) throw new Error("Metodo di pagamento non valido.");
+  if (!(d.tipo in TIPI_PAGAMENTO)) throw new Error("Tipo di pagamento non valido.");
+  return prisma.$transaction(async (tx) => {
+    const p = await tx.prenotazione.findFirstOrThrow({ where: { id: prenotazioneId, hotelId }, include: { pagamenti: true } });
+    if (d.tipo === "rimborso" && d.importo > pagatoNetto(p.pagamenti) + 0.001) {
+      throw new Error(`Non si può rimborsare più di quanto incassato (€ ${pagatoNetto(p.pagamenti).toFixed(2)}).`);
+    }
+    await tx.pagamento.create({
+      data: { prenotazioneId, data: new Date(d.data), importo: d.importo, metodo: d.metodo, tipo: d.tipo, nota: d.nota.trim() || null, registratoDa: utente },
+    });
+    return caricaPrenotazioneCompleta(tx, hotelId, prenotazioneId);
+  });
+}
+
+/** Un incasso sbagliato non si cancella: si storna con motivo, e resta visibile. */
+export async function stornaPagamento(hotelId: number, pagamentoId: number, motivo: string, utente: string) {
+  if (!motivo.trim()) throw new Error("Indica il motivo dello storno.");
+  return prisma.$transaction(async (tx) => {
+    const pag = await tx.pagamento.findFirstOrThrow({ where: { id: pagamentoId, prenotazione: { hotelId } } });
+    if (pag.stornatoIl) throw new Error("Pagamento già stornato.");
+    await tx.pagamento.update({ where: { id: pagamentoId }, data: { stornatoIl: new Date(), stornatoDa: utente, motivoStorno: motivo.trim() } });
+    return caricaPrenotazioneCompleta(tx, hotelId, pag.prenotazioneId);
   });
 }

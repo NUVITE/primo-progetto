@@ -4,6 +4,17 @@ import { conEsito } from "@/lib/esito";
 import {
   aggiornaComposizione,
   aggiungiSegmentoAPrenotazione,
+  annullaCamera,
+  annullaPrenotazione,
+  confermaPrenotazione,
+  impostaScadenze,
+  METODI_PAGAMENTO,
+  MOTIVI_ANNULLAMENTO,
+  registraPagamento,
+  riattivaPrenotazione,
+  stornaPagamento,
+  TIPI_PAGAMENTO,
+  type MotivoAnnullamento,
   assegnaCamera,
   calcolaTotaliPrenotazione,
   cambiaCameraSegmento,
@@ -58,7 +69,43 @@ async function serializza(prenotazione: Awaited<ReturnType<typeof trovaPrenotazi
     ospitePrenotante: `${prenotazione.ospitePrenotante.nome} ${prenotazione.ospitePrenotante.cognome}`,
     gruppoNome: prenotazione.gruppo?.nome ?? null,
     accontoRichiesto: importiVisibili && prenotazione.accontoRichiesto ? Number(prenotazione.accontoRichiesto) : null,
-    totali: { subtotale: imp(totali.subtotale), tassa: imp(totali.tassa), servizi: imp(totali.servizi), totale: imp(totali.totale) },
+    totali: {
+      subtotale: imp(totali.subtotale),
+      tassa: imp(totali.tassa),
+      servizi: imp(totali.servizi),
+      totale: imp(totali.totale),
+      pagato: imp(totali.pagato),
+      daPagare: imp(totali.daPagare),
+    },
+    scadenzaOpzione: prenotazione.scadenzaOpzione?.toISOString().slice(0, 10) ?? "",
+    accontoEntro: prenotazione.accontoEntro?.toISOString().slice(0, 10) ?? "",
+    confermataIl: prenotazione.confermataIl?.toISOString() ?? null,
+    annullamento: prenotazione.annullataIl
+      ? {
+          il: prenotazione.annullataIl.toISOString(),
+          da: prenotazione.annullataDa ?? "",
+          motivo: MOTIVI_ANNULLAMENTO[prenotazione.motivoAnnullamento as MotivoAnnullamento] ?? prenotazione.motivoAnnullamento ?? "",
+          nota: prenotazione.notaAnnullamento ?? "",
+          penale: prenotazione.penale === null ? null : imp(Number(prenotazione.penale)),
+        }
+      : null,
+    // Acconti ricevuti (al netto di storni), per l'avviso "acconto da ricevere".
+    accontoRicevuto: imp(
+      prenotazione.pagamenti.filter((x) => !x.stornatoIl && x.tipo === "acconto").reduce((t, x) => t + Number(x.importo), 0),
+    ),
+    pagamenti: importiVisibili
+      ? prenotazione.pagamenti.map((x) => ({
+          id: x.id,
+          data: x.data.toISOString().slice(0, 10),
+          importo: Number(x.importo),
+          metodo: METODI_PAGAMENTO[x.metodo as keyof typeof METODI_PAGAMENTO] ?? x.metodo,
+          tipo: x.tipo,
+          tipoTesto: TIPI_PAGAMENTO[x.tipo as keyof typeof TIPI_PAGAMENTO] ?? x.tipo,
+          nota: x.nota ?? "",
+          registratoDa: x.registratoDa,
+          stornato: x.stornatoIl ? { il: x.stornatoIl.toISOString(), da: x.stornatoDa ?? "", motivo: x.motivoStorno ?? "" } : null,
+        }))
+      : [],
     segmenti: prenotazione.segmenti.map((s) => {
       const composizione = composizioneDi(s);
       // Il confronto parte dal check-in: prima c'è solo l'intestatario, non la camera completa.
@@ -66,6 +113,7 @@ async function serializza(prenotazione: Awaited<ReturnType<typeof trovaPrenotazi
       const reale = composizioneReale(s.dataInizio, s.presenze.map((p) => ({ dataNascita: p.ospite.dataNascita, dal: p.dal })));
       return {
       id: s.id,
+      annullata: s.stato === "ANNULLATO",
       composizione,
       composizioneTesto: descriviComposizione(composizione),
       // Persone registrate diverse da quelle prenotate: si propone il ricalcolo (mai automatico).
@@ -145,6 +193,45 @@ export async function azioneComposizione(segmentoId: number, composizione: Compo
     const utente = await richiediPermesso(PERMESSI.PRENOTAZIONI_GESTISCI);
     return serializza(await aggiornaComposizione(utente.hotelId, segmentoId, composizione, ricalcola), utente);
   });
+}
+
+// --- Stato della prenotazione ---
+
+async function suPrenotazione(permesso: (typeof PERMESSI)[keyof typeof PERMESSI], fn: (u: UtenteSessione) => Promise<Awaited<ReturnType<typeof trovaPrenotazione>>>) {
+  return conEsito(async () => {
+    const utente = await richiediPermesso(permesso);
+    return serializza(await fn(utente), utente);
+  });
+}
+
+export async function azioneConferma(id: number) {
+  return suPrenotazione(PERMESSI.PRENOTAZIONI_GESTISCI, (u) => confermaPrenotazione(u.hotelId, id));
+}
+export async function azioneAnnulla(id: number, dati: { motivo: MotivoAnnullamento; nota: string; incassi: "trattieni" | "rimborsa" | null; metodoRimborso?: string }) {
+  return conEsito(async () => {
+    const utente = await richiediPermesso(PERMESSI.PRENOTAZIONI_GESTISCI);
+    // Trattenere o rimborsare denaro è un'operazione di cassa.
+    if (dati.incassi && !puo(utente, PERMESSI.PAGAMENTI_REGISTRA)) throw new Error("Ci sono incassi da trattenere o rimborsare: serve il permesso «Registrare pagamenti».");
+    return serializza(await annullaPrenotazione(utente.hotelId, id, dati, utente.nome), utente);
+  });
+}
+export async function azioneAnnullaCamera(segmentoId: number) {
+  return suPrenotazione(PERMESSI.PRENOTAZIONI_GESTISCI, (u) => annullaCamera(u.hotelId, segmentoId));
+}
+export async function azioneRiattiva(id: number) {
+  return suPrenotazione(PERMESSI.PRENOTAZIONI_GESTISCI, (u) => riattivaPrenotazione(u.hotelId, id));
+}
+export async function azioneScadenze(id: number, d: { scadenzaOpzione: string; accontoEntro: string; accontoRichiesto: number | null }) {
+  return suPrenotazione(PERMESSI.PRENOTAZIONI_GESTISCI, (u) => impostaScadenze(u.hotelId, id, d));
+}
+
+// --- Pagamenti ---
+
+export async function azioneRegistraPagamento(id: number, d: { data: string; importo: number; metodo: string; tipo: string; nota: string }) {
+  return suPrenotazione(PERMESSI.PAGAMENTI_REGISTRA, (u) => registraPagamento(u.hotelId, id, d, u.nome));
+}
+export async function azioneStornaPagamento(pagamentoId: number, motivo: string) {
+  return suPrenotazione(PERMESSI.PAGAMENTI_REGISTRA, (u) => stornaPagamento(u.hotelId, pagamentoId, motivo, u.nome));
 }
 
 export async function azioneAccorciaEstendi(segmentoId: number, nuovaDataFine: string) {
