@@ -538,16 +538,27 @@ async function creaSegmento(
  * del segmento (motore unico in pricing.ts). La tassa la calcola poi ricalcolaTassaPosizione; la
  * gratuità dei gruppi ricalcolaGratuita sull'intera prenotazione.
  */
+type SegmentoPrezzo = { id: number; listinoId: number; tipoCameraId: number; trattamento: string; adulti: number; etaBambini: unknown; prezzoConcordato?: unknown };
+
+/** Prezzo di una notte della camera: il prezzo concordato a mano, se c'è, altrimenti il listino. */
+async function prezzoNotte(db: Db, regole: Awaited<ReturnType<typeof regoleListino>>, segmento: SegmentoPrezzo, notte: Date) {
+  if (segmento.prezzoConcordato !== null && segmento.prezzoConcordato !== undefined) {
+    const importo = Math.round(Number(segmento.prezzoConcordato) * 100) / 100;
+    // quote vuote: la gratuità dei gruppi non tocca un prezzo concordato.
+    return { mancante: false as const, righe: [{ voce: "Prezzo concordato", importo }], lordo: importo, quote: [] as number[], gratuita: 0, concordato: true };
+  }
+  return { ...(await calcolaNotte(db, regole, segmento.tipoCameraId, notte, composizioneDi(segmento), segmento.trattamento)), concordato: false };
+}
+
 async function generaNotti(
   db: Db,
-  segmento: { id: number; listinoId: number; tipoCameraId: number; trattamento: string; adulti: number; etaBambini: unknown },
+  segmento: SegmentoPrezzo,
   dataInizio: Date,
   dataFine: Date
 ) {
   const regole = await regoleListino(db, segmento.listinoId);
-  const composizione = composizioneDi(segmento);
   for (const notte of nottiTraDate(dataInizio, dataFine)) {
-    const calcolo = await calcolaNotte(db, regole, segmento.tipoCameraId, notte, composizione, segmento.trattamento);
+    const calcolo = await prezzoNotte(db, regole, segmento, notte);
     // Nessuna tariffa impostata per questa notte: non blocca piu' la prenotazione (l'operatore
     // puo' bloccare le camere comunque e sistemare il listino piu' avanti — richiesto esplicitamente
     // dall'utente 2026-09-26), ma la notte resta segnata con prezzo 0 e motivo "mancante" cosi'
@@ -559,7 +570,7 @@ async function generaNotti(
             segmentoId: segmento.id,
             data: notte,
             prezzo: calcolo.lordo,
-            motivoPrezzo: regole.tipo,
+            motivoPrezzo: calcolo.concordato ? "concordato" : regole.tipo,
             dettaglio: { righe: calcolo.righe, lordo: calcolo.lordo, quote: calcolo.quote, gratuita: 0 },
           },
     });
@@ -574,21 +585,42 @@ async function generaNotti(
 async function riscriviPrezziSegmento(db: Db, segmentoId: number) {
   const segmento = await db.segmentoSoggiorno.findUniqueOrThrow({ where: { id: segmentoId } });
   const regole = await regoleListino(db, segmento.listinoId);
-  const composizione = composizioneDi(segmento);
   const notti = await db.notteSoggiorno.findMany({ where: { segmentoId } });
   for (const n of notti) {
-    const calcolo = await calcolaNotte(db, regole, segmento.tipoCameraId, n.data, composizione, segmento.trattamento);
+    const calcolo = await prezzoNotte(db, regole, segmento, n.data);
     await db.notteSoggiorno.update({
       where: { id: n.id },
       data: calcolo.mancante
         ? { prezzo: 0, motivoPrezzo: "mancante", dettaglio: Prisma.DbNull }
         : {
             prezzo: calcolo.lordo,
-            motivoPrezzo: regole.tipo,
+            motivoPrezzo: calcolo.concordato ? "concordato" : regole.tipo,
             dettaglio: { righe: calcolo.righe, lordo: calcolo.lordo, quote: calcolo.quote, gratuita: 0 },
           },
     });
   }
+}
+
+/**
+ * Prezzo per notte concordato a mano su una camera (null = si torna al listino): riscrive tutte le
+ * sue notti; i ricalcoli successivi lo rispettano. Resta traccia di chi l'ha fissato e perché.
+ */
+export async function impostaPrezzoConcordato(hotelId: number, segmentoId: number, prezzo: number | null, nota: string, utente: string) {
+  if (prezzo !== null && !(prezzo >= 0)) throw new Error("Prezzo non valido.");
+  if (prezzo !== null && !nota.trim()) throw new Error("Scrivi il motivo del prezzo concordato.");
+  return prisma.$transaction(async (tx) => {
+    const segmento = await trovaSegmentoDelHotel(tx, hotelId, segmentoId);
+    await verificaCameraAperta(tx, segmento.prenotazioneId, segmentoId);
+    await tx.segmentoSoggiorno.update({
+      where: { id: segmentoId },
+      data: prezzo === null
+        ? { prezzoConcordato: null, prezzoConcordatoNota: null, prezzoConcordatoDa: null }
+        : { prezzoConcordato: Math.round(prezzo * 100) / 100, prezzoConcordatoNota: nota.trim(), prezzoConcordatoDa: utente },
+    });
+    await riscriviPrezziSegmento(tx, segmentoId);
+    await ricalcolaGratuita(tx, segmento.prenotazioneId);
+    return caricaPrenotazioneCompleta(tx, hotelId, segmento.prenotazioneId);
+  });
 }
 
 /** Cambia la composizione di una camera prenotata e, se richiesto, ricalcola i prezzi delle sue notti. */
@@ -722,6 +754,13 @@ export async function cambiaCameraSegmento(hotelId: number, segmentoId: number, 
       },
       segmentoId
     );
+    if (segmento.prezzoConcordato !== null) {
+      await tx.segmentoSoggiorno.update({
+        where: { id: nuovo.id },
+        data: { prezzoConcordato: segmento.prezzoConcordato, prezzoConcordatoNota: segmento.prezzoConcordatoNota, prezzoConcordatoDa: segmento.prezzoConcordatoDa },
+      });
+      await riscriviPrezziSegmento(tx, nuovo.id);
+    }
 
     // Gli occupanti ancora presenti alla data del cambio passano nella nuova camera con i loro dati
     // di check-in; chi arriva dopo il cambio si sposta del tutto.

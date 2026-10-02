@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { calcolaNotte, composizioneDi, regoleListino, ricalcolaGratuita } from "@/lib/pricing";
+import { calcolaNotte, composizioneDi, regoleListino, ricalcolaGratuita, giorniWeekendDi } from "@/lib/pricing";
 
 /**
  * Impostazioni che l'hotel gestisce da sé (permesso "Configurare l'hotel" / "Gestire listini"):
@@ -123,7 +123,8 @@ export async function spostaTrattamento(hotelId: number, id: number, direzione: 
 
 // ---------- Listini e tariffe ----------
 
-export type DatiPeriodo = { dal: string; al: string; prezzoNotte: number };
+// prezzoWeekend: prezzo delle notti weekend del listino (null = come le altre notti).
+export type DatiPeriodo = { dal: string; al: string; prezzoNotte: number; prezzoWeekend?: number | null };
 
 export async function elencoListini(hotelId: number) {
   const [listini, tipi] = await Promise.all([
@@ -132,6 +133,7 @@ export async function elencoListini(hotelId: number) {
       include: {
         periodi: { orderBy: [{ tipoCameraId: "asc" }, { dal: "asc" }] },
         supplementiTrattamento: true,
+        supplementiStagionali: { orderBy: [{ trattamentoId: "asc" }, { dal: "asc" }] },
         riduzioni: { orderBy: [{ etaDa: "asc" }, { id: "asc" }] },
       },
       orderBy: { id: "asc" },
@@ -173,7 +175,9 @@ export async function elencoListini(hotelId: number) {
         minPersone: l.minPersone,
         gratuitaOgni: l.gratuitaOgni,
         politicaId: l.politicaId,
+        giorniWeekend: giorniWeekendDi(l.giorniWeekend),
       } satisfies RegoleListinoInput,
+      supplementiStagionali: l.supplementiStagionali.map((x) => ({ id: x.id, trattamentoId: x.trattamentoId, dal: iso(x.dal), al: iso(x.al), importo: Number(x.importo) })),
       supplementiTrattamento: Object.fromEntries(l.supplementiTrattamento.map((x) => [x.trattamentoId, Number(x.importo)])) as Record<number, number>,
       riduzioni: l.riduzioni.map((r) => ({
         id: r.id,
@@ -187,7 +191,13 @@ export async function elencoListini(hotelId: number) {
         const periodi = l.periodi.filter((p) => p.tipoCameraId === t.id);
         return {
           tipoCameraId: t.id,
-          periodi: periodi.map((p) => ({ id: p.id, dal: iso(p.dal), al: iso(p.al), prezzoNotte: Number(p.prezzoNotte) })),
+          periodi: periodi.map((p) => ({
+            id: p.id,
+            dal: iso(p.dal),
+            al: iso(p.al),
+            prezzoNotte: Number(p.prezzoNotte),
+            prezzoWeekend: p.prezzoWeekend === null ? null : Number(p.prezzoWeekend),
+          })),
           buchi: buchi(periodi),
         };
       }),
@@ -215,8 +225,11 @@ export type RegoleListinoInput = {
   gratuitaOgni: number | null;
   // Politica di cancellazione del listino (null = la predefinita dell'hotel).
   politicaId: number | null;
+  // Notti che usano il prezzo weekend dei periodi (0 = domenica … 6 = sabato).
+  giorniWeekend: number[];
 };
-export type RiduzioneInput = { etaDa: number; etaA: number | null; tipo: "percentuale" | "importo" | "gratis"; valore: number; dalTerzoLetto: boolean };
+// "supplemento" (solo listini a camera): la persona paga una quota in più, es. bambino nel letto aggiunto.
+export type RiduzioneInput = { etaDa: number; etaA: number | null; tipo: "percentuale" | "importo" | "gratis" | "supplemento"; valore: number; dalTerzoLetto: boolean };
 
 /** Le regole valgono per le nuove prenotazioni (e per "Ricalcola"): i prezzi già fissati non cambiano. */
 export async function salvaRegoleListino(hotelId: number, id: number, r: RegoleListinoInput) {
@@ -228,6 +241,7 @@ export async function salvaRegoleListino(hotelId: number, id: number, r: RegoleL
   }
   if (l.tipo === "base" && r.gruppo) throw new Error("Il listino base non può diventare un listino di gruppo: creane uno apposta.");
   if (r.politicaId) await prisma.politicaCancellazione.findFirstOrThrow({ where: { id: r.politicaId, hotelId, attiva: true } });
+  const giorniWeekend = [...new Set((r.giorniWeekend ?? []).filter((g) => Number.isInteger(g) && g >= 0 && g <= 6))].sort();
   await prisma.listino.update({
     where: { id },
     data: {
@@ -239,8 +253,37 @@ export async function salvaRegoleListino(hotelId: number, id: number, r: RegoleL
       minPersone: r.gruppo ? r.minPersone : null,
       gratuitaOgni: r.gruppo ? r.gratuitaOgni : null,
       politicaId: r.politicaId ?? null,
+      giorniWeekend,
     },
   });
+}
+
+/** Supplemento di un trattamento per una stagione: sostituisce il generale nelle notti del periodo. */
+export async function salvaSupplementoStagionale(
+  hotelId: number,
+  listinoId: number,
+  id: number | null,
+  d: { trattamentoId: number; dal: string; al: string; importo: number },
+) {
+  await prisma.listino.findFirstOrThrow({ where: { id: listinoId, hotelId } });
+  await prisma.trattamento.findFirstOrThrow({ where: { id: d.trattamentoId, hotelId } });
+  if (!d.dal || !d.al) throw new Error("Indica inizio e fine della stagione.");
+  const dal = new Date(d.dal);
+  const al = new Date(d.al);
+  if (al < dal) throw new Error("La fine della stagione non può precedere l'inizio.");
+  if (!(d.importo >= 0)) throw new Error("Supplemento non valido.");
+  const sovrapposto = await prisma.supplementoStagionale.findFirst({
+    where: { listinoId, trattamentoId: d.trattamentoId, id: id ? { not: id } : undefined, dal: { lte: al }, al: { gte: dal } },
+  });
+  if (sovrapposto) throw new Error("Per questo trattamento c'è già una stagione che si sovrappone.");
+  const dati = { trattamentoId: d.trattamentoId, dal, al, importo: d.importo };
+  if (id) await prisma.supplementoStagionale.update({ where: { id, listinoId }, data: dati });
+  else await prisma.supplementoStagionale.create({ data: { ...dati, listinoId } });
+}
+
+export async function eliminaSupplementoStagionale(hotelId: number, listinoId: number, id: number) {
+  await prisma.listino.findFirstOrThrow({ where: { id: listinoId, hotelId } });
+  await prisma.supplementoStagionale.delete({ where: { id, listinoId } });
 }
 
 /** importi: trattamentoId -> supplemento per persona per notte (null o 0 = incluso nel prezzo). */
@@ -267,14 +310,15 @@ export async function salvaSupplementiTrattamento(hotelId: number, listinoId: nu
 function verificaRiduzione(r: RiduzioneInput) {
   if (!(Number.isInteger(r.etaDa) && r.etaDa >= 0 && r.etaDa <= 18)) throw new Error("Età iniziale tra 0 e 18 (18 = adulti).");
   if (r.etaA !== null && !(Number.isInteger(r.etaA) && r.etaA >= r.etaDa)) throw new Error("L'età finale non può precedere quella iniziale.");
-  if (!["percentuale", "importo", "gratis"].includes(r.tipo)) throw new Error("Tipo di riduzione non valido.");
+  if (!["percentuale", "importo", "gratis", "supplemento"].includes(r.tipo)) throw new Error("Tipo di riduzione non valido.");
   if (r.tipo !== "gratis" && !(r.valore > 0)) throw new Error("Indica il valore della riduzione.");
   if (r.tipo === "percentuale" && r.valore > 100) throw new Error("Riduzione oltre il 100%: usa \"gratis\".");
 }
 
 export async function salvaRiduzione(hotelId: number, listinoId: number, id: number | null, r: RiduzioneInput) {
-  await prisma.listino.findFirstOrThrow({ where: { id: listinoId, hotelId } });
+  const l = await prisma.listino.findFirstOrThrow({ where: { id: listinoId, hotelId } });
   verificaRiduzione(r);
+  if (r.tipo === "supplemento" && l.modalita === "persona") throw new Error("Il supplemento per età vale nei listini a camera: in quelli a persona ognuno paga già la sua quota.");
   const dati = { etaDa: r.etaDa, etaA: r.etaA, tipo: r.tipo, valore: r.tipo === "gratis" ? 0 : r.valore, dalTerzoLetto: r.dalTerzoLetto };
   if (id) await prisma.riduzioneListino.update({ where: { id, listinoId }, data: dati });
   else await prisma.riduzioneListino.create({ data: { ...dati, listinoId } });
@@ -298,6 +342,7 @@ async function verificaPeriodo(hotelId: number, listinoId: number, tipoCameraId:
   const al = new Date(d.al);
   if (al < dal) throw new Error("La fine del periodo non può precedere l'inizio.");
   if (!(d.prezzoNotte >= 0)) throw new Error("Prezzo non valido.");
+  if (d.prezzoWeekend !== null && d.prezzoWeekend !== undefined && !(d.prezzoWeekend >= 0)) throw new Error("Prezzo weekend non valido.");
   const sovrapposto = await prisma.periodoTariffario.findFirst({
     where: { listinoId, tipoCameraId, id: escludiId ? { not: escludiId } : undefined, dal: { lte: al }, al: { gte: dal } },
   });
@@ -311,13 +356,13 @@ async function verificaPeriodo(hotelId: number, listinoId: number, tipoCameraId:
 /** Il nuovo prezzo vale per le prenotazioni future: quelle già fatte conservano il prezzo concordato. */
 export async function creaPeriodo(hotelId: number, listinoId: number, tipoCameraId: number, d: DatiPeriodo) {
   const { dal, al } = await verificaPeriodo(hotelId, listinoId, tipoCameraId, d);
-  await prisma.periodoTariffario.create({ data: { listinoId, tipoCameraId, dal, al, prezzoNotte: d.prezzoNotte } });
+  await prisma.periodoTariffario.create({ data: { listinoId, tipoCameraId, dal, al, prezzoNotte: d.prezzoNotte, prezzoWeekend: d.prezzoWeekend ?? null } });
 }
 
 export async function modificaPeriodo(hotelId: number, id: number, d: DatiPeriodo) {
   const p = await prisma.periodoTariffario.findFirstOrThrow({ where: { id, listino: { hotelId } } });
   const { dal, al } = await verificaPeriodo(hotelId, p.listinoId, p.tipoCameraId, d, id);
-  await prisma.periodoTariffario.update({ where: { id }, data: { dal, al, prezzoNotte: d.prezzoNotte } });
+  await prisma.periodoTariffario.update({ where: { id }, data: { dal, al, prezzoNotte: d.prezzoNotte, prezzoWeekend: d.prezzoWeekend ?? null } });
 }
 
 export async function eliminaPeriodo(hotelId: number, id: number) {

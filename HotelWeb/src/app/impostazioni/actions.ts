@@ -14,6 +14,8 @@ import {
   elencoListini,
   elencoTrattamenti,
   eliminaPeriodo,
+  eliminaSupplementoStagionale,
+  salvaSupplementoStagionale,
   impostaTrattamentoAttivo,
   modificaPeriodo,
   rinominaListino,
@@ -111,6 +113,14 @@ export async function azioneSalvaRegoleListino(id: number, r: RegoleListinoInput
 export async function azioneSalvaSupplementiTrattamento(listinoId: number, importi: Record<number, number | null>) {
   return suListini((h) => salvaSupplementiTrattamento(h, listinoId, importi));
 }
+export async function azioneSalvaSupplementoStagionale(listinoId: number, id: number | null, d: { trattamentoId: number; dal: string; al: string; importo: number }) {
+  return suListini((hotelId) => salvaSupplementoStagionale(hotelId, listinoId, id, d));
+}
+
+export async function azioneEliminaSupplementoStagionale(listinoId: number, id: number) {
+  return suListini((hotelId) => eliminaSupplementoStagionale(hotelId, listinoId, id));
+}
+
 export async function azioneSalvaRiduzione(listinoId: number, id: number | null, r: RiduzioneInput) {
   return suListini((h) => salvaRiduzione(h, listinoId, id, r));
 }

@@ -15,11 +15,11 @@ import { RegoleListino } from "./RegoleListino";
 import { Suggerimento } from "@/components/Suggerimento";
 
 type Dati = Awaited<ReturnType<typeof datiListini>>;
-type Periodo = { dal: string; al: string; prezzoNotte: string };
+type Periodo = { dal: string; al: string; prezzoNotte: string; prezzoWeekend: string };
 
 const CELLA = "h-8 w-full min-w-0 rounded-md border border-stone-300 bg-white px-2.5 text-sm text-stone-900 hover:border-stone-400 disabled:bg-stone-100 pointer-coarse:h-10";
 const it = (iso: string) => iso.split("-").reverse().join("/");
-const vuoto = (): Periodo => ({ dal: "", al: "", prezzoNotte: "" });
+const vuoto = (): Periodo => ({ dal: "", al: "", prezzoNotte: "", prezzoWeekend: "" });
 
 export function GestioneListini({ iniziale }: { iniziale: Dati }) {
   const [dati, setDati] = useState(iniziale);
@@ -47,7 +47,7 @@ export function GestioneListini({ iniziale }: { iniziale: Dati }) {
       setBusy(false);
     }
   }
-  const numero = (p: Periodo) => ({ dal: p.dal, al: p.al, prezzoNotte: Number(p.prezzoNotte) });
+  const numero = (p: Periodo) => ({ dal: p.dal, al: p.al, prezzoNotte: Number(p.prezzoNotte), prezzoWeekend: p.prezzoWeekend.trim() === "" ? null : Number(p.prezzoWeekend) });
 
   return (
     <div className="flex w-full min-w-0 flex-col gap-4 p-3 sm:p-6">
@@ -193,6 +193,7 @@ export function GestioneListini({ iniziale }: { iniziale: Dati }) {
                   <th className="pb-1 pr-2">Dal</th>
                   <th className="pb-1 pr-2">Al (compreso)</th>
                   <th className="pb-1 pr-2">{listino.regole.modalita === "persona" ? "€ / persona / notte" : "€ / camera / notte"}</th>
+                  <th className="pb-1 pr-2" title="Facoltativo: notti weekend del listino (vedi Regole del listino)">Weekend</th>
                   <th />
                 </tr>
               </thead>
@@ -208,6 +209,9 @@ export function GestioneListini({ iniziale }: { iniziale: Dati }) {
                       </td>
                       <td data-label="€ / notte" className="py-1.5 pr-2">
                         <input type="number" min={0} step="0.01" className={CELLA} value={modifica.p.prezzoNotte} onChange={(e) => setModifica({ id: p.id, p: { ...modifica.p, prezzoNotte: e.target.value } })} />
+                      </td>
+                      <td data-label="Weekend" className="py-1.5 pr-2">
+                        <input type="number" min={0} step="0.01" className={CELLA} placeholder="come gli altri" value={modifica.p.prezzoWeekend} onChange={(e) => setModifica({ id: p.id, p: { ...modifica.p, prezzoWeekend: e.target.value } })} />
                       </td>
                       <td className="cella-intera py-1.5 md:text-right">
                         <button
@@ -230,11 +234,12 @@ export function GestioneListini({ iniziale }: { iniziale: Dati }) {
                       <td data-label="Dal" className="py-1.5 pr-2 font-mono">{it(p.dal)}</td>
                       <td data-label="Al" className="py-1.5 pr-2 font-mono">{it(p.al)}</td>
                       <td data-label="€ / notte" className="py-1.5 pr-2 font-mono">{p.prezzoNotte.toFixed(2)}</td>
+                      <td data-label="Weekend" className="py-1.5 pr-2 font-mono">{p.prezzoWeekend === null ? "—" : p.prezzoWeekend.toFixed(2)}</td>
                       <td className="cella-intera py-1.5 md:text-right">
                         <button
                           type="button"
                           className="mr-2 inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-semibold text-teal-800 hover:bg-teal-50 pointer-coarse:h-9"
-                          onClick={() => setModifica({ id: p.id, p: { dal: p.dal, al: p.al, prezzoNotte: String(p.prezzoNotte) } })}
+                          onClick={() => setModifica({ id: p.id, p: { dal: p.dal, al: p.al, prezzoNotte: String(p.prezzoNotte), prezzoWeekend: p.prezzoWeekend === null ? "" : String(p.prezzoWeekend) } })}
                         >
                           Modifica
                         </button>
@@ -261,6 +266,17 @@ export function GestioneListini({ iniziale }: { iniziale: Dati }) {
                       placeholder="0,00"
                       value={nuovo.prezzoNotte}
                       onChange={(e) => setNuovi({ ...nuovi, [t.tipoCameraId]: { ...nuovo, prezzoNotte: e.target.value } })}
+                    />
+                  </td>
+                  <td data-label="Weekend" className="py-1.5 pr-2">
+                    <input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      className={CELLA}
+                      placeholder="come gli altri"
+                      value={nuovo.prezzoWeekend}
+                      onChange={(e) => setNuovi({ ...nuovi, [t.tipoCameraId]: { ...nuovo, prezzoWeekend: e.target.value } })}
                     />
                   </td>
                   <td className="cella-intera py-1.5 md:text-right">

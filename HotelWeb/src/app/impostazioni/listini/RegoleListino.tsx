@@ -4,7 +4,15 @@ import { useState } from "react";
 import { sbusta } from "@/lib/esito";
 import type { RegoleListinoInput, RiduzioneInput } from "@/lib/impostazioniHotel";
 import { AiutoSezione, Esempio } from "@/components/AiutoSezione";
-import { azioneEliminaRiduzione, azioneSalvaRegoleListino, azioneSalvaRiduzione, azioneSalvaSupplementiTrattamento, datiListini } from "../actions";
+import {
+  azioneEliminaRiduzione,
+  azioneEliminaSupplementoStagionale,
+  azioneSalvaRegoleListino,
+  azioneSalvaRiduzione,
+  azioneSalvaSupplementiTrattamento,
+  azioneSalvaSupplementoStagionale,
+  datiListini,
+} from "../actions";
 
 type Dati = Awaited<ReturnType<typeof datiListini>>;
 type Listino = Dati["listini"][number];
@@ -14,12 +22,24 @@ const CELLA = "h-8 w-full min-w-0 rounded-md border border-stone-300 bg-white px
 const BOTTONE = "inline-flex h-7 items-center justify-center gap-1 rounded-md bg-teal-700 px-2.5 text-xs font-semibold text-white shadow-sm hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-45 pointer-coarse:h-9";
 const numOppureNull = (s: string) => (s.trim() === "" ? null : Number(s.replace(",", ".")));
 const str = (n: number | null | undefined) => (n === null || n === undefined ? "" : String(n));
+// Giorni della settimana per le notti weekend (0 = domenica, come in JavaScript).
+const GIORNI = [
+  [1, "lun"],
+  [2, "mar"],
+  [3, "mer"],
+  [4, "gio"],
+  [5, "ven"],
+  [6, "sab"],
+  [0, "dom"],
+] as const;
+const it = (g: string) => g.split("-").reverse().join("/");
 
 type FormRiduzione = { etaDa: string; etaA: string; tipo: RiduzioneInput["tipo"]; valore: string; dalTerzoLetto: boolean };
 
 export function descriviRiduzione(r: { etaDa: number; etaA: number | null; tipo: string; valore: number; dalTerzoLetto: boolean }) {
   const chi = r.etaDa >= 18 ? "Adulti" : r.etaA === null ? `Da ${r.etaDa} anni` : `${r.etaDa}–${r.etaA} anni`;
-  const quanto = r.tipo === "gratis" ? "gratis" : r.tipo === "percentuale" ? `−${r.valore}%` : `−${r.valore.toFixed(2)} €`;
+  const quanto =
+    r.tipo === "gratis" ? "gratis" : r.tipo === "percentuale" ? `−${r.valore}%` : r.tipo === "supplemento" ? `+${r.valore.toFixed(2)} € a notte` : `−${r.valore.toFixed(2)} €`;
   return `${chi}: ${quanto}${r.dalTerzoLetto ? " (solo dal 3° letto)" : ""}`;
 }
 
@@ -46,7 +66,10 @@ export function RegoleListino({
     minPersone: string;
     gratuitaOgni: string;
     politica: string;
+    weekend: number[];
   }>(null);
+  const [stagione, setStagione] = useState<null | { id: number | null; trattamentoId: string; dal: string; al: string; importo: string }>(null);
+  const [stagioneDaEliminare, setStagioneDaEliminare] = useState<number | null>(null);
   const politicaPredefinita = politiche.find((p) => p.predefinita);
   const politicaListino = politiche.find((p) => p.id === listino.regole.politicaId);
   const [supplementi, setSupplementi] = useState<Record<number, string> | null>(null);
@@ -126,6 +149,22 @@ export function RegoleListino({
               </label>
             </div>
           )}
+          <div className="flex flex-col gap-1 text-xs font-semibold text-stone-600">
+            Notti con il prezzo weekend
+            <div className="flex flex-wrap gap-3 text-sm font-normal text-stone-800">
+              {GIORNI.map(([g, nome]) => (
+                <label key={g} className="flex items-center gap-1">
+                  <input
+                    type="checkbox"
+                    checked={regole.weekend.includes(g)}
+                    onChange={(e) => setRegole({ ...regole, weekend: e.target.checked ? [...regole.weekend, g] : regole.weekend.filter((x) => x !== g) })}
+                  />
+                  {nome}
+                </label>
+              ))}
+            </div>
+            <span className="font-normal">La notte di venerdì è quella tra venerdì e sabato. Il prezzo weekend si scrive nei periodi, accanto a quello normale.</span>
+          </div>
           <label className="flex max-w-md flex-col gap-1 text-xs font-semibold text-stone-600">
             Politica di cancellazione
             <select className={CELLA} value={regole.politica} onChange={(e) => setRegole({ ...regole, politica: e.target.value })}>
@@ -153,6 +192,7 @@ export function RegoleListino({
                   minPersone: numOppureNull(regole.minPersone),
                   gratuitaOgni: numOppureNull(regole.gratuitaOgni),
                   politicaId: regole.politica ? Number(regole.politica) : null,
+                  giorniWeekend: regole.weekend,
                 };
                 if (await esegui(() => sbusta(azioneSalvaRegoleListino(listino.id, dati)), "Regole salvate. Valgono per le nuove prenotazioni.")) setRegole(null);
               }}
@@ -170,6 +210,9 @@ export function RegoleListino({
             <p>
               <span className="font-semibold">{aPersona ? "Prezzo a persona" : "Prezzo a camera"}</span>
               {aPersona && r.supplementoSingola ? ` · singola +${r.supplementoSingolaPercentuale ? `${r.supplementoSingola}%` : `${r.supplementoSingola.toFixed(2)} €`}` : ""}
+            </p>
+            <p className="text-stone-600">
+              Notti weekend: {r.giorniWeekend.length ? GIORNI.filter(([g]) => r.giorniWeekend.includes(g)).map(([, n]) => n).join(", ") : "nessuna"}
             </p>
             <p className="text-stone-600">
               Cancellazione: {politicaListino ? politicaListino.nome : politicaPredefinita ? `${politicaPredefinita.nome} (predefinita)` : "nessuna politica"}
@@ -195,6 +238,7 @@ export function RegoleListino({
                 minPersone: str(r.minPersone),
                 gratuitaOgni: str(r.gratuitaOgni),
                 politica: r.politicaId ? String(r.politicaId) : "",
+                weekend: r.giorniWeekend,
               })
             }
           >
@@ -260,6 +304,111 @@ export function RegoleListino({
         )}
       </div>
 
+      {/* Supplementi per stagione */}
+      <div className="border-t border-stone-100 pt-3">
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div>
+            <h3 className="text-sm font-bold">Supplementi per stagione</h3>
+            <AiutoSezione breve="Supplemento del trattamento diverso in una stagione: nelle sue notti sostituisce quello generale qui sopra.">
+              <Esempio>mezza pensione +20 € tutto l&apos;anno, +28 € dal 01/07 al 31/08: in agosto la mezza pensione costa 28 € a persona a notte.</Esempio>
+            </AiutoSezione>
+          </div>
+          {!stagione && (
+            <button
+              type="button"
+              className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-semibold text-teal-800 hover:bg-teal-50 pointer-coarse:h-9"
+              onClick={() => setStagione({ id: null, trattamentoId: String(trattamenti[0]?.id ?? ""), dal: "", al: "", importo: "" })}
+            >
+              Aggiungi
+            </button>
+          )}
+        </div>
+        <ul className="mt-1 flex flex-col gap-1 text-sm">
+          {listino.supplementiStagionali.map((x) => (
+            <li key={x.id} className="flex flex-wrap items-center gap-2">
+              <span>
+                {trattamenti.find((t) => t.id === x.trattamentoId)?.nome ?? "?"} +{x.importo.toFixed(2)} € dal {it(x.dal)} al {it(x.al)}
+              </span>
+              {stagioneDaEliminare === x.id ? (
+                <span className="text-xs">
+                  Eliminare?{" "}
+                  <button
+                    type="button"
+                    disabled={busy}
+                    className="inline-flex h-7 items-center gap-1 rounded-md border border-red-300 bg-white px-2 text-xs font-semibold text-red-700 shadow-sm hover:bg-red-50 disabled:opacity-45 pointer-coarse:h-9"
+                    onClick={async () => {
+                      await esegui(() => sbusta(azioneEliminaSupplementoStagionale(listino.id, x.id)), "Supplemento di stagione eliminato.");
+                      setStagioneDaEliminare(null);
+                    }}
+                  >
+                    Sì
+                  </button>{" "}
+                  <button type="button" className="inline-flex h-7 items-center justify-center gap-1 rounded-md border border-stone-300 bg-white px-2.5 text-xs font-semibold text-stone-800 shadow-sm hover:bg-stone-50 pointer-coarse:h-9" onClick={() => setStagioneDaEliminare(null)}>
+                    No
+                  </button>
+                </span>
+              ) : (
+                !stagione && (
+                  <>
+                    <button
+                      type="button"
+                      className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-semibold text-teal-800 hover:bg-teal-50 pointer-coarse:h-9"
+                      onClick={() => setStagione({ id: x.id, trattamentoId: String(x.trattamentoId), dal: x.dal, al: x.al, importo: String(x.importo) })}
+                    >
+                      Modifica
+                    </button>
+                    <button type="button" className="inline-flex h-7 items-center gap-1 rounded-md border border-red-300 bg-white px-2 text-xs font-semibold text-red-700 shadow-sm hover:bg-red-50 pointer-coarse:h-9" onClick={() => setStagioneDaEliminare(x.id)}>
+                      Elimina
+                    </button>
+                  </>
+                )
+              )}
+            </li>
+          ))}
+          {listino.supplementiStagionali.length === 0 && !stagione && <li className="text-stone-500">Nessuno: vale sempre il supplemento generale.</li>}
+        </ul>
+        {stagione && (
+          <div className="mt-2 flex flex-wrap items-end gap-2 rounded-lg border border-teal-200 bg-teal-50/40 p-3">
+            <label className="flex flex-col gap-1 text-xs font-semibold text-stone-600">
+              Trattamento
+              <select className={`${CELLA} w-auto`} value={stagione.trattamentoId} onChange={(e) => setStagione({ ...stagione, trattamentoId: e.target.value })}>
+                {trattamenti.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.nome}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex flex-col gap-1 text-xs font-semibold text-stone-600">
+              Dal
+              <input type="date" className={`${CELLA} w-40`} value={stagione.dal} onChange={(e) => setStagione({ ...stagione, dal: e.target.value })} />
+            </label>
+            <label className="flex flex-col gap-1 text-xs font-semibold text-stone-600">
+              Al
+              <input type="date" className={`${CELLA} w-40`} value={stagione.al} onChange={(e) => setStagione({ ...stagione, al: e.target.value })} />
+            </label>
+            <label className="flex flex-col gap-1 text-xs font-semibold text-stone-600">
+              € a persona a notte
+              <input type="number" min={0} step="0.01" className={`${CELLA} w-28`} value={stagione.importo} onChange={(e) => setStagione({ ...stagione, importo: e.target.value })} />
+            </label>
+            <button
+              type="button"
+              disabled={busy || !stagione.dal || !stagione.al || stagione.importo === ""}
+              className={BOTTONE}
+              onClick={async () => {
+                const d = { trattamentoId: Number(stagione.trattamentoId), dal: stagione.dal, al: stagione.al, importo: Number(stagione.importo.replace(",", ".")) };
+                if (await esegui(() => sbusta(azioneSalvaSupplementoStagionale(listino.id, stagione.id, d)), "Supplemento di stagione salvato.")) setStagione(null);
+              }}
+            >
+              Salva
+            </button>
+            <button type="button" className="inline-flex h-7 items-center justify-center gap-1 rounded-md border border-stone-300 bg-white px-2.5 text-xs font-semibold text-stone-800 shadow-sm hover:bg-stone-50 pointer-coarse:h-9" onClick={() => setStagione(null)}>
+              Annulla
+            </button>
+          </div>
+        )}
+      </div>
+
       {/* Riduzioni per età */}
       <div className="border-t border-stone-100 pt-3">
         <h3 className="text-sm font-bold">Riduzioni per età</h3>
@@ -276,6 +425,12 @@ export function RegoleListino({
             aggiunto indica età 18.
           </p>
           <Esempio>2 adulti + bambino di 8 anni, regola 3–11 anni −50% dal 3° letto: il bambino paga metà quota.</Esempio>
+          {!aPersona && (
+            <p>
+              Nei listini a camera una fascia può essere un <strong>supplemento</strong>: il bambino nel letto aggiunto paga una quota a notte (es. 3–11 anni
+              +20 € dal 3° letto). Per l&apos;adulto nel letto aggiunto si usa il servizio &quot;letto aggiunto&quot;.
+            </p>
+          )}
         </AiutoSezione>
         <ul className="mt-2 flex flex-col gap-1 text-sm">
           {listino.riduzioni.map((x) =>
@@ -339,6 +494,7 @@ export function RegoleListino({
                 <option value="percentuale">Percentuale</option>
                 <option value="importo">Importo € per notte</option>
                 <option value="gratis">Gratis</option>
+                {!aPersona && <option value="supplemento">Supplemento € per notte (letto aggiunto)</option>}
               </select>
             </label>
             {riduzione.f.tipo !== "gratis" && (

@@ -10,6 +10,7 @@ import { Suggerimento } from "@/components/Suggerimento";
 import { statoPrenotazione } from "../stato";
 import { BarraStato, PannelloPagamenti } from "./StatoEPagamenti";
 import { ProvenienzaCondizioni } from "./ProvenienzaCondizioni";
+import { PrezzoConcordato } from "./PrezzoConcordato";
 import Link from "next/link";
 import { OspiteSearch, type OspiteValue } from "../nuova/OspiteSearch";
 import { CampoComposizione } from "../CampoComposizione";
@@ -45,11 +46,13 @@ export function PrenotazioneDettaglio({
   puoGestire: puoGestireRuolo,
   puoRiaprire,
   puoIncassare,
+  puoPrezzi = false,
 }: {
   iniziale: Prenotazione;
   puoGestire: boolean;
   puoRiaprire: boolean;
   puoIncassare: boolean;
+  puoPrezzi?: boolean;
 }) {
   const [prenotazione, setPrenotazione] = useState(iniziale);
   const [camere, setCamere] = useState<Camera[]>([]);
@@ -379,6 +382,9 @@ export function PrenotazioneDettaglio({
                   Manca la tariffa per una o più notti: il prezzo di questa camera è incompleto. Aggiungi il periodo in Impostazioni &gt; Listini e tariffe,
                   poi usa &quot;Completa le notti senza prezzo&quot;.
                 </Avviso>
+              )}
+              {importi && (
+                <PrezzoConcordato segmento={s} puoModificare={puoPrezzi && puoGestire} salvando={salvando} esegui={eseguendo} aggiorna={setPrenotazione} />
               )}
               {s.composizioneReale && (
                 <Avviso

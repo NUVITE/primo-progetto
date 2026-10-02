@@ -15,6 +15,7 @@ import {
   pagatoNetto,
   type ProvenienzaInput,
   confermaPrenotazione,
+  impostaPrezzoConcordato,
   impostaScadenze,
   METODI_PAGAMENTO,
   MOTIVI_ANNULLAMENTO,
@@ -150,6 +151,9 @@ async function serializza(prenotazione: Awaited<ReturnType<typeof trovaPrenotazi
       return {
       id: s.id,
       annullata: s.stato === "ANNULLATO",
+      prezzoConcordato: importiVisibili && s.prezzoConcordato !== null ? Number(s.prezzoConcordato) : null,
+      prezzoConcordatoNota: s.prezzoConcordatoNota ?? "",
+      prezzoConcordatoDa: s.prezzoConcordatoDa ?? "",
       composizione,
       composizioneTesto: descriviComposizione(composizione),
       // Persone registrate diverse da quelle prenotate: si propone il ricalcolo (mai automatico).
@@ -412,4 +416,8 @@ export async function azioneSospendi(id: number, d: { clienteId: number | null; 
 
 export async function azioneTogliSospeso(id: number) {
   return suPrenotazione(PERMESSI.PAGAMENTI_REGISTRA, (u) => togliSospeso(u.hotelId, id));
+}
+
+export async function azionePrezzoConcordato(segmentoId: number, prezzo: number | null, nota: string) {
+  return suPrenotazione(PERMESSI.PREZZI_MODIFICA, (u) => impostaPrezzoConcordato(u.hotelId, segmentoId, prezzo, nota, u.nome));
 }

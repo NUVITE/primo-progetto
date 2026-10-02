@@ -310,32 +310,37 @@ enum StatoSegmento {
 }
 
 model SegmentoSoggiorno {
-  id             Int           @id @default(autoincrement())
-  prenotazioneId Int
-  prenotazione   Prenotazione  @relation(fields: [prenotazioneId], references: [id])
+  id                   Int           @id @default(autoincrement())
+  prenotazioneId       Int
+  prenotazione         Prenotazione  @relation(fields: [prenotazioneId], references: [id])
   // Null finche' non si assegna una camera fisica specifica: una prenotazione "generica"
   // (es. "2 doppie dal 14 al 21") blocca la disponibilita' per tipo camera, non una camera precisa.
-  cameraId       Int?
-  camera         Camera?       @relation(fields: [cameraId], references: [id])
+  cameraId             Int?
+  camera               Camera?       @relation(fields: [cameraId], references: [id])
   // Sempre valorizzato (anche senza camera assegnata): serve per il prezzo e per il conteggio
   // di disponibilita' per tipo. Congelato al momento della creazione del segmento.
-  tipoCameraId   Int
-  tipoCamera     TipoCamera    @relation(fields: [tipoCameraId], references: [id])
+  tipoCameraId         Int
+  tipoCamera           TipoCamera    @relation(fields: [tipoCameraId], references: [id])
   // Intestatario della camera (riferimento per planning ed elenchi). Le PERSONE che occupano la
   // camera sono le Presenze: il prezzo è per camera (notti), la tassa per persona.
-  ospiteId       Int
-  ospite         Ospite        @relation(fields: [ospiteId], references: [id])
+  ospiteId             Int
+  ospite               Ospite        @relation(fields: [ospiteId], references: [id])
   // Trattamento semplificato a stringa libera per questa fetta (niente tabella dedicata ancora).
-  trattamento    String        @default("Mezza pensione")
-  listinoId      Int
-  listino        Listino       @relation(fields: [listinoId], references: [id])
-  dataInizio     DateTime      @db.Date
-  dataFine       DateTime      @db.Date
-  stato          StatoSegmento @default(PREVISTO)
+  trattamento          String        @default("Mezza pensione")
+  listinoId            Int
+  listino              Listino       @relation(fields: [listinoId], references: [id])
+  dataInizio           DateTime      @db.Date
+  dataFine             DateTime      @db.Date
+  stato                StatoSegmento @default(PREVISTO)
   // Composizione prenotata, base del prezzo: adulti e età dei bambini all'arrivo (array di interi).
   // Al check-in si confronta con le persone reali; il prezzo cambia solo su "Ricalcola".
-  adulti         Int           @default(1)
-  etaBambini     Json?
+  adulti               Int           @default(1)
+  etaBambini           Json?
+  // Prezzo per notte concordato a mano (permesso "Modificare i prezzi"): sostituisce il listino per
+  // tutte le notti della camera e i ricalcoli non lo toccano. Chi e perché restano registrati.
+  prezzoConcordato     Decimal?      @db.Decimal(10, 2)
+  prezzoConcordatoNota String?
+  prezzoConcordatoDa   String?
 
   // Collega un cambio-camera al segmento che lo precede (vedi MODELLO_DATI.md).
   segmentoPrecedenteId Int?               @unique
@@ -447,25 +452,30 @@ model Listino {
   gratuitaOgni                  Int?
   politicaId                    Int?
   politica                      PoliticaCancellazione? @relation(fields: [politicaId], references: [id])
+  // Notti con il prezzo weekend del periodo (giorni della settimana, 0 = domenica … 6 = sabato).
+  giorniWeekend                 Json?
 
   periodi                PeriodoTariffario[]
   segmenti               SegmentoSoggiorno[]
   supplementiTrattamento SupplementoTrattamento[]
   riduzioni              RiduzioneListino[]
+  supplementiStagionali  SupplementoStagionale[]
 
   @@unique([hotelId, codice])
 }
 
 model PeriodoTariffario {
-  id           Int        @id @default(autoincrement())
-  listinoId    Int
-  listino      Listino    @relation(fields: [listinoId], references: [id])
-  tipoCameraId Int
-  tipoCamera   TipoCamera @relation(fields: [tipoCameraId], references: [id])
-  dal          DateTime   @db.Date
-  al           DateTime   @db.Date
-  prezzoNotte  Decimal    @db.Decimal(10, 2)
-  createdAt    DateTime   @default(now())
+  id            Int        @id @default(autoincrement())
+  listinoId     Int
+  listino       Listino    @relation(fields: [listinoId], references: [id])
+  tipoCameraId  Int
+  tipoCamera    TipoCamera @relation(fields: [tipoCameraId], references: [id])
+  dal           DateTime   @db.Date
+  al            DateTime   @db.Date
+  prezzoNotte   Decimal    @db.Decimal(10, 2)
+  // Prezzo delle notti del weekend (vedi Listino.giorniWeekend); null = come le altre.
+  prezzoWeekend Decimal?   @db.Decimal(10, 2)
+  createdAt     DateTime   @default(now())
 }
 
 /**
@@ -747,7 +757,8 @@ model Trattamento {
   attivo  Boolean @default(true)
   ordine  Int     @default(0)
 
-  supplementi SupplementoTrattamento[]
+  supplementi           SupplementoTrattamento[]
+  supplementiStagionali SupplementoStagionale[]
 
   @@unique([hotelId, nome])
 }
@@ -1031,4 +1042,21 @@ model PoliticaCancellazione {
   updatedAt   DateTime @updatedAt
 
   listini Listino[]
+}
+
+/**
+ * Supplemento di un trattamento per una stagione del listino (es. mezza pensione 25 € in agosto):
+ * nelle notti del periodo sostituisce il supplemento generale (SupplementoTrattamento).
+ */
+model SupplementoStagionale {
+  id            Int         @id @default(autoincrement())
+  listinoId     Int
+  listino       Listino     @relation(fields: [listinoId], references: [id], onDelete: Cascade)
+  trattamentoId Int
+  trattamento   Trattamento @relation(fields: [trattamentoId], references: [id], onDelete: Cascade)
+  dal           DateTime    @db.Date
+  al            DateTime    @db.Date
+  importo       Decimal     @db.Decimal(10, 2)
+
+  @@index([listinoId, trattamentoId, dal])
 }

@@ -12,7 +12,10 @@ type Db = PrismaClient | Prisma.TransactionClient;
  * - listino "camera": prezzo del periodo per la camera + supplemento trattamento per persona;
  * - listino "persona": per ogni persona prezzo del periodo + supplemento trattamento, più il
  *   supplemento singola se in camera c'è una sola persona;
- * - riduzioni per fascia d'età sulla quota della persona (prima regola che corrisponde);
+ * - prezzo del periodo: quello del weekend (se indicato) nelle notti weekend del listino;
+ * - supplemento del trattamento: quello della stagione che comprende la notte, altrimenti il generale;
+ * - riduzioni per fascia d'età sulla quota della persona (prima regola che corrisponde); nei listini a
+ *   camera una fascia può essere invece un SUPPLEMENTO (es. bambino nel letto aggiunto +20 €);
  * - gratuità dei gruppi: 1 ogni N paganti per notte sull'intera prenotazione, azzera le quote
  *   più alte (ricalcolaGratuita).
  */
@@ -25,12 +28,19 @@ const ETA_ADULTO = 18;
 const arrotonda = (n: number) => Math.round(n * 100) / 100;
 const euro = (n: number) => `${n.toFixed(2)} €`;
 
+/** Notti weekend predefinite: venerdì e sabato (giorni della settimana JS, 0 = domenica). */
+export const WEEKEND_PREDEFINITO = [5, 6];
+export function giorniWeekendDi(v: unknown): number[] {
+  return Array.isArray(v) ? v.filter((x): x is number => Number.isInteger(x) && x >= 0 && x <= 6) : WEEKEND_PREDEFINITO;
+}
+
 export async function trovaPrezzoNotte(
   db: Db,
   listinoId: number,
   tipoCameraId: number,
-  data: Date
-): Promise<{ prezzo: number } | null> {
+  data: Date,
+  giorniWeekend: number[] = WEEKEND_PREDEFINITO,
+): Promise<{ prezzo: number; weekend: boolean } | null> {
   const periodo = await db.periodoTariffario.findFirst({
     where: {
       listinoId,
@@ -41,7 +51,8 @@ export async function trovaPrezzoNotte(
   });
 
   if (!periodo) return null;
-  return { prezzo: Number(periodo.prezzoNotte) };
+  const weekend = periodo.prezzoWeekend !== null && giorniWeekend.includes(data.getUTCDay());
+  return { prezzo: Number(weekend ? periodo.prezzoWeekend : periodo.prezzoNotte), weekend };
 }
 
 /** Tutte le date da [inizio, fine) — la data di fine è il giorno di check-out, non una notte. */
@@ -113,6 +124,7 @@ export async function regoleListino(db: Db, listinoId: number) {
     where: { id: listinoId },
     include: {
       supplementiTrattamento: { include: { trattamento: true } },
+      supplementiStagionali: { include: { trattamento: true }, orderBy: { dal: "asc" } },
       riduzioni: { orderBy: [{ etaDa: "asc" }, { id: "asc" }] },
     },
   });
@@ -131,13 +143,15 @@ export async function calcolaNotte(
   composizione: Composizione,
   trattamento: string
 ): Promise<{ mancante: true } | ({ mancante: false } & DettaglioNotte)> {
-  const periodo = await trovaPrezzoNotte(db, regole.id, tipoCameraId, data);
+  const periodo = await trovaPrezzoNotte(db, regole.id, tipoCameraId, data, giorniWeekendDi(regole.giorniWeekend));
   if (!periodo) return { mancante: true };
 
-  const supplemento = Number(regole.supplementiTrattamento.find((s) => s.trattamento.nome === trattamento)?.importo ?? 0);
+  // Supplemento del trattamento: quello della stagione che comprende la notte, altrimenti il generale.
+  const stagionale = regole.supplementiStagionali.find((s) => s.trattamento.nome === trattamento && s.dal <= data && s.al >= data);
+  const supplemento = Number(stagionale?.importo ?? regole.supplementiTrattamento.find((s) => s.trattamento.nome === trattamento)?.importo ?? 0);
   const aPersona = regole.modalita === "persona";
   const righe: RigaDettaglio[] = [];
-  if (!aPersona) righe.push({ voce: "Camera", importo: periodo.prezzo });
+  if (!aPersona) righe.push({ voce: periodo.weekend ? "Camera (weekend)" : "Camera", importo: periodo.prezzo });
 
   // Persone in ordine: prima gli adulti, poi i bambini dal più grande (i più piccoli occupano i letti aggiunti).
   const persone = [
@@ -155,7 +169,11 @@ export async function calcolaNotte(
     let nota = "";
     if (regola) {
       const v = Number(regola.valore);
-      if (regola.tipo === "gratis") {
+      if (regola.tipo === "supplemento") {
+        // Solo nei listini a camera: la persona (es. bambino nel letto aggiunto) paga una quota in più.
+        quota = base + v;
+        nota = ` +${euro(v)}`;
+      } else if (regola.tipo === "gratis") {
         quota = 0;
         nota = " gratis";
       } else if (regola.tipo === "percentuale") {
@@ -169,8 +187,14 @@ export async function calcolaNotte(
     }
     quota = arrotonda(quota);
     quote.push(quota);
-    if (base > 0) {
-      const cosa = aPersona ? (supplemento ? `${euro(periodo.prezzo)} + ${trattamento} ${euro(supplemento)}` : euro(periodo.prezzo)) : `${trattamento} ${euro(supplemento)}`;
+    if (base > 0 || quota > 0) {
+      const cosa = aPersona
+        ? supplemento
+          ? `${euro(periodo.prezzo)}${periodo.weekend ? " (weekend)" : ""} + ${trattamento} ${euro(supplemento)}${stagionale ? " (stagione)" : ""}`
+          : `${euro(periodo.prezzo)}${periodo.weekend ? " (weekend)" : ""}`
+        : supplemento
+          ? `${trattamento} ${euro(supplemento)}${stagionale ? " (stagione)" : ""}`
+          : "letto aggiunto";
       righe.push({ voce: `${chi}: ${cosa}${nota}`, importo: quota });
     }
   });

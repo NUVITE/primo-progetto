@@ -18,5 +18,6 @@ export default async function PrenotazioneDettaglioPage({ params }: { params: Pr
       puoGestire={puo(utente, PERMESSI.PRENOTAZIONI_GESTISCI)}
       puoRiaprire={puo(utente, PERMESSI.SOGGIORNI_RIAPRI)}
       puoIncassare={puo(utente, PERMESSI.PAGAMENTI_REGISTRA)}
+      puoPrezzi={puo(utente, PERMESSI.PREZZI_MODIFICA)}
     />;
 }
