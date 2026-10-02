@@ -3,7 +3,7 @@
 import { SezioneTassa } from "./SezioneTassa";
 import { sbusta } from "@/lib/esito";
 import { Fragment, useEffect, useState } from "react";
-import { ArrowLeft, Ban, BedDouble, CalendarRange, Check, ChevronDown, ChevronUp, KeyRound, LogIn, Pencil, Plus, RefreshCw, Repeat, Trash2, Users, Sun } from "lucide-react";
+import { ArrowLeft, Utensils, Ban, BedDouble, CalendarRange, Check, ChevronDown, ChevronUp, KeyRound, LogIn, Pencil, Plus, RefreshCw, Repeat, Trash2, Users, Sun } from "lucide-react";
 import { Avviso, Campo, classePulsante, Etichetta, Input, IntestazionePagina, Pulsante, Select, Sezione, Spunta } from "@/components/ui";
 import { AiutoSezione, Esempio } from "@/components/AiutoSezione";
 import { Suggerimento } from "@/components/Suggerimento";
@@ -276,6 +276,23 @@ export function PrenotazioneDettaglio({
       <BarraStato prenotazione={prenotazione} puoGestire={puoGestireRuolo} puoIncassare={puoIncassare} salvando={salvando} esegui={eseguendo} aggiorna={setPrenotazione} />
 
       {errore && <Avviso tipo="errore">{errore}</Avviso>}
+
+      {prenotazione.noteAlimentari && prenotazione.noteAlimentari.length > 0 && (
+        <Avviso tipo={prenotazione.noteAlimentari.some((n) => n.allergie) ? "errore" : "info"}>
+          <span className="flex items-center gap-1 font-semibold">
+            <Utensils className="h-4 w-4" aria-hidden /> Note alimentari
+          </span>
+          <ul className="mt-1">
+            {prenotazione.noteAlimentari.map((n) => (
+              <li key={n.ospiteId}>
+                <strong>{n.nome}</strong>
+                {n.camera && ` (camera ${n.camera})`}: {n.sintesi}
+              </li>
+            ))}
+          </ul>
+          <span className="text-xs">Si modificano dal check-in della camera.</span>
+        </Avviso>
+      )}
 
       <div className="flex flex-col gap-4 xl:flex-row xl:items-start">
         <div className="flex min-w-0 flex-1 flex-col gap-4">

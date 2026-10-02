@@ -6,6 +6,7 @@
  */
 export const MODULI = {
   SALE: "sale",
+  RISTORAZIONE: "ristorazione",
   PULIZIE: "pulizie",
   MANUTENZIONI: "manutenzioni",
   MAGAZZINO: "magazzino",
@@ -19,6 +20,12 @@ export type Modulo = (typeof MODULI)[keyof typeof MODULI];
 
 export const CATALOGO_MODULI: { modulo: Modulo; nome: string; descrizione: string; disponibile: boolean }[] = [
   { modulo: MODULI.SALE, nome: "Sale ed eventi", descrizione: "Prenotazione sale a fasce o a ore, allestimenti, clienti esterni", disponibile: true },
+  {
+    modulo: MODULI.RISTORAZIONE,
+    nome: "Ristorazione",
+    descrizione: "Note alimentari degli ospiti (allergie, intolleranze), pasti del giorno, menu e room service",
+    disponibile: true,
+  },
   { modulo: MODULI.PULIZIE, nome: "Pulizie e riassetto", descrizione: "Stato camere, riassetto, approvvigionamenti ai piani", disponibile: false },
   { modulo: MODULI.MANUTENZIONI, nome: "Manutenzioni", descrizione: "Segnalazioni guasti e richieste degli ospiti", disponibile: false },
   { modulo: MODULI.MAGAZZINO, nome: "Magazzino", descrizione: "Prodotti, movimenti di carico e scarico, giacenze", disponibile: false },

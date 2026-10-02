@@ -84,6 +84,7 @@ model Hotel {
   repartiAddebito        RepartoAddebito[]
   pagamenti              Pagamento[]
   chiusureCassa          ChiusuraCassa[]
+  noteAlimentari         NotaAlimentare[]
 }
 
 /**
@@ -233,6 +234,7 @@ model Ospite {
   prenotazioniPrenotante Prenotazione[]      @relation("prenotante")
   prenotazioniPagante    Prenotazione[]      @relation("pagante")
   posizioniTassa         PosizioneTassa[]
+  notaAlimentare         NotaAlimentare?
 
   @@index([hotelId, cognome, nome])
 }
@@ -1287,4 +1289,31 @@ model ChiusuraCassa {
   chiusaIl        DateTime @default(now())
 
   @@unique([hotelId, giorno])
+}
+
+/**
+ * Note alimentari di un ospite (allergie, intolleranze, regimi): dati sulla salute o sulle convinzioni
+ * religiose (art. 9 GDPR), si registrano solo con il consenso esplicito, di cui resta traccia.
+ * consenso "soggiorno": cancellate 7 giorni dopo l'ultima partenza; "sempre": restano per i ritorni.
+ * Revocato il consenso si cancellano subito (nessuna copia).
+ */
+model NotaAlimentare {
+  id           Int      @id @default(autoincrement())
+  hotelId      Int
+  hotel        Hotel    @relation(fields: [hotelId], references: [id])
+  ospiteId     Int      @unique
+  ospite       Ospite   @relation(fields: [ospiteId], references: [id], onDelete: Cascade)
+  // [{ codice?: allergene del Reg. UE 1169/2011, testo?: alimento scritto a mano, tipo: "allergia" | "intolleranza" }]
+  voci         Json
+  // ["vegetariano", "halal", ...]
+  regimi       Json
+  esigenze     String?  @db.Text
+  consenso     String
+  consensoModo String
+  consensoIl   DateTime @default(now())
+  consensoDa   String
+  aggiornataIl DateTime @updatedAt
+  aggiornataDa String
+
+  @@index([hotelId])
 }

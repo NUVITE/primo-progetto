@@ -8,6 +8,8 @@ import type { datiCheckin, AnagraficaInput, DatiPresenzaInput } from "@/lib/chec
 import { OspiteSearch, type OspiteValue } from "../../../nuova/OspiteSearch";
 import { LuogoSearch } from "./LuogoSearch";
 import { ContoApertoCheckout } from "./ContoApertoCheckout";
+import { NoteAlimentari } from "./NoteAlimentari";
+import type { NotaOspite } from "@/lib/noteAlimentari";
 import { ArrowLeft, CheckCircle2, LogIn, LogOut, RefreshCw, Save, UserMinus, UserPlus, UserRoundCog } from "lucide-react";
 import { Avviso, CLASSE_CAMPO, Etichetta, IntestazionePagina, Pulsante, Sezione } from "@/components/ui";
 import { AiutoSezione } from "@/components/AiutoSezione";
@@ -51,8 +53,20 @@ function tipoSuggerito(dati: Dati, o: Occupante): { tipo: number; capo: number |
   return { tipo: gruppo ? 20 : 19, capo };
 }
 
-export function CheckinCamera({ iniziale, puoGestire, puoIncassare = false }: { iniziale: Dati; puoGestire: boolean; puoIncassare?: boolean }) {
+export function CheckinCamera({
+  iniziale,
+  puoGestire,
+  puoIncassare = false,
+  noteIniziali = null,
+}: {
+  iniziale: Dati;
+  puoGestire: boolean;
+  puoIncassare?: boolean;
+  noteIniziali?: Record<number, NotaOspite> | null;
+}) {
   const [dati, setDati] = useState(iniziale);
+  // null = senza il permesso "Note alimentari" (o modulo Ristorazione spento): il riquadro non c'è.
+  const [note, setNote] = useState(noteIniziali);
   const [messaggio, setMessaggio] = useState<{ tipo: "ok" | "errore" | "avviso"; testo: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [nuovo, setNuovo] = useState<OspiteValue>({ mode: "vuoto" });
@@ -162,7 +176,10 @@ export function CheckinCamera({ iniziale, puoGestire, puoIncassare = false }: { 
       )}
 
       {dati.occupanti.map((o) => (
-        <SchedaOccupante key={`${o.presenzaId}-${o.ospiteId}`} dati={dati} o={o} puoGestire={puoGestire} busy={busy} esegui={esegui} />
+        <div key={`${o.presenzaId}-${o.ospiteId}`} className="flex flex-col gap-2">
+          <SchedaOccupante dati={dati} o={o} puoGestire={puoGestire} busy={busy} esegui={esegui} />
+          {note && <NoteAlimentari segmentoId={s.id} ospiteId={o.ospiteId} nome={`${o.anagrafica.nome} ${o.anagrafica.cognome}`} nota={note[o.ospiteId] ?? null} onAggiorna={setNote} />}
+        </div>
       ))}
 
       {puoGestire && !tuttiPartiti && (

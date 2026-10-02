@@ -20,6 +20,8 @@ import { cercaLuoghi } from "@/lib/tabellePolizia";
 import { aggiornaComposizione, trovaPrenotazione } from "@/lib/prenotazioni";
 import { sospendiConto, statoConto } from "@/lib/contiSospesi";
 import { prisma } from "@/lib/prisma";
+import type { NotaInput } from "@/lib/allergeni";
+import { cancellaNotaAlimentare, noteDegliOspiti, salvaNotaAlimentare } from "@/lib/noteAlimentari";
 
 const mostraDocumenti = (u: UtenteSessione) => puo(u, PERMESSI.PRENOTAZIONI_GESTISCI);
 
@@ -114,4 +116,30 @@ export async function azioneSospendiDaCheckout(segmentoId: number, d: { clienteI
     await sospendiConto(utente.hotelId, seg.prenotazioneId, d, utente.nome);
     return { dati: await datiCheckin(utente.hotelId, segmentoId, true), avviso: "Conto lasciato in sospeso." as string | null, contoAperto: null };
   });
+}
+
+// ---------------- Note alimentari (modulo Ristorazione) ----------------
+
+/** Persone della camera (intestatario e registrati): solo a loro si possono scrivere le note da qui. */
+async function personeCamera(hotelId: number, segmentoId: number) {
+  const seg = await prisma.segmentoSoggiorno.findFirstOrThrow({ where: { id: segmentoId, prenotazione: { hotelId } }, include: { presenze: true } });
+  return [...new Set([seg.ospiteId, ...seg.presenze.map((p) => p.ospiteId)])];
+}
+
+async function suNote(segmentoId: number, ospiteId: number, fn: (hotelId: number, nome: string) => Promise<void>) {
+  return conEsito(async () => {
+    const u = await richiediPermesso(PERMESSI.NOTE_ALIMENTARI);
+    const persone = await personeCamera(u.hotelId, segmentoId);
+    if (!persone.includes(ospiteId)) throw new Error("L'ospite non è in questa camera.");
+    await fn(u.hotelId, u.nome);
+    return noteDegliOspiti(u.hotelId, persone);
+  });
+}
+
+export async function azioneSalvaNota(segmentoId: number, ospiteId: number, d: NotaInput) {
+  return suNote(segmentoId, ospiteId, (h, nome) => salvaNotaAlimentare(h, ospiteId, d, nome));
+}
+
+export async function azioneCancellaNota(segmentoId: number, ospiteId: number) {
+  return suNote(segmentoId, ospiteId, (h) => cancellaNotaAlimentare(h, ospiteId));
 }

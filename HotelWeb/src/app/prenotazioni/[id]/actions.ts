@@ -52,6 +52,7 @@ import {
 import { PERMESSI } from "@/lib/permessi";
 import { descriviPolitica, elencoPolitiche, type PoliticaCopiata } from "@/lib/politiche";
 import { prisma } from "@/lib/prisma";
+import { noteDellaPrenotazione } from "@/lib/noteAlimentari";
 import { sospendiConto, statoConto, togliSospeso } from "@/lib/contiSospesi";
 import { elencoReparti, registraAddebito, riepilogoIva, stornaAddebito, type AddebitoInput } from "@/lib/conto";
 import { dividiConto, impostaRegolaConto, REGOLE_CONTO, segnaFatturate, spostaRiga, type RegolaConto } from "@/lib/contoDiviso";
@@ -79,8 +80,11 @@ async function serializza(prenotazione: Awaited<ReturnType<typeof trovaPrenotazi
   const riepilogo = riepilogoIva(righe);
   const puoAddebitare = puo(utente, PERMESSI.ADDEBITI_REGISTRA);
   const reparti = puoAddebitare ? await elencoReparti(utente.hotelId, true) : [];
+  // Note alimentari (dati sanitari): solo con il permesso, altrimenti non lasciano il server.
+  const noteAlimentari = puo(utente, PERMESSI.NOTE_ALIMENTARI) ? await noteDellaPrenotazione(utente.hotelId, prenotazione.id) : null;
   return {
     importiVisibili,
+    noteAlimentari,
     contoVoci: {
       righe,
       riepilogoIva: riepilogo,

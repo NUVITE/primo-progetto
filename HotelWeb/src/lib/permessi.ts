@@ -13,6 +13,7 @@ export const PERMESSI = {
   PREZZI_MODIFICA: "prezzi.modifica",
   ADDEBITI_REGISTRA: "addebiti.registra",
   CASSA_CHIUDI: "cassa.chiudi",
+  NOTE_ALIMENTARI: "ristorazione.note",
   ADEMPIMENTI_INVIA: "adempimenti.invia",
   SOGGIORNI_RIAPRI: "soggiorni.riapri",
   CAMERE_GESTISCI: "camere.gestisci",
@@ -71,6 +72,17 @@ export const CATALOGO_PERMESSI: { area: string; modulo?: Modulo; voci: { permess
     ],
   },
   {
+    area: "Ristorazione",
+    modulo: MODULI.RISTORAZIONE,
+    voci: [
+      {
+        permesso: PERMESSI.NOTE_ALIMENTARI,
+        nome: "Note alimentari",
+        descrizione: "Vedere e registrare allergie, intolleranze e regimi alimentari degli ospiti (dati sanitari: solo con il consenso)",
+      },
+    ],
+  },
+  {
     area: "Utenti",
     voci: [
       { permesso: PERMESSI.UTENTI_GESTISCI, nome: "Gestire utenti", descrizione: "Aggiungere utenti all'hotel e assegnare i ruoli" },
@@ -91,6 +103,7 @@ const IMPLICAZIONI: Partial<Record<Permesso, Permesso[]>> = {
   [PERMESSI.PAGAMENTI_REGISTRA]: [PERMESSI.PRENOTAZIONI_VEDI, PERMESSI.IMPORTI_VEDI],
   [PERMESSI.ADEMPIMENTI_INVIA]: [PERMESSI.PRENOTAZIONI_VEDI],
   [PERMESSI.CASSA_CHIUDI]: [PERMESSI.PRENOTAZIONI_VEDI, PERMESSI.IMPORTI_VEDI],
+  [PERMESSI.NOTE_ALIMENTARI]: [PERMESSI.PRENOTAZIONI_VEDI],
   [PERMESSI.PREZZI_MODIFICA]: [PERMESSI.PRENOTAZIONI_GESTISCI, PERMESSI.PRENOTAZIONI_VEDI, PERMESSI.IMPORTI_VEDI],
 };
 
@@ -119,7 +132,7 @@ export const RUOLI_PREDEFINITI: { nome: string; permessi: Permesso[] }[] = [
   { nome: "Direttore", permessi: TUTTI_I_PERMESSI.filter((p) => p !== PERMESSI.RUOLI_GESTISCI) },
   {
     nome: "Reception",
-    permessi: [PERMESSI.PRENOTAZIONI_VEDI, PERMESSI.PRENOTAZIONI_GESTISCI, PERMESSI.IMPORTI_VEDI, PERMESSI.PAGAMENTI_REGISTRA, PERMESSI.ADDEBITI_REGISTRA, PERMESSI.CASSA_CHIUDI, PERMESSI.ADEMPIMENTI_INVIA, PERMESSI.SALE_VEDI, PERMESSI.SALE_GESTISCI],
+    permessi: [PERMESSI.PRENOTAZIONI_VEDI, PERMESSI.PRENOTAZIONI_GESTISCI, PERMESSI.IMPORTI_VEDI, PERMESSI.PAGAMENTI_REGISTRA, PERMESSI.ADDEBITI_REGISTRA, PERMESSI.CASSA_CHIUDI, PERMESSI.NOTE_ALIMENTARI, PERMESSI.ADEMPIMENTI_INVIA, PERMESSI.SALE_VEDI, PERMESSI.SALE_GESTISCI],
   },
   {
     nome: "Eventi / Commerciale",
