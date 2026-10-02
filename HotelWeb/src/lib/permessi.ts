@@ -81,6 +81,16 @@ const IMPLICAZIONI: Partial<Record<Permesso, Permesso[]>> = {
   [PERMESSI.PREZZI_MODIFICA]: [PERMESSI.PRENOTAZIONI_GESTISCI, PERMESSI.PRENOTAZIONI_VEDI, PERMESSI.IMPORTI_VEDI],
 };
 
+/**
+ * Permessi di un accesso all'hotel: modalità "titolare" = tutti (un solo utente che fa tutto);
+ * altrimenti la somma del ruolo principale e dei ruoli in più.
+ */
+export function permessiAccesso(modalitaUtenti: string, ruoli: unknown[]): Permesso[] {
+  if (modalitaUtenti === "titolare") return TUTTI_I_PERMESSI;
+  const tutti = ruoli.flatMap((r) => (Array.isArray(r) ? r : []));
+  return permessiEffettivi(tutti);
+}
+
 /** Normalizza l'elenco salvato su DB: scarta codici sconosciuti e aggiunge le implicazioni. */
 export function permessiEffettivi(salvati: unknown): Permesso[] {
   const noti = new Set<string>(TUTTI_I_PERMESSI);

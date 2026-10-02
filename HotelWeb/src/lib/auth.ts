@@ -5,7 +5,7 @@ import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { filtraPerModuli, permessiEffettivi, TUTTI_I_PERMESSI, type Permesso } from "@/lib/permessi";
+import { filtraPerModuli, permessiAccesso, TUTTI_I_PERMESSI, type Permesso } from "@/lib/permessi";
 import { moduliAttivi, type Modulo } from "@/lib/moduli";
 
 const COOKIE_SESSIONE = "hotelweb_sessione";
@@ -129,7 +129,9 @@ export async function getUtenteCorrente(): Promise<UtenteSessione | null> {
 
   const utente = await prisma.utente.findUnique({
     where: { id: sessione.utenteId },
-    include: { accessi: { include: { hotel: { select: { id: true, nome: true, attivo: true } }, ruolo: true } } },
+    include: {
+      accessi: { include: { hotel: { select: { id: true, nome: true, attivo: true } }, ruolo: true, ruoliAggiuntivi: { include: { ruolo: true } } } },
+    },
   });
   if (!utente || !utente.attivo) return null;
 
@@ -140,7 +142,9 @@ export async function getUtenteCorrente(): Promise<UtenteSessione | null> {
   // dopo il login): si ripiega silenziosamente sul primo disponibile.
   const hotelAttivo = hotels.find((h) => h.id === sessione.hotelId) ?? hotels[0];
   const accesso = utente.accessi.find((a) => a.hotelId === hotelAttivo.id);
-  const hotelDati = await prisma.hotel.findUnique({ where: { id: hotelAttivo.id }, select: { moduli: true } });
+  const hotelDati = await prisma.hotel.findUnique({ where: { id: hotelAttivo.id }, select: { moduli: true, modalitaUtenti: true } });
+  const titolare = hotelDati?.modalitaUtenti === "titolare";
+  const ruoli = accesso ? [accesso.ruolo, ...accesso.ruoliAggiuntivi.map((x) => x.ruolo)] : [];
   const moduli = moduliAttivi(hotelDati?.moduli);
 
   return {
@@ -151,8 +155,11 @@ export async function getUtenteCorrente(): Promise<UtenteSessione | null> {
     hotelId: hotelAttivo.id,
     hotelNome: hotelAttivo.nome,
     hotels,
-    ruoloNome: utente.superAdmin ? "Superadmin" : (accesso?.ruolo.nome ?? ""),
-    permessi: filtraPerModuli(utente.superAdmin ? TUTTI_I_PERMESSI : permessiEffettivi(accesso?.ruolo.permessi), moduli),
+    ruoloNome: utente.superAdmin ? "Superadmin" : titolare ? "Titolare" : ruoli.map((r) => r.nome).join(" + "),
+    permessi: filtraPerModuli(
+      utente.superAdmin ? TUTTI_I_PERMESSI : accesso ? permessiAccesso(hotelDati?.modalitaUtenti ?? "ruoli", ruoli.map((r) => r.permessi)) : [],
+      moduli,
+    ),
     moduli,
   };
 }

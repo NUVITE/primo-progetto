@@ -40,6 +40,9 @@ model Hotel {
   orarioCheckOut         String?
   // Giorni di validità proposti per una nuova opzione (modificabili nella singola prenotazione).
   giorniOpzione          Int       @default(3)
+  // Utenti: "ruoli" (più utenti, ognuno con uno o più ruoli) | "titolare" (un solo utente che fa
+  // tutto, tipico del B&B: non si aggiungono altri utenti finché non si passa ai ruoli).
+  modalitaUtenti         String    @default("ruoli")
   // Prenotazioni NON garantite: oltre quest'ora del giorno di arrivo l'ospite che non è arrivato è un
   // possibile no-show e la camera si può rivendere ("HH:MM").
   orarioLimiteArrivo     String    @default("18:00")
@@ -109,18 +112,21 @@ model Ruolo {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  accessi UtenteHotel[]
+  accessi    UtenteHotel[]
+  aggiuntivi RuoloAggiuntivo[]
 
   @@unique([hotelId, nome])
 }
 
 model UtenteHotel {
-  utenteId Int
-  utente   Utente @relation(fields: [utenteId], references: [id], onDelete: Cascade)
-  hotelId  Int
-  hotel    Hotel  @relation(fields: [hotelId], references: [id], onDelete: Cascade)
-  ruoloId  Int
-  ruolo    Ruolo  @relation(fields: [ruoloId], references: [id])
+  utenteId        Int
+  utente          Utente            @relation(fields: [utenteId], references: [id], onDelete: Cascade)
+  hotelId         Int
+  hotel           Hotel             @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  ruoloId         Int
+  ruolo           Ruolo             @relation(fields: [ruoloId], references: [id])
+  // Ruoli in più oltre a quello principale: i permessi si sommano (es. Reception + Cassa).
+  ruoliAggiuntivi RuoloAggiuntivo[]
 
   @@id([utenteId, hotelId])
   @@index([hotelId])
@@ -1059,4 +1065,18 @@ model SupplementoStagionale {
   importo       Decimal     @db.Decimal(10, 2)
 
   @@index([listinoId, trattamentoId, dal])
+}
+
+/**
+ * Ruolo in più di un utente in un hotel (oltre a UtenteHotel.ruoloId): i permessi si sommano.
+ */
+model RuoloAggiuntivo {
+  utenteId Int
+  hotelId  Int
+  accesso  UtenteHotel @relation(fields: [utenteId, hotelId], references: [utenteId, hotelId], onDelete: Cascade)
+  ruoloId  Int
+  ruolo    Ruolo       @relation(fields: [ruoloId], references: [id], onDelete: Cascade)
+
+  @@id([utenteId, hotelId, ruoloId])
+  @@index([ruoloId])
 }

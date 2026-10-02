@@ -7,7 +7,9 @@ import {
   azioneCambiaRuolo,
   azioneImpostaAttivo,
   azioneImpostaSuperAdmin,
+  azioneModalitaUtenti,
   azioneRimuoviDaHotel,
+  azioneRuoliAggiuntivi,
   datiUtenti,
 } from "./actions";
 import { Suggerimento } from "@/components/Suggerimento";
@@ -21,6 +23,9 @@ export function GestioneUtenti({ iniziale }: { iniziale: Dati }) {
   const [errore, setErrore] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [daRimuovere, setDaRimuovere] = useState<number | null>(null);
+  // Utente di cui si stanno scegliendo i ruoli in più.
+  const [ruoliInPiu, setRuoliInPiu] = useState<null | { utenteId: number; ids: number[] }>(null);
+  const titolare = dati.modalitaUtenti === "titolare";
 
   const ruoloPredefinito = dati.ruoli.find((r) => r.nome === "Reception")?.id ?? dati.ruoli[0]?.id ?? 0;
   const [nuovo, setNuovo] = useState({ nome: "", email: "", password: "", ruoloId: ruoloPredefinito });
@@ -55,6 +60,28 @@ export function GestioneUtenti({ iniziale }: { iniziale: Dati }) {
       {errore && <p className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm font-semibold text-red-800">{errore}</p>}
 
       <section className="min-w-0 rounded-lg border border-stone-200 bg-white p-4 shadow-sm sm:p-5">
+        <h2 className="mb-1 text-sm font-bold text-stone-900">Come è organizzata la struttura</h2>
+        <p className="mb-3 text-sm text-stone-600">
+          Un B&amp;B o una piccola struttura di solito ha un <strong>titolare</strong> che fa tutto. Un hotel ha più persone con ruoli diversi; una
+          persona può avere anche più ruoli (es. Reception e Cassa), e i permessi si sommano.
+        </p>
+        <div className="flex flex-col gap-2 text-sm">
+          <label className="flex items-start gap-2">
+            <input type="radio" className="mt-1" checked={titolare} disabled={busy} onChange={() => eseguendo(() => sbusta(azioneModalitaUtenti("titolare")))} />
+            <span>
+              <strong>Titolare unico</strong>: un solo utente, con tutti i permessi. Non si possono aggiungere altri utenti.
+            </span>
+          </label>
+          <label className="flex items-start gap-2">
+            <input type="radio" className="mt-1" checked={!titolare} disabled={busy} onChange={() => eseguendo(() => sbusta(azioneModalitaUtenti("ruoli")))} />
+            <span>
+              <strong>Più utenti con ruoli</strong>: ogni utente ha un ruolo principale ed eventualmente altri ruoli in più.
+            </span>
+          </label>
+        </div>
+      </section>
+
+      <section className="min-w-0 rounded-lg border border-stone-200 bg-white p-4 shadow-sm sm:p-5">
         <h2 className="mb-3 text-sm font-bold text-stone-900">Utenti dell&apos;hotel</h2>
         <table className="tabella-responsive w-full text-sm">
           <thead className="text-left text-xs uppercase text-stone-500">
@@ -75,6 +102,10 @@ export function GestioneUtenti({ iniziale }: { iniziale: Dati }) {
                 </td>
                 <td data-label="Email" className="break-all py-2">{u.email}</td>
                 <td data-label="Ruolo" className="py-2">
+                  {titolare ? (
+                    <span className="font-semibold text-stone-800">Titolare (tutti i permessi)</span>
+                  ) : (
+                  <span className="flex flex-col items-start gap-1">
                   <select
                     className="rounded-md border border-stone-300 px-2 py-1 text-sm text-stone-900"
                     value={u.ruoloId}
@@ -83,6 +114,51 @@ export function GestioneUtenti({ iniziale }: { iniziale: Dati }) {
                   >
                     {dati.ruoli.map((r) => <option key={r.id} value={r.id}>{r.nome}</option>)}
                   </select>
+                  {ruoliInPiu?.utenteId === u.id ? (
+                    <span className="flex flex-col gap-1 rounded-md border border-teal-200 bg-teal-50/50 p-2">
+                      <span className="text-xs font-semibold text-stone-700">Ruoli in più</span>
+                      {dati.ruoli
+                        .filter((r) => r.id !== u.ruoloId)
+                        .map((r) => (
+                          <label key={r.id} className="flex items-center gap-1.5 text-sm">
+                            <input
+                              type="checkbox"
+                              checked={ruoliInPiu.ids.includes(r.id)}
+                              onChange={(e) => setRuoliInPiu({ ...ruoliInPiu, ids: e.target.checked ? [...ruoliInPiu.ids, r.id] : ruoliInPiu.ids.filter((x) => x !== r.id) })}
+                            />
+                            {r.nome}
+                          </label>
+                        ))}
+                      <span className="flex gap-1">
+                        <button
+                          type="button"
+                          disabled={busy}
+                          className="inline-flex h-7 items-center rounded-md bg-teal-700 px-2.5 text-xs font-semibold text-white disabled:opacity-45 pointer-coarse:h-9"
+                          onClick={async () => {
+                            await eseguendo(() => sbusta(azioneRuoliAggiuntivi(u.id, ruoliInPiu.ids)));
+                            setRuoliInPiu(null);
+                          }}
+                        >
+                          Salva
+                        </button>
+                        <button type="button" className="inline-flex h-7 items-center rounded-md border border-stone-300 bg-white px-2.5 text-xs font-semibold text-stone-800 pointer-coarse:h-9" onClick={() => setRuoliInPiu(null)}>
+                          Annulla
+                        </button>
+                      </span>
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      className="inline-flex h-7 items-center rounded-md px-2 text-xs font-semibold text-teal-800 hover:bg-teal-50 pointer-coarse:h-9"
+                      onClick={() => setRuoliInPiu({ utenteId: u.id, ids: u.ruoliAggiuntivi })}
+                    >
+                      {u.ruoliAggiuntivi.length
+                        ? `+ ${dati.ruoli.filter((r) => u.ruoliAggiuntivi.includes(r.id)).map((r) => r.nome).join(", ")}`
+                        : "+ ruoli in più"}
+                    </button>
+                  )}
+                  </span>
+                  )}
                 </td>
                 {dati.sonoSuperAdmin && (
                   <td data-label="Account" className="py-2">
@@ -143,6 +219,11 @@ export function GestioneUtenti({ iniziale }: { iniziale: Dati }) {
 
       <section className="min-w-0 rounded-lg border border-stone-200 bg-white p-4 shadow-sm sm:p-5">
         <h2 className="mb-1 text-sm font-bold text-stone-900">Nuovo utente</h2>
+        {titolare && dati.utenti.length > 0 && (
+          <p className="mb-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+            Con il titolare unico non si aggiungono altri utenti: per farlo scegli prima &quot;Più utenti con ruoli&quot;.
+          </p>
+        )}
         <p className="mb-3 text-sm text-stone-600">
           {dati.sonoSuperAdmin
             ? "Se l'email esiste già, l'utente viene collegato a questo hotel con il ruolo scelto (nome e password vengono ignorati)."

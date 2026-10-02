@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import type { UtenteSessione } from "@/lib/auth";
-import { filtraPerModuli, PERMESSI, permessiEffettivi, type Permesso } from "@/lib/permessi";
+import { filtraPerModuli, PERMESSI, permessiAccesso, permessiEffettivi, type Permesso } from "@/lib/permessi";
 
 type Tx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
 
@@ -32,11 +32,14 @@ export function verificaPuoConcedere(chi: UtenteSessione, permessi: unknown) {
 }
 
 async function gestoriUtenti(tx: Tx, hotelId: number) {
-  const accessi = await tx.utenteHotel.findMany({
-    where: { hotelId, utente: { attivo: true, superAdmin: false } },
-    include: { ruolo: true },
-  });
-  return accessi.filter((a) => permessiEffettivi(a.ruolo.permessi).includes(PERMESSI.UTENTI_GESTISCI)).length;
+  const [hotel, accessi] = await Promise.all([
+    tx.hotel.findUniqueOrThrow({ where: { id: hotelId }, select: { modalitaUtenti: true } }),
+    tx.utenteHotel.findMany({
+      where: { hotelId, utente: { attivo: true, superAdmin: false } },
+      include: { ruolo: true, ruoliAggiuntivi: { include: { ruolo: true } } },
+    }),
+  ]);
+  return accessi.filter((a) => permessiAccesso(hotel.modalitaUtenti, [a.ruolo.permessi, ...a.ruoliAggiuntivi.map((x) => x.ruolo.permessi)]).includes(PERMESSI.UTENTI_GESTISCI)).length;
 }
 
 /** Esegue la modifica in transazione e la annulla se l'hotel resterebbe senza gestori utenti. */
@@ -52,30 +55,32 @@ export async function conservaGestoreUtenti<T>(hotelId: number, modifica: (tx: T
 }
 
 export async function datiGestioneUtenti(chi: UtenteSessione) {
-  const [accessi, ruoli, superAdmin] = await Promise.all([
+  const [accessi, ruoli, superAdmin, hotel] = await Promise.all([
     prisma.utenteHotel.findMany({
       where: { hotelId: chi.hotelId, utente: { superAdmin: false } },
-      include: { utente: true, ruolo: true },
+      include: { utente: true, ruolo: true, ruoliAggiuntivi: true },
       orderBy: { utente: { nome: "asc" } },
     }),
     prisma.ruolo.findMany({ where: { hotelId: chi.hotelId }, orderBy: { nome: "asc" } }),
     chi.superAdmin
       ? prisma.utente.findMany({ where: { superAdmin: true }, orderBy: { nome: "asc" } })
       : Promise.resolve([]),
+    prisma.hotel.findUniqueOrThrow({ where: { id: chi.hotelId }, select: { modalitaUtenti: true } }),
   ]);
-  return { accessi, ruoli, superAdmin };
+  return { accessi, ruoli, superAdmin, modalitaUtenti: hotel.modalitaUtenti };
 }
 
 /** Accesso di un utente all'hotel attivo, verificando che chi opera possa toccarlo. */
 async function accessoGestibile(chi: UtenteSessione, utenteId: number) {
   const accesso = await prisma.utenteHotel.findUnique({
     where: { utenteId_hotelId: { utenteId, hotelId: chi.hotelId } },
-    include: { utente: true, ruolo: true },
+    include: { utente: true, ruolo: true, ruoliAggiuntivi: { include: { ruolo: true } } },
   });
   if (!accesso) throw new Error("Questo utente non ha accesso all'hotel.");
   if (!chi.superAdmin) {
     if (accesso.utente.superAdmin) throw new Error("Solo un superadmin può modificare un superadmin.");
-    if (!contenutoIn(permessiValidi(chi, accesso.ruolo.permessi), chi.permessi)) {
+    const suoi = [accesso.ruolo.permessi, ...accesso.ruoliAggiuntivi.map((x) => x.ruolo.permessi)].flatMap((p) => (Array.isArray(p) ? p : []));
+    if (!contenutoIn(permessiValidi(chi, suoi), chi.permessi)) {
       throw new Error("Non puoi modificare un utente con più permessi dei tuoi.");
     }
   }
@@ -100,6 +105,10 @@ export async function aggiungiUtente(
 ) {
   const email = input.email.trim().toLowerCase();
   if (!email) throw new Error("Indica l'email.");
+  const hotel = await prisma.hotel.findUniqueOrThrow({ where: { id: chi.hotelId }, select: { modalitaUtenti: true } });
+  if (hotel.modalitaUtenti === "titolare" && (await prisma.utenteHotel.count({ where: { hotelId: chi.hotelId, utente: { superAdmin: false } } })) > 0) {
+    throw new Error("La struttura è gestita da un titolare unico: per aggiungere altri utenti passa alla gestione con ruoli.");
+  }
   const ruolo = await ruoloDellHotel(chi, input.ruoloId);
 
   const esistente = await prisma.utente.findUnique({ where: { email } });
@@ -134,6 +143,39 @@ export async function cambiaRuoloUtente(chi: UtenteSessione, utenteId: number, r
   await conservaGestoreUtenti(chi.hotelId, (tx) =>
     tx.utenteHotel.update({ where: { utenteId_hotelId: { utenteId, hotelId: chi.hotelId } }, data: { ruoloId } }),
   );
+}
+
+/**
+ * Ruoli in più di un utente (oltre al principale): i permessi si sommano. Solo nella gestione con
+ * ruoli e solo con ruoli che chi opera potrebbe assegnare.
+ */
+export async function impostaRuoliAggiuntivi(chi: UtenteSessione, utenteId: number, ruoliIds: number[]) {
+  const accesso = await accessoGestibile(chi, utenteId);
+  const hotel = await prisma.hotel.findUniqueOrThrow({ where: { id: chi.hotelId }, select: { modalitaUtenti: true } });
+  if (hotel.modalitaUtenti === "titolare") throw new Error("Con il titolare unico non servono altri ruoli: ha già tutti i permessi.");
+  const ids = [...new Set(ruoliIds)].filter((id) => id !== accesso.ruoloId);
+  for (const id of ids) await ruoloDellHotel(chi, id);
+  await conservaGestoreUtenti(chi.hotelId, async (tx) => {
+    await tx.ruoloAggiuntivo.deleteMany({ where: { utenteId, hotelId: chi.hotelId } });
+    if (ids.length) await tx.ruoloAggiuntivo.createMany({ data: ids.map((ruoloId) => ({ utenteId, hotelId: chi.hotelId, ruoloId })) });
+  });
+}
+
+/**
+ * Modalità di gestione degli utenti dell'hotel. "titolare": un solo utente con tutti i permessi
+ * (tipico del B&B): si può scegliere solo se nell'hotel c'è al massimo un utente. "ruoli": più utenti
+ * con uno o più ruoli; si può tornare ai ruoli in ogni momento.
+ */
+export async function impostaModalitaUtenti(chi: UtenteSessione, modalita: "ruoli" | "titolare") {
+  if (modalita !== "ruoli" && modalita !== "titolare") throw new Error("Modalità non valida.");
+  if (modalita === "titolare") {
+    const utenti = await prisma.utenteHotel.findMany({ where: { hotelId: chi.hotelId, utente: { superAdmin: false } }, include: { utente: true } });
+    if (utenti.length > 1) {
+      throw new Error(`Nell'hotel ci sono ${utenti.length} utenti: con il titolare unico ce ne può essere uno solo. Rimuovi prima gli altri.`);
+    }
+    await prisma.ruoloAggiuntivo.deleteMany({ where: { hotelId: chi.hotelId } });
+  }
+  await prisma.hotel.update({ where: { id: chi.hotelId }, data: { modalitaUtenti: modalita } });
 }
 
 /** Toglie l'accesso all'hotel attivo (l'account resta, per eventuali altri hotel). */
