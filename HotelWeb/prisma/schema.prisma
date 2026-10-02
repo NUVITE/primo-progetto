@@ -153,9 +153,10 @@ model TipoCamera {
   lettiAggiuntiMax Int     @default(0)
   animaliAmmessi   Boolean @default(false)
 
-  camere           Camera[]
-  periodiTariffari PeriodoTariffario[]
-  segmenti         SegmentoSoggiorno[]
+  camere                Camera[]
+  periodiTariffari      PeriodoTariffario[]
+  segmenti              SegmentoSoggiorno[]
+  supplementiStagionali SupplementoStagionale[]
 
   @@unique([hotelId, codice])
 }
@@ -1060,6 +1061,9 @@ model SupplementoStagionale {
   listino       Listino     @relation(fields: [listinoId], references: [id], onDelete: Cascade)
   trattamentoId Int
   trattamento   Trattamento @relation(fields: [trattamentoId], references: [id], onDelete: Cascade)
+  // Tipo di camera (null = tutti i tipi): il supplemento specifico del tipo vince su quello generale.
+  tipoCameraId  Int?
+  tipoCamera    TipoCamera? @relation(fields: [tipoCameraId], references: [id], onDelete: Cascade)
   dal           DateTime    @db.Date
   al            DateTime    @db.Date
   importo       Decimal     @db.Decimal(10, 2)

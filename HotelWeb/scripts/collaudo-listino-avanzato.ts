@@ -40,6 +40,10 @@ async function motore() {
         });
         await tx.supplementoTrattamento.create({ data: { listinoId: cam.id, trattamentoId: mp.id, importo: 20 } });
         await tx.supplementoStagionale.create({ data: { listinoId: cam.id, trattamentoId: mp.id, dal: new Date("2031-08-01"), al: new Date("2031-08-31"), importo: 28 } });
+        const altroTipo = await tx.tipoCamera.findFirst({ where: { hotelId: hotel.id, id: { not: tipo.id } } });
+        // Per il tipo in prova vale una stagione specifica (35); l'altro tipo resta sui 28 di tutti i tipi.
+        await tx.supplementoStagionale.create({ data: { listinoId: cam.id, trattamentoId: mp.id, tipoCameraId: tipo.id, dal: new Date("2031-08-10"), al: new Date("2031-08-20"), importo: 35 } });
+        if (altroTipo) await tx.periodoTariffario.create({ data: { listinoId: cam.id, tipoCameraId: altroTipo.id, dal: new Date("2031-07-01"), al: new Date("2031-08-31"), prezzoNotte: 90, prezzoWeekend: 110 } });
         await tx.riduzioneListino.create({ data: { listinoId: cam.id, etaDa: 3, etaA: 11, tipo: "supplemento", valore: 20, dalTerzoLetto: true } });
         const r = await regoleListino(tx, cam.id);
         const due = { adulti: 2, etaBambini: [] };
@@ -51,7 +55,12 @@ async function motore() {
         verifica("Venerdì (predefinito weekend): prezzo weekend", 110, (await c(ven, due, "B&B"))?.lordo ?? null);
         verifica("Sabato: prezzo weekend", 110, (await c(sab, due, "B&B"))?.lordo ?? null);
         verifica("Luglio, mezza pensione 2 adulti: 90 + 2 × 20", 130, (await c(dom, due, "Mezza pensione"))?.lordo ?? null);
-        verifica("Agosto (venerdì), mezza pensione di stagione: 110 + 2 × 28", 166, (await c(agosto, due, "Mezza pensione"))?.lordo ?? null);
+        verifica("15 agosto (venerdì), stagione del tipo camera: 110 + 2 × 35", 180, (await c(agosto, due, "Mezza pensione"))?.lordo ?? null);
+        verifica("5 agosto (martedì), stagione di tutti i tipi: 90 + 2 × 28", 146, (await c(new Date("2031-08-05"), due, "Mezza pensione"))?.lordo ?? null);
+        if (altroTipo) {
+          const altro = await calcolaNotte(tx, r, altroTipo.id, agosto, due, "Mezza pensione");
+          verifica("Altro tipo di camera il 15 agosto: stagione di tutti i tipi (110 + 2 × 28)", 166, altro.mancante ? null : altro.lordo);
+        }
         const conBimbo = await c(dom, { adulti: 2, etaBambini: [8] }, "B&B");
         verifica("B&B, 2 adulti + bambino 8 anni nel 3° letto: +20", 110, conBimbo?.lordo ?? null, conBimbo?.righe.map((x) => x.voce).join(" | "));
         verifica("Bambino 8 anni in seconda posizione (non 3° letto): niente supplemento", 90, (await c(dom, { adulti: 1, etaBambini: [8] }, "B&B"))?.lordo ?? null);

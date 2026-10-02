@@ -113,7 +113,11 @@ export async function azioneSalvaRegoleListino(id: number, r: RegoleListinoInput
 export async function azioneSalvaSupplementiTrattamento(listinoId: number, importi: Record<number, number | null>) {
   return suListini((h) => salvaSupplementiTrattamento(h, listinoId, importi));
 }
-export async function azioneSalvaSupplementoStagionale(listinoId: number, id: number | null, d: { trattamentoId: number; dal: string; al: string; importo: number }) {
+export async function azioneSalvaSupplementoStagionale(
+  listinoId: number,
+  id: number | null,
+  d: { trattamentoId: number; tipoCameraId: number | null; dal: string; al: string; importo: number },
+) {
   return suListini((hotelId) => salvaSupplementoStagionale(hotelId, listinoId, id, d));
 }
 

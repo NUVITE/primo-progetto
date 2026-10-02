@@ -48,12 +48,14 @@ export function RegoleListino({
   listino,
   trattamenti,
   politiche,
+  tipi,
   busy,
   esegui,
 }: {
   listino: Listino;
   trattamenti: Dati["trattamenti"];
   politiche: Dati["politiche"];
+  tipi: Dati["tipi"];
   busy: boolean;
   esegui: Esegui;
 }) {
@@ -68,7 +70,7 @@ export function RegoleListino({
     politica: string;
     weekend: number[];
   }>(null);
-  const [stagione, setStagione] = useState<null | { id: number | null; trattamentoId: string; dal: string; al: string; importo: string }>(null);
+  const [stagione, setStagione] = useState<null | { id: number | null; trattamentoId: string; tipoCameraId: string; dal: string; al: string; importo: string }>(null);
   const [stagioneDaEliminare, setStagioneDaEliminare] = useState<number | null>(null);
   const politicaPredefinita = politiche.find((p) => p.predefinita);
   const politicaListino = politiche.find((p) => p.id === listino.regole.politicaId);
@@ -311,13 +313,14 @@ export function RegoleListino({
             <h3 className="text-sm font-bold">Supplementi per stagione</h3>
             <AiutoSezione breve="Supplemento del trattamento diverso in una stagione: nelle sue notti sostituisce quello generale qui sopra.">
               <Esempio>mezza pensione +20 € tutto l&apos;anno, +28 € dal 01/07 al 31/08: in agosto la mezza pensione costa 28 € a persona a notte.</Esempio>
+              <p>Si può indicare anche per un solo tipo di camera (es. suite +35 €): per quel tipo vale il suo, per gli altri quello di tutti i tipi.</p>
             </AiutoSezione>
           </div>
           {!stagione && (
             <button
               type="button"
               className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-semibold text-teal-800 hover:bg-teal-50 pointer-coarse:h-9"
-              onClick={() => setStagione({ id: null, trattamentoId: String(trattamenti[0]?.id ?? ""), dal: "", al: "", importo: "" })}
+              onClick={() => setStagione({ id: null, trattamentoId: String(trattamenti[0]?.id ?? ""), tipoCameraId: "", dal: "", al: "", importo: "" })}
             >
               Aggiungi
             </button>
@@ -327,7 +330,8 @@ export function RegoleListino({
           {listino.supplementiStagionali.map((x) => (
             <li key={x.id} className="flex flex-wrap items-center gap-2">
               <span>
-                {trattamenti.find((t) => t.id === x.trattamentoId)?.nome ?? "?"} +{x.importo.toFixed(2)} € dal {it(x.dal)} al {it(x.al)}
+                {trattamenti.find((t) => t.id === x.trattamentoId)?.nome ?? "?"}
+                {x.tipoCameraId ? ` (${tipi.find((t) => t.id === x.tipoCameraId)?.descrizione ?? "tipo"})` : ""} +{x.importo.toFixed(2)} € dal {it(x.dal)} al {it(x.al)}
               </span>
               {stagioneDaEliminare === x.id ? (
                 <span className="text-xs">
@@ -353,7 +357,9 @@ export function RegoleListino({
                     <button
                       type="button"
                       className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-semibold text-teal-800 hover:bg-teal-50 pointer-coarse:h-9"
-                      onClick={() => setStagione({ id: x.id, trattamentoId: String(x.trattamentoId), dal: x.dal, al: x.al, importo: String(x.importo) })}
+                      onClick={() =>
+                        setStagione({ id: x.id, trattamentoId: String(x.trattamentoId), tipoCameraId: x.tipoCameraId ? String(x.tipoCameraId) : "", dal: x.dal, al: x.al, importo: String(x.importo) })
+                      }
                     >
                       Modifica
                     </button>
@@ -380,6 +386,17 @@ export function RegoleListino({
               </select>
             </label>
             <label className="flex flex-col gap-1 text-xs font-semibold text-stone-600">
+              Tipo di camera
+              <select className={`${CELLA} w-auto`} value={stagione.tipoCameraId} onChange={(e) => setStagione({ ...stagione, tipoCameraId: e.target.value })}>
+                <option value="">Tutti i tipi</option>
+                {tipi.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.descrizione}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex flex-col gap-1 text-xs font-semibold text-stone-600">
               Dal
               <input type="date" className={`${CELLA} w-40`} value={stagione.dal} onChange={(e) => setStagione({ ...stagione, dal: e.target.value })} />
             </label>
@@ -396,7 +413,13 @@ export function RegoleListino({
               disabled={busy || !stagione.dal || !stagione.al || stagione.importo === ""}
               className={BOTTONE}
               onClick={async () => {
-                const d = { trattamentoId: Number(stagione.trattamentoId), dal: stagione.dal, al: stagione.al, importo: Number(stagione.importo.replace(",", ".")) };
+                const d = {
+                  trattamentoId: Number(stagione.trattamentoId),
+                  tipoCameraId: stagione.tipoCameraId ? Number(stagione.tipoCameraId) : null,
+                  dal: stagione.dal,
+                  al: stagione.al,
+                  importo: Number(stagione.importo.replace(",", ".")),
+                };
                 if (await esegui(() => sbusta(azioneSalvaSupplementoStagionale(listino.id, stagione.id, d)), "Supplemento di stagione salvato.")) setStagione(null);
               }}
             >

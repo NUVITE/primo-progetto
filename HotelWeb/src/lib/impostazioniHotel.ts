@@ -177,7 +177,14 @@ export async function elencoListini(hotelId: number) {
         politicaId: l.politicaId,
         giorniWeekend: giorniWeekendDi(l.giorniWeekend),
       } satisfies RegoleListinoInput,
-      supplementiStagionali: l.supplementiStagionali.map((x) => ({ id: x.id, trattamentoId: x.trattamentoId, dal: iso(x.dal), al: iso(x.al), importo: Number(x.importo) })),
+      supplementiStagionali: l.supplementiStagionali.map((x) => ({
+        id: x.id,
+        trattamentoId: x.trattamentoId,
+        tipoCameraId: x.tipoCameraId,
+        dal: iso(x.dal),
+        al: iso(x.al),
+        importo: Number(x.importo),
+      })),
       supplementiTrattamento: Object.fromEntries(l.supplementiTrattamento.map((x) => [x.trattamentoId, Number(x.importo)])) as Record<number, number>,
       riduzioni: l.riduzioni.map((r) => ({
         id: r.id,
@@ -263,20 +270,22 @@ export async function salvaSupplementoStagionale(
   hotelId: number,
   listinoId: number,
   id: number | null,
-  d: { trattamentoId: number; dal: string; al: string; importo: number },
+  d: { trattamentoId: number; tipoCameraId?: number | null; dal: string; al: string; importo: number },
 ) {
   await prisma.listino.findFirstOrThrow({ where: { id: listinoId, hotelId } });
   await prisma.trattamento.findFirstOrThrow({ where: { id: d.trattamentoId, hotelId } });
+  const tipoCameraId = d.tipoCameraId || null;
+  if (tipoCameraId) await prisma.tipoCamera.findFirstOrThrow({ where: { id: tipoCameraId, hotelId } });
   if (!d.dal || !d.al) throw new Error("Indica inizio e fine della stagione.");
   const dal = new Date(d.dal);
   const al = new Date(d.al);
   if (al < dal) throw new Error("La fine della stagione non può precedere l'inizio.");
   if (!(d.importo >= 0)) throw new Error("Supplemento non valido.");
   const sovrapposto = await prisma.supplementoStagionale.findFirst({
-    where: { listinoId, trattamentoId: d.trattamentoId, id: id ? { not: id } : undefined, dal: { lte: al }, al: { gte: dal } },
+    where: { listinoId, trattamentoId: d.trattamentoId, tipoCameraId, id: id ? { not: id } : undefined, dal: { lte: al }, al: { gte: dal } },
   });
-  if (sovrapposto) throw new Error("Per questo trattamento c'è già una stagione che si sovrappone.");
-  const dati = { trattamentoId: d.trattamentoId, dal, al, importo: d.importo };
+  if (sovrapposto) throw new Error(`Per questo trattamento${tipoCameraId ? " e tipo di camera" : " (tutti i tipi)"} c'è già una stagione che si sovrappone.`);
+  const dati = { trattamentoId: d.trattamentoId, tipoCameraId, dal, al, importo: d.importo };
   if (id) await prisma.supplementoStagionale.update({ where: { id, listinoId }, data: dati });
   else await prisma.supplementoStagionale.create({ data: { ...dati, listinoId } });
 }

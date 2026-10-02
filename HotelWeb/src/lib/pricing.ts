@@ -13,7 +13,8 @@ type Db = PrismaClient | Prisma.TransactionClient;
  * - listino "persona": per ogni persona prezzo del periodo + supplemento trattamento, più il
  *   supplemento singola se in camera c'è una sola persona;
  * - prezzo del periodo: quello del weekend (se indicato) nelle notti weekend del listino;
- * - supplemento del trattamento: quello della stagione che comprende la notte, altrimenti il generale;
+ * - supplemento del trattamento: quello della stagione che comprende la notte (del tipo di camera o di
+ *   tutti i tipi), altrimenti il generale;
  * - riduzioni per fascia d'età sulla quota della persona (prima regola che corrisponde); nei listini a
  *   camera una fascia può essere invece un SUPPLEMENTO (es. bambino nel letto aggiunto +20 €);
  * - gratuità dei gruppi: 1 ogni N paganti per notte sull'intera prenotazione, azzera le quote
@@ -146,8 +147,10 @@ export async function calcolaNotte(
   const periodo = await trovaPrezzoNotte(db, regole.id, tipoCameraId, data, giorniWeekendDi(regole.giorniWeekend));
   if (!periodo) return { mancante: true };
 
-  // Supplemento del trattamento: quello della stagione che comprende la notte, altrimenti il generale.
-  const stagionale = regole.supplementiStagionali.find((s) => s.trattamento.nome === trattamento && s.dal <= data && s.al >= data);
+  // Supplemento del trattamento: quello della stagione che comprende la notte (prima quello del tipo
+  // di camera, poi quello valido per tutti i tipi), altrimenti il generale.
+  const diStagione = regole.supplementiStagionali.filter((s) => s.trattamento.nome === trattamento && s.dal <= data && s.al >= data);
+  const stagionale = diStagione.find((s) => s.tipoCameraId === tipoCameraId) ?? diStagione.find((s) => s.tipoCameraId === null);
   const supplemento = Number(stagionale?.importo ?? regole.supplementiTrattamento.find((s) => s.trattamento.nome === trattamento)?.importo ?? 0);
   const aPersona = regole.modalita === "persona";
   const righe: RigaDettaglio[] = [];
