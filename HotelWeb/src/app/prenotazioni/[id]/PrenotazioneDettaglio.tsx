@@ -11,6 +11,7 @@ import { statoPrenotazione } from "../stato";
 import { BarraStato, PannelloPagamenti } from "./StatoEPagamenti";
 import { ProvenienzaCondizioni } from "./ProvenienzaCondizioni";
 import { PrezzoConcordato } from "./PrezzoConcordato";
+import { ContoPrenotazione } from "./ContoPrenotazione";
 import Link from "next/link";
 import { OspiteSearch, type OspiteValue } from "../nuova/OspiteSearch";
 import { CampoComposizione } from "../CampoComposizione";
@@ -606,6 +607,8 @@ export function PrenotazioneDettaglio({
               </div>
             ))}
 
+          <ContoPrenotazione prenotazione={prenotazione} salvando={salvando} esegui={eseguendo} aggiorna={setPrenotazione} />
+
           {/* Solo usi diurni: non c'è pernottamento, quindi nemmeno tassa di soggiorno. */}
           {!prenotazione.segmenti.every((s) => s.usoDiurno) && (
             <SezioneTassa
@@ -830,6 +833,9 @@ export function PrenotazioneDettaglio({
               <div className="flex justify-between"><dt>Tassa di soggiorno</dt><dd className="font-mono">{eur(prenotazione.totali.tassa)}</dd></div>
               {prenotazione.totali.servizi > 0 && (
                 <div className="flex justify-between"><dt>Servizi aggiuntivi</dt><dd className="font-mono">{eur(prenotazione.totali.servizi)}</dd></div>
+              )}
+              {prenotazione.totali.extra !== 0 && (
+                <div className="flex justify-between"><dt>Extra e addebiti</dt><dd className="font-mono">{eur(prenotazione.totali.extra)}</dd></div>
               )}
               <div className="flex justify-between border-t border-stone-200 pt-1 text-base font-bold"><dt>{annullata ? "Dovuto (penale)" : "Totale"}</dt><dd className="font-mono">{eur(prenotazione.totali.totale)}</dd></div>
               <div className="flex justify-between"><dt>Pagato</dt><dd className="font-mono">{eur(prenotazione.totali.pagato)}</dd></div>

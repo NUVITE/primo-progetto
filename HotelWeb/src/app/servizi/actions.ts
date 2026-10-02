@@ -6,6 +6,7 @@ import {
   eliminaServizioCatalogo,
   elencoServiziCatalogo,
   impostaAttivoServizioCatalogo,
+  impostaAliquotaServizio,
   modificaServizioCatalogo,
   type DatiServizioCatalogo,
 } from "@/lib/servizi";
@@ -28,6 +29,7 @@ export async function datiGestioneServizi() {
       addebito: s.addebito as DatiServizioCatalogo["addebito"],
       effetto: s.effetto as DatiServizioCatalogo["effetto"],
       attivo: s.attivo,
+      aliquotaIva: s.aliquotaIva === null ? null : Number(s.aliquotaIva),
     })),
   };
 }
@@ -60,6 +62,14 @@ export async function azioneEliminaServizioCatalogo(id: number) {
   return conEsito(async () => {
     const hotelId = await hotelAmministrato();
     await eliminaServizioCatalogo(hotelId, id);
+    return datiGestioneServizi();
+  });
+}
+
+export async function azioneAliquotaServizio(id: number, aliquota: number | null) {
+  return conEsito(async () => {
+    const hotelId = await hotelAmministrato();
+    await impostaAliquotaServizio(hotelId, id, aliquota);
     return datiGestioneServizi();
   });
 }

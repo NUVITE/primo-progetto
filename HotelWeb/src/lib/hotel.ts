@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { RUOLI_PREDEFINITI } from "@/lib/permessi";
+import { REPARTI_PREDEFINITI } from "@/lib/conto";
 import { TRATTAMENTI_PREDEFINITI } from "@/lib/impostazioniHotel";
 import { CATALOGO_MODULI, moduliAttivi, type Modulo } from "@/lib/moduli";
 import { sistemaIstatValido } from "@/lib/istat";
@@ -108,6 +109,7 @@ export async function creaHotel(dati: DatiHotel, amministratore?: { nome: string
     await tx.listino.create({ data: { hotelId: hotel.id, codice: "BASE", descrizione: "Listino base", tipo: "base" } });
     await tx.trattamento.createMany({ data: TRATTAMENTI_PREDEFINITI.map((nome, i) => ({ hotelId: hotel.id, nome, ordine: i + 1 })) });
     await tx.fasciaOraria.createMany({ data: FASCE_PREDEFINITE.map((f, i) => ({ ...f, hotelId: hotel.id, ordine: i + 1 })) });
+    await tx.repartoAddebito.createMany({ data: REPARTI_PREDEFINITI.map((r, i) => ({ ...r, hotelId: hotel.id, ordine: i + 1 })) });
 
     if (admin && passwordHash) {
       const email = admin.email.trim().toLowerCase();

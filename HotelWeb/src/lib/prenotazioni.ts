@@ -224,7 +224,7 @@ export function calcolaTotaliPrenotazione(prenotazione: PrenotazioneCompleta) {
   // Prenotazione annullata: l'unico importo dovuto è la penale trattenuta (se c'è).
   if (prenotazione.stato === "ANNULLATA") {
     const penale = Number(prenotazione.penale ?? 0);
-    return { subtotale: 0, tassa: 0, servizi: 0, totale: penale, pagato, daPagare: arrotonda2(penale - pagato) };
+    return { subtotale: 0, tassa: 0, servizi: 0, extra: 0, totale: penale, pagato, daPagare: arrotonda2(penale - pagato) };
   }
   const attivi = prenotazione.segmenti.filter((s) => s.stato !== "ANNULLATO");
   const idAttivi = new Set(attivi.map((s) => s.id));
@@ -240,8 +240,12 @@ export function calcolaTotaliPrenotazione(prenotazione: PrenotazioneCompleta) {
   const servizi = prenotazione.serviziAggiunti
     .filter((s) => s.segmenti.length === 0 || s.segmenti.some((sg) => idAttivi.has(sg.segmentoId)))
     .reduce((tot, s) => tot + Number(s.prezzoUnitario) * s.quantita, 0);
-  const totale = arrotonda2(subtotale + tassa + servizi);
-  return { subtotale, tassa, servizi, totale, pagato, daPagare: arrotonda2(totale - pagato) };
+  // Addebiti a mano sul conto (consumi, esborsi; gli abbuoni sottraggono), esclusi gli stornati.
+  const extra = arrotonda2(
+    prenotazione.addebiti.filter((a) => !a.stornatoIl).reduce((t, a) => t + (a.tipo === "abbuono" ? -1 : 1) * Number(a.prezzoUnitario) * a.quantita, 0),
+  );
+  const totale = arrotonda2(subtotale + tassa + servizi + extra);
+  return { subtotale, tassa, servizi, extra, totale, pagato, daPagare: arrotonda2(totale - pagato) };
 }
 
 const arrotonda2 = (n: number) => Math.round(n * 100) / 100;
@@ -351,6 +355,7 @@ async function caricaPrenotazioneCompleta(db: Db, hotelId: number, id: number) {
       intermediario: true,
       clientePagante: true,
       sospesoCliente: true,
+      addebiti: { include: { reparto: true, segmento: { include: { camera: true } } }, orderBy: [{ data: "asc" }, { id: "asc" }] },
       segmenti: {
         orderBy: { dataInizio: "asc" },
         include: {

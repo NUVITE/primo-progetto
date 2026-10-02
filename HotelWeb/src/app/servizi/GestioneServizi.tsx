@@ -2,13 +2,7 @@
 
 import { sbusta } from "@/lib/esito";
 import { useState } from "react";
-import {
-  azioneCreaServizio,
-  azioneEliminaServizioCatalogo,
-  azioneImpostaAttivoServizio,
-  azioneModificaServizioCatalogo,
-  datiGestioneServizi,
-} from "./actions";
+import { azioneCreaServizio, azioneEliminaServizioCatalogo, azioneImpostaAttivoServizio, azioneModificaServizioCatalogo, datiGestioneServizi, azioneAliquotaServizio } from "./actions";
 import { Suggerimento } from "@/components/Suggerimento";
 
 type Dati = Awaited<ReturnType<typeof datiGestioneServizi>>;
@@ -107,7 +101,7 @@ export function GestioneServizi({ iniziale }: { iniziale: Dati }) {
         <h2 className="mb-3 text-sm font-bold text-stone-900">Catalogo</h2>
         <table className="tabella-responsive mb-4 w-full text-sm">
           <thead className="text-left text-xs uppercase text-stone-500">
-            <tr><th className="pb-1">Nome</th><th className="pb-1">Prezzo</th><th className="pb-1">Addebito</th><th className="pb-1">Attivo</th><th className="pb-1" /></tr>
+            <tr><th className="pb-1">Nome</th><th className="pb-1">Prezzo</th><th className="pb-1">Addebito</th><th className="pb-1" title="Vuoto = come camere e trattamenti">IVA %</th><th className="pb-1">Attivo</th><th className="pb-1" /></tr>
           </thead>
           <tbody>
             {dati.servizi.map((s) =>
@@ -161,6 +155,21 @@ export function GestioneServizi({ iniziale }: { iniziale: Dati }) {
                     {ETICHETTA_ADDEBITO[s.addebito]}
                     {s.effetto && <span className="ml-1 rounded bg-teal-50 px-1.5 py-0.5 text-teal-800">{ETICHETTA_EFFETTO[s.effetto]}</span>}
                   </td>
+                  <td data-label="IVA %" className="py-1.5">
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      step="0.5"
+                      placeholder="come camere"
+                      className="w-24 rounded-md border border-stone-300 px-1.5 py-0.5 text-sm"
+                      defaultValue={s.aliquotaIva ?? ""}
+                      onBlur={(e) => {
+                        const v = e.target.value.trim() === "" ? null : Number(e.target.value);
+                        if (v !== s.aliquotaIva) eseguendo(() => sbusta(azioneAliquotaServizio(s.id, v)));
+                      }}
+                    />
+                  </td>
                   <td data-label="Stato" className="py-1.5">
                     <button
                       className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${s.attivo ? "bg-emerald-50 text-emerald-700" : "bg-stone-200 text-stone-600"}`}
@@ -206,7 +215,7 @@ export function GestioneServizi({ iniziale }: { iniziale: Dati }) {
               ),
             )}
             {dati.servizi.length === 0 && (
-              <tr><td colSpan={5} className="cella-intera py-2 text-stone-500">Nessun servizio a catalogo.</td></tr>
+              <tr><td colSpan={6} className="cella-intera py-2 text-stone-500">Nessun servizio a catalogo.</td></tr>
             )}
           </tbody>
         </table>

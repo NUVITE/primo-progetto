@@ -29,6 +29,13 @@ export async function impostaAttivoServizioCatalogo(hotelId: number, id: number,
   return prisma.servizioCatalogo.update({ where: { id }, data: { attivo } });
 }
 
+/** IVA del servizio (null = come camere e trattamenti): vale per gli addebiti futuri. */
+export async function impostaAliquotaServizio(hotelId: number, id: number, aliquota: number | null) {
+  if (aliquota !== null && !(aliquota >= 0 && aliquota <= 100)) throw new Error("Aliquota non valida.");
+  await prisma.servizioCatalogo.findFirstOrThrow({ where: { id, hotelId } });
+  await prisma.servizioCatalogo.update({ where: { id }, data: { aliquotaIva: aliquota } });
+}
+
 /** Il nuovo prezzo vale solo per gli addebiti futuri: quelli gia' fatti hanno il proprio prezzoUnitario. */
 export async function modificaServizioCatalogo(hotelId: number, id: number, input: DatiServizioCatalogo) {
   const dati = verificaCatalogo(input);
@@ -148,6 +155,8 @@ export async function aggiungiServizioAPrenotazione(hotelId: number, prenotazion
       servizioCatalogoId: input.servizioCatalogoId,
       descrizione: input.descrizione,
       prezzoUnitario: input.prezzoUnitario,
+      // IVA del servizio copiata ora (null = come camere e trattamenti): lo storico non cambia.
+      aliquotaIva: catalogo?.aliquotaIva ?? null,
       addebito,
       unita: input.quantita,
       quantita: input.quantita * molt,

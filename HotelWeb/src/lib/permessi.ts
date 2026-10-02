@@ -11,6 +11,7 @@ export const PERMESSI = {
   IMPORTI_VEDI: "importi.vedi",
   PAGAMENTI_REGISTRA: "pagamenti.registra",
   PREZZI_MODIFICA: "prezzi.modifica",
+  ADDEBITI_REGISTRA: "addebiti.registra",
   ADEMPIMENTI_INVIA: "adempimenti.invia",
   SOGGIORNI_RIAPRI: "soggiorni.riapri",
   CAMERE_GESTISCI: "camere.gestisci",
@@ -37,6 +38,11 @@ export const CATALOGO_PERMESSI: { area: string; modulo?: Modulo; voci: { permess
       { permesso: PERMESSI.IMPORTI_VEDI, nome: "Vedere importi", descrizione: "Prezzi, tassa di soggiorno e totali (senza, gli importi sono nascosti)" },
       { permesso: PERMESSI.ADEMPIMENTI_INVIA, nome: "Inviare schedine e ISTAT", descrizione: "Inviare le schedine alla Polizia (Alloggiati Web) e i movimenti all'ISTAT; vede gli avvisi delle scadenze" },
       { permesso: PERMESSI.PAGAMENTI_REGISTRA, nome: "Registrare pagamenti", descrizione: "Incassare acconti e saldi, registrare rimborsi e stornare un incasso sbagliato" },
+      {
+        permesso: PERMESSI.ADDEBITI_REGISTRA,
+        nome: "Registrare addebiti",
+        descrizione: "Segnare sul conto delle camere i consumi dei reparti (bar, frigobar, lavanderia…) e stornarli se sbagliati, anche da tablet",
+      },
       { permesso: PERMESSI.PREZZI_MODIFICA, nome: "Modificare i prezzi", descrizione: "Fissare a mano il prezzo per notte di una camera prenotata (resta traccia di chi e perché)" },
       { permesso: PERMESSI.SOGGIORNI_RIAPRI, nome: "Riaprire soggiorni chiusi", descrizione: "Rettificare un soggiorno dopo il check-out (tassa definitiva): resta traccia di chi e quando" },
     ],
@@ -106,7 +112,7 @@ export const RUOLI_PREDEFINITI: { nome: string; permessi: Permesso[] }[] = [
   { nome: "Direttore", permessi: TUTTI_I_PERMESSI.filter((p) => p !== PERMESSI.RUOLI_GESTISCI) },
   {
     nome: "Reception",
-    permessi: [PERMESSI.PRENOTAZIONI_VEDI, PERMESSI.PRENOTAZIONI_GESTISCI, PERMESSI.IMPORTI_VEDI, PERMESSI.PAGAMENTI_REGISTRA, PERMESSI.ADEMPIMENTI_INVIA, PERMESSI.SALE_VEDI, PERMESSI.SALE_GESTISCI],
+    permessi: [PERMESSI.PRENOTAZIONI_VEDI, PERMESSI.PRENOTAZIONI_GESTISCI, PERMESSI.IMPORTI_VEDI, PERMESSI.PAGAMENTI_REGISTRA, PERMESSI.ADDEBITI_REGISTRA, PERMESSI.ADEMPIMENTI_INVIA, PERMESSI.SALE_VEDI, PERMESSI.SALE_GESTISCI],
   },
   {
     nome: "Eventi / Commerciale",

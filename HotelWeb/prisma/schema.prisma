@@ -46,6 +46,8 @@ model Hotel {
   // Prenotazioni NON garantite: oltre quest'ora del giorno di arrivo l'ospite che non è arrivato è un
   // possibile no-show e la camera si può rivendere ("HH:MM").
   orarioLimiteArrivo     String    @default("18:00")
+  // IVA di camere, trattamenti e uso diurno (%, prezzi IVA inclusa). Da verificare con il commercialista.
+  aliquotaAlloggio       Decimal   @default(10) @db.Decimal(4, 2)
   // Alloggiati Web (Polizia): utente in chiaro, password e chiave del servizio web CIFRATE
   // (src/lib/cifratura.ts). verificatoIl = ultima prova di accesso riuscita.
   alloggiatiUtente       String?
@@ -79,6 +81,7 @@ model Hotel {
   prenotazioniSala       PrenotazioneSala[]
   politicheCancellazione PoliticaCancellazione[]
   pacchettiSala          PacchettoSala[]
+  repartiAddebito        RepartoAddebito[]
 }
 
 /**
@@ -311,6 +314,7 @@ model Prenotazione {
   posizioniTassa   PosizioneTassa[]
   prenotazioniSala PrenotazioneSala[]
   personeEvento    PersonaEvento[]
+  addebiti         AddebitoConto[]
 }
 
 enum StatoSegmento {
@@ -371,6 +375,7 @@ model SegmentoSoggiorno {
 
   // Servizi aggiuntivi assegnati specificamente a questo ospite/camera (non a tutto il gruppo).
   serviziAggiunti ServizioAggiuntoSegmento[]
+  addebiti        AddebitoConto[]
 }
 
 /**
@@ -379,18 +384,20 @@ model SegmentoSoggiorno {
  * momento, non a catalogo) non ha una voce qui: vedi ServizioAggiunto.servizioCatalogoId nullable.
  */
 model ServizioCatalogo {
-  id        Int      @id @default(autoincrement())
-  hotelId   Int
-  hotel     Hotel    @relation(fields: [hotelId], references: [id])
-  nome      String
-  prezzo    Decimal  @db.Decimal(10, 2)
+  id          Int      @id @default(autoincrement())
+  hotelId     Int
+  hotel       Hotel    @relation(fields: [hotelId], references: [id])
+  nome        String
+  prezzo      Decimal  @db.Decimal(10, 2)
   // "una_tantum" | "per_notte" | "per_persona_notte"
-  addebito  String   @default("una_tantum")
+  addebito    String   @default("una_tantum")
   // null | "letto_aggiunto" (aumenta la capienza della camera) | "animale" (solo tipi che li ammettono)
-  effetto   String?
-  attivo    Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  effetto     String?
+  // IVA del servizio (%); null = come camere e trattamenti.
+  aliquotaIva Decimal? @db.Decimal(4, 2)
+  attivo      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   serviziAggiunti ServizioAggiunto[]
   serviziSala     ServizioSala[]
@@ -417,6 +424,7 @@ model ServizioAggiunto {
   quantita           Int               @default(1)
   addebito           String            @default("una_tantum")
   unita              Int               @default(1)
+  aliquotaIva        Decimal?          @db.Decimal(4, 2)
   data               DateTime?         @db.Date
   note               String?
   createdAt          DateTime          @default(now())
@@ -1150,4 +1158,57 @@ model PersonaEvento {
   prenotazioneId     Int?
   prenotazione       Prenotazione?    @relation(fields: [prenotazioneId], references: [id], onDelete: SetNull)
   createdAt          DateTime         @default(now())
+}
+
+/**
+ * Reparto che addebita sul conto (bar, ristorante, frigobar, lavanderia…): ognuno con la sua IVA
+ * (null = fuori campo IVA, es. esborsi anticipati per l'ospite). Configurabile per hotel.
+ */
+model RepartoAddebito {
+  id          Int      @id @default(autoincrement())
+  hotelId     Int
+  hotel       Hotel    @relation(fields: [hotelId], references: [id])
+  nome        String
+  aliquotaIva Decimal? @db.Decimal(4, 2)
+  // Esborso: spesa anticipata per conto dell'ospite (taxi, biglietti…), fuori campo IVA.
+  esborso     Boolean  @default(false)
+  attivo      Boolean  @default(true)
+  ordine      Int      @default(0)
+
+  addebiti AddebitoConto[]
+
+  @@unique([hotelId, nome])
+}
+
+/**
+ * Riga aggiunta a mano al conto di una prenotazione. tipo: "extra" (consumo di un reparto) |
+ * "esborso" (spesa anticipata, fuori campo IVA) | "abbuono" (sconto o correzione: importo in meno).
+ * Prezzi IVA inclusa; aliquotaIva copiata al momento (null = fuori campo). Un addebito sbagliato non si
+ * cancella: si storna con il motivo.
+ */
+model AddebitoConto {
+  id             Int                @id @default(autoincrement())
+  prenotazioneId Int
+  prenotazione   Prenotazione       @relation(fields: [prenotazioneId], references: [id])
+  segmentoId     Int?
+  segmento       SegmentoSoggiorno? @relation(fields: [segmentoId], references: [id])
+  repartoId      Int?
+  reparto        RepartoAddebito?   @relation(fields: [repartoId], references: [id])
+  tipo           String             @default("extra")
+  data           DateTime           @db.Date
+  descrizione    String
+  quantita       Int                @default(1)
+  prezzoUnitario Decimal            @db.Decimal(10, 2)
+  aliquotaIva    Decimal?           @db.Decimal(4, 2)
+  // Numero del buono del reparto (giustificativo), facoltativo.
+  buono          String?
+  nota           String?
+  registratoDa   String
+  createdAt      DateTime           @default(now())
+  stornatoIl     DateTime?
+  stornatoDa     String?
+  motivoStorno   String?
+
+  @@index([prenotazioneId])
+  @@index([data])
 }

@@ -53,6 +53,7 @@ import { PERMESSI } from "@/lib/permessi";
 import { descriviPolitica, elencoPolitiche, type PoliticaCopiata } from "@/lib/politiche";
 import { prisma } from "@/lib/prisma";
 import { sospendiConto, statoConto, togliSospeso } from "@/lib/contiSospesi";
+import { elencoReparti, registraAddebito, riepilogoIva, righeConto, stornaAddebito, type AddebitoInput } from "@/lib/conto";
 import { composizioneDi, composizioneReale, descriviComposizione, stessaComposizione, type Composizione, type DettaglioNotte } from "@/lib/pricing";
 
 import { datiIniziali as _datiIniziali } from "@/app/prenotazioni/nuova/actions";
@@ -70,8 +71,15 @@ async function serializza(prenotazione: Awaited<ReturnType<typeof trovaPrenotazi
   const imp = (n: number) => (importiVisibili ? n : 0);
   const totali = calcolaTotaliPrenotazione(prenotazione);
   const tassa = await datiTassaPrenotazione(utente.hotelId, prenotazione.id);
+  // Conto con IVA per voce (solo per chi vede gli importi) e reparti per gli addebiti.
+  const hotelConto = await prisma.hotel.findUniqueOrThrow({ where: { id: utente.hotelId }, select: { aliquotaAlloggio: true } });
+  const righe = importiVisibili ? righeConto(prenotazione, Number(hotelConto.aliquotaAlloggio)) : [];
+  const riepilogo = riepilogoIva(righe);
+  const puoAddebitare = puo(utente, PERMESSI.ADDEBITI_REGISTRA);
+  const reparti = puoAddebitare ? await elencoReparti(utente.hotelId, true) : [];
   return {
     importiVisibili,
+    contoVoci: { righe, riepilogoIva: riepilogo, reparti, puoAddebitare, puoAbbuonare: puo(utente, PERMESSI.PREZZI_MODIFICA), aliquotaAlloggio: Number(hotelConto.aliquotaAlloggio) },
     tassa: {
       ...tassa,
       ospiti: tassa.ospiti.map((o) => ({ ...o, notti: o.notti.map((n) => ({ ...n, importo: imp(n.importo) })) })),
@@ -110,6 +118,7 @@ async function serializza(prenotazione: Awaited<ReturnType<typeof trovaPrenotazi
       subtotale: imp(totali.subtotale),
       tassa: imp(totali.tassa),
       servizi: imp(totali.servizi),
+      extra: imp(totali.extra),
       totale: imp(totali.totale),
       pagato: imp(totali.pagato),
       daPagare: imp(totali.daPagare),
@@ -421,4 +430,22 @@ export async function azioneTogliSospeso(id: number) {
 
 export async function azionePrezzoConcordato(segmentoId: number, prezzo: number | null, nota: string) {
   return suPrenotazione(PERMESSI.PREZZI_MODIFICA, (u) => impostaPrezzoConcordato(u.hotelId, segmentoId, prezzo, nota, u.nome));
+}
+
+/** Consumo, esborso o abbuono sul conto (l'abbuono richiede anche "Modificare i prezzi"). */
+export async function azioneAddebito(id: number, d: AddebitoInput) {
+  return conEsito(async () => {
+    const utente = await richiediPermesso(PERMESSI.ADDEBITI_REGISTRA);
+    if (d.tipo === "abbuono" && !puo(utente, PERMESSI.PREZZI_MODIFICA)) throw new Error("Per un abbuono serve il permesso «Modificare i prezzi».");
+    await registraAddebito(utente.hotelId, id, d, utente.nome);
+    return serializza(await trovaPrenotazione(utente.hotelId, id), utente);
+  });
+}
+
+export async function azioneStornaAddebito(id: number, addebitoId: number, motivo: string) {
+  return conEsito(async () => {
+    const utente = await richiediPermesso(PERMESSI.ADDEBITI_REGISTRA);
+    await stornaAddebito(utente.hotelId, addebitoId, motivo, utente.nome);
+    return serializza(await trovaPrenotazione(utente.hotelId, id), utente);
+  });
 }
