@@ -1,0 +1,16 @@
+ordini-app/
+
+# Credenziali e dati reali clienti FTPA (non committare mai)
+FTPA-Analisi/config.json
+FTPA-Analisi/dati/
+FTPA-Analisi/report/
+FTPA-Analisi/webapp/dati.json
+
+# Sorgenti KOMPUTO/GO: 712 MB, eseguibili da 145 MB e .map da 70 MB.
+# Riferimento funzionale per il nuovo gestionale, non va nel repository.
+/KOMPUTO_240101/
+
+# Sorgenti legacy VB.NET del gestionale hotel (2500+ file, bin/obj/.vs compresi).
+# Riferimento funzionale per HotelWeb, non va nel repository.
+# Ancorato alla radice: con core.ignorecase (Windows) "Hotel/" escludeva anche HotelWeb/src/app/piattaforma/hotel/.
+/Hotel/

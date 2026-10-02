@@ -1,0 +1,54 @@
+@import "tailwindcss";
+
+@theme {
+  /* Tipografia */
+  --font-sans: var(--font-plus-jakarta), ui-sans-serif, system-ui, sans-serif;
+
+  /* Palette: navy profondo + terracotta (deserto/west) su neutri caldi */
+  --color-brand-50: #eff6fb;
+  --color-brand-100: #d8e9f5;
+  --color-brand-200: #b3d3ea;
+  --color-brand-400: #4a87b5;
+  --color-brand-600: #1d5f8a;
+  --color-brand-700: #17496b;
+  --color-brand-800: #123b57;
+  --color-brand-900: #0e2d43;
+
+  --color-clay-50: #fdf4ed;
+  --color-clay-100: #fbe6d5;
+  --color-clay-600: #c2571d;
+  --color-clay-700: #9c4417;
+
+  --color-sand-50: #faf8f5;
+  --color-sand-100: #f2ede6;
+  --color-sand-200: #e5ddd2;
+  --color-sand-300: #d3c8b8;
+
+  --color-ink-400: #8a8178;
+  --color-ink-500: #6b625a;
+  --color-ink-600: #4d453e;
+  --color-ink-900: #211d19;
+}
+
+html {
+  /* base leggermente più grande: si legge a colpo d'occhio, anche al sole */
+  font-size: 17px;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background-color: var(--color-sand-50);
+  color: var(--color-ink-900);
+  font-family: var(--font-sans);
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Evita lo zoom automatico di iOS sui campi di input */
+input,
+select,
+textarea,
+button {
+  font-family: inherit;
+  font-size: 16px;
+}
