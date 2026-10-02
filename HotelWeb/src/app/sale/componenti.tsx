@@ -59,23 +59,27 @@ export function CampiOccupazione({
   valore,
   onChange,
   escludiOccupazioneId,
+  partecipantiEvento,
 }: {
   contesto: Contesto;
   valore: FormOccupazione;
   onChange: (f: FormOccupazione) => void;
   escludiOccupazioneId?: number;
+  // Partecipanti dell'evento: valgono per l'avviso di capienza se l'occupazione non ne indica altri.
+  partecipantiEvento?: number | null;
 }) {
   const [anteprima, setAnteprima] = useState<{ chiave: string; esito: Anteprima | { errore: string } } | null>(null);
   const sala = contesto.sale.find((s) => s.id === Number(valore.salaId));
   const set = (p: Partial<FormOccupazione>) => onChange({ ...valore, ...p });
-  const chiave = JSON.stringify(valore);
+  const chiave = JSON.stringify([valore, partecipantiEvento ?? null]);
 
   useEffect(() => {
     if (!completa(valore)) return;
     let annullato = false;
     const t = setTimeout(async () => {
       try {
-        const esito = await sbusta(azioneAnteprima(inputOccupazione(valore), escludiOccupazioneId));
+        const input = inputOccupazione(valore);
+        const esito = await sbusta(azioneAnteprima({ ...input, partecipanti: input.partecipanti ?? partecipantiEvento ?? null }, escludiOccupazioneId));
         if (!annullato) setAnteprima({ chiave, esito });
       } catch (e) {
         if (!annullato) setAnteprima({ chiave, esito: { errore: e instanceof Error ? e.message : "Errore." } });
@@ -153,6 +157,66 @@ export function CampiOccupazione({
             {a.costoAllestimento ? ` + allestimento ${euro(a.costoAllestimento)}` : ""}
           </p>
         ))}
+      {a && !("errore" in a) && a.avvisoCapienza && (
+        <p className="rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-950">Capienza: {a.avvisoCapienza}</p>
+      )}
+    </div>
+  );
+}
+
+// ---------------- Ripetizione su più giorni ----------------
+
+export type FormRipetizione = { attiva: boolean; al: string; giorni: number[] };
+export const ripetizioneVuota = (): FormRipetizione => ({ attiva: false, al: "", giorni: [1, 2, 3, 4, 5] });
+export function inputRipetizione(f: FormRipetizione) {
+  return f.attiva ? { al: f.al, giorniSettimana: f.giorni } : null;
+}
+const GIORNI_SETTIMANA = [
+  [1, "lun"],
+  [2, "mar"],
+  [3, "mer"],
+  [4, "gio"],
+  [5, "ven"],
+  [6, "sab"],
+  [0, "dom"],
+] as const;
+
+/** "Ripeti fino al … nei giorni …": stessa sala e orario su più giorni con un solo inserimento. */
+export function CampiRipetizione({ valore, onChange, dal }: { valore: FormRipetizione; onChange: (f: FormRipetizione) => void; dal: string }) {
+  const giorniContati = (() => {
+    if (!valore.attiva || !dal || !valore.al || valore.al < dal) return 0;
+    let n = 0;
+    for (let d = new Date(`${dal}T00:00:00Z`); d.toISOString().slice(0, 10) <= valore.al; d = new Date(d.getTime() + 86_400_000)) {
+      if (!valore.giorni.length || valore.giorni.includes(d.getUTCDay())) n++;
+    }
+    return n;
+  })();
+  return (
+    <div className="flex flex-col gap-2 rounded-md border border-stone-200 bg-stone-50 p-2">
+      <label className="inline-flex items-center gap-2 text-sm font-semibold text-stone-800">
+        <input type="checkbox" checked={valore.attiva} onChange={(e) => onChange({ ...valore, attiva: e.target.checked })} />
+        Ripeti su più giorni (es. sessione d&apos;esami dal lunedì al venerdì)
+      </label>
+      {valore.attiva && (
+        <div className="flex flex-wrap items-end gap-3">
+          <Campo label="Fino al (compreso)">
+            <input type="date" className={CELLA} min={dal || undefined} value={valore.al} onChange={(e) => onChange({ ...valore, al: e.target.value })} />
+          </Campo>
+          <div className="flex flex-wrap gap-2 pb-1 text-sm">
+            {GIORNI_SETTIMANA.map(([g, nome]) => (
+              <label key={g} className="inline-flex items-center gap-1">
+                <input
+                  type="checkbox"
+                  checked={valore.giorni.includes(g)}
+                  onChange={(e) => onChange({ ...valore, giorni: e.target.checked ? [...valore.giorni, g] : valore.giorni.filter((x) => x !== g) })}
+                />
+                {nome}
+              </label>
+            ))}
+          </div>
+          <span className="pb-1 text-xs font-semibold text-stone-700">{giorniContati ? `${giorniContati} giorni` : ""}</span>
+        </div>
+      )}
     </div>
   );
 }

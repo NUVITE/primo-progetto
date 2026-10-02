@@ -5,17 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { sbusta } from "@/lib/esito";
 import { azioneCreaPrenotazioneSala } from "../../actions";
-import {
-  BOTTONE,
-  CampiOccupazione,
-  CampiTestata,
-  inputOccupazione,
-  inputTestata,
-  occupazioneVuota,
-  type Contesto,
-  type FormOccupazione,
-  type FormTestata,
-} from "../../componenti";
+import { BOTTONE, CampiOccupazione, CampiTestata, inputOccupazione, inputTestata, occupazioneVuota, type Contesto, type FormOccupazione, type FormTestata, CampiRipetizione, inputRipetizione, ripetizioneVuota, type FormRipetizione } from "../../componenti";
 import { Suggerimento } from "@/components/Suggerimento";
 
 const domani = (iso: string) => {
@@ -38,6 +28,7 @@ export function NuovaPrenotazioneSala({ contestoIniziale, sala, giorno, fascia }
     note: "",
   });
   const [occupazioni, setOccupazioni] = useState<FormOccupazione[]>([occupazioneVuota({ salaId: sala, giorno, fasciaId: fascia || primaFascia })]);
+  const [ripetizione, setRipetizione] = useState<FormRipetizione>(ripetizioneVuota());
   const [errore, setErrore] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -54,7 +45,7 @@ export function NuovaPrenotazioneSala({ contestoIniziale, sala, giorno, fascia }
     setErrore(null);
     setBusy(true);
     try {
-      const id = await sbusta(azioneCreaPrenotazioneSala(inputTestata(testata), occupazioni.map(inputOccupazione)));
+      const id = await sbusta(azioneCreaPrenotazioneSala(inputTestata(testata), occupazioni.map(inputOccupazione), inputRipetizione(ripetizione)));
       router.push(`/sale/prenotazioni/${id}`);
     } catch (e) {
       setErrore(e instanceof Error ? e.message : "Errore imprevisto.");
@@ -90,7 +81,12 @@ export function NuovaPrenotazioneSala({ contestoIniziale, sala, giorno, fascia }
         <h2 className="font-bold">Sale e orari</h2>
         {occupazioni.map((o, i) => (
           <div key={i} className="border-t border-stone-100 pt-3 first:border-t-0 first:pt-0">
-            <CampiOccupazione contesto={contesto} valore={o} onChange={(n) => setOccupazioni(occupazioni.map((x, j) => (j === i ? n : x)))} />
+            <CampiOccupazione
+              contesto={contesto}
+              valore={o}
+              partecipantiEvento={testata.partecipanti ? Number(testata.partecipanti) : null}
+              onChange={(n) => setOccupazioni(occupazioni.map((x, j) => (j === i ? n : x)))}
+            />
             {occupazioni.length > 1 && (
               <button type="button" className="mt-1 inline-flex h-7 items-center gap-1 rounded-md border border-red-300 bg-white px-2 text-xs font-semibold text-red-700 shadow-sm hover:bg-red-50 disabled:opacity-45 pointer-coarse:h-9" onClick={() => setOccupazioni(occupazioni.filter((_, j) => j !== i))}>
                 Togli
@@ -98,6 +94,8 @@ export function NuovaPrenotazioneSala({ contestoIniziale, sala, giorno, fascia }
             )}
           </div>
         ))}
+        <CampiRipetizione valore={ripetizione} onChange={setRipetizione} dal={occupazioni[0]?.giorno ?? ""} />
+        {ripetizione.attiva && <p className="text-xs text-stone-600">La ripetizione vale per tutte le sale e gli orari indicati qui sopra, dal loro giorno fino alla data scelta.</p>}
         <div className="flex flex-wrap gap-3">
           <button
             type="button"

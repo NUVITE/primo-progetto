@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { PacchettoEvento } from "./PacchettoEvento";
+import { PersoneEvento } from "./PersoneEvento";
 import { Suggerimento } from "@/components/Suggerimento";
 import { useState } from "react";
 import { sbusta } from "@/lib/esito";
@@ -28,6 +30,10 @@ import {
   type Contesto,
   type FormOccupazione,
   type FormTestata,
+  CampiRipetizione,
+  inputRipetizione,
+  ripetizioneVuota,
+  type FormRipetizione,
 } from "../../componenti";
 
 type Dettaglio = Awaited<ReturnType<typeof datiDettaglioSala>>["dettaglio"];
@@ -69,6 +75,8 @@ export function DettaglioPrenotazioneSala({
     null,
   );
   const [servizio, setServizio] = useState<FormServizio | null>(null);
+  // Ripetizione su più giorni per la sala che si aggiunge.
+  const [ripetizione, setRipetizione] = useState<FormRipetizione>(ripetizioneVuota());
 
   async function esegui(fn: () => Promise<Dettaglio>, ok: string) {
     setMessaggio(null);
@@ -256,6 +264,7 @@ export function DettaglioPrenotazioneSala({
                         valore={occupazione.f}
                         onChange={(f) => setOccupazione({ id: o.id, f })}
                         escludiOccupazioneId={o.id}
+                        partecipantiEvento={d.partecipanti}
                       />
                       <p className="mt-1 text-sm text-stone-600">
                         Salvando si ricalcola il prezzo (anche se era stato
@@ -471,7 +480,11 @@ export function DettaglioPrenotazioneSala({
                 contesto={contesto}
                 valore={occupazione.f}
                 onChange={(f) => setOccupazione({ id: 0, f })}
+                partecipantiEvento={d.partecipanti}
               />
+              <div className="mt-2">
+                <CampiRipetizione valore={ripetizione} onChange={setRipetizione} dal={occupazione.f.giorno} />
+              </div>
               <div className="mt-2 flex gap-2">
                 <button
                   type="button"
@@ -485,12 +498,15 @@ export function DettaglioPrenotazioneSala({
                             azioneAggiungiOccupazione(
                               d.id,
                               inputOccupazione(occupazione.f),
+                              inputRipetizione(ripetizione),
                             ),
                           ),
-                        "Sala aggiunta.",
+                        ripetizione.attiva ? "Giorni aggiunti." : "Sala aggiunta.",
                       )
-                    )
+                    ) {
                       setOccupazione(null);
+                      setRipetizione(ripetizioneVuota());
+                    }
                   }}
                 >
                   Aggiungi
@@ -553,6 +569,7 @@ export function DettaglioPrenotazioneSala({
                 <tr key={s.id} className="border-t border-stone-100">
                   <td data-label="Servizio" className="py-1.5 pr-2">
                     {s.nome}
+                    {s.pacchetto && <span className="ml-1 rounded bg-teal-50 px-1.5 py-0.5 text-xs font-semibold text-teal-800 ring-1 ring-inset ring-teal-200">{s.pacchetto}</span>}
                     {s.note && (
                       <div className="text-xs text-stone-500">{s.note}</div>
                     )}
@@ -767,7 +784,10 @@ export function DettaglioPrenotazioneSala({
               + Aggiungi servizio (coffee break, pranzo, attrezzature…)
             </button>
           ))}
+        {puoGestire && !annullata && contesto && !servizio && <PacchettoEvento evento={d} pacchetti={contesto.pacchetti} busy={busy} esegui={esegui} />}
       </section>
+
+      <PersoneEvento evento={d} contesto={contesto} puoGestire={puoGestire} busy={busy} esegui={esegui} />
 
       <section className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm sm:p-5">
         <dl className="grid max-w-sm grid-cols-2 gap-1 text-sm">

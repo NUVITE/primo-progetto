@@ -3,7 +3,8 @@
 import { richiediPermesso } from "@/lib/auth";
 import { conEsito } from "@/lib/esito";
 import { PERMESSI } from "@/lib/permessi";
-import { configurazioneSale, eliminaFascia, salvaAllestimento, salvaFascia, salvaSala, type DatiSala } from "@/lib/sale";
+import { prisma } from "@/lib/prisma";
+import { configurazioneSale, eliminaFascia, eliminaPacchetto, elencoPacchetti, salvaAllestimento, salvaFascia, salvaPacchetto, salvaSala, type DatiSala, type PacchettoInput } from "@/lib/sale";
 
 export async function datiConfigurazioneSale() {
   const u = await richiediPermesso(PERMESSI.SALE_CONFIGURA);
@@ -29,4 +30,28 @@ export async function azioneSalvaFascia(id: number | null, d: { nome: string; in
 }
 export async function azioneEliminaFascia(id: number) {
   return suSale((h) => eliminaFascia(h, id));
+}
+
+/** Pacchetti per gli eventi e servizi del catalogo da metterci dentro. */
+export async function datiPacchetti() {
+  const u = await richiediPermesso(PERMESSI.SALE_CONFIGURA);
+  const [pacchetti, servizi] = await Promise.all([
+    elencoPacchetti(u.hotelId),
+    prisma.servizioCatalogo.findMany({ where: { hotelId: u.hotelId, attivo: true }, orderBy: { nome: "asc" } }),
+  ]);
+  return { pacchetti, servizi: servizi.map((s) => ({ id: s.id, nome: s.nome, prezzo: Number(s.prezzo) })) };
+}
+
+export async function azioneSalvaPacchetto(id: number | null, d: PacchettoInput) {
+  return conEsito(async () => {
+    const u = await richiediPermesso(PERMESSI.SALE_CONFIGURA);
+    return salvaPacchetto(u.hotelId, id, d);
+  });
+}
+
+export async function azioneEliminaPacchetto(id: number) {
+  return conEsito(async () => {
+    const u = await richiediPermesso(PERMESSI.SALE_CONFIGURA);
+    return eliminaPacchetto(u.hotelId, id);
+  });
 }

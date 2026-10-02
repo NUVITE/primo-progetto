@@ -17,7 +17,14 @@ import {
   planningSale,
   rimuoviOccupazione,
   rimuoviServizioSala,
+  applicaPacchetto,
+  collegaPrenotazionePersona,
+  elencoPacchetti,
+  rimuoviPersonaEvento,
+  salvaPersonaEvento,
   type OccupazioneInput,
+  type PersonaEventoInput,
+  type Ripetizione,
   type TestataInput,
 } from "@/lib/sale";
 
@@ -33,7 +40,8 @@ export async function datiElencoSale() {
 
 export async function datiContesto() {
   const u = await richiediPermesso(PERMESSI.SALE_GESTISCI);
-  return contestoPrenotazioneSala(u.hotelId);
+  const [contesto, pacchetti] = await Promise.all([contestoPrenotazioneSala(u.hotelId), elencoPacchetti(u.hotelId, true)]);
+  return { ...contesto, pacchetti: pacchetti.map((p) => ({ id: p.id, nome: p.nome, aPersona: p.aPersona, aEvento: p.aEvento })) };
 }
 
 export async function datiDettaglioSala(id: number) {
@@ -49,10 +57,10 @@ export async function azioneAnteprima(o: OccupazioneInput, escludiOccupazioneId?
 }
 
 /** Restituisce l'id: la navigazione la fa il client (niente redirect da action chiamate dal client). */
-export async function azioneCreaPrenotazioneSala(t: TestataInput, occupazioni: OccupazioneInput[]) {
+export async function azioneCreaPrenotazioneSala(t: TestataInput, occupazioni: OccupazioneInput[], ripetizione: Ripetizione = null) {
   return conEsito(async () => {
     const u = await richiediPermesso(PERMESSI.SALE_GESTISCI);
-    return creaPrenotazioneSala(u.hotelId, t, occupazioni);
+    return creaPrenotazioneSala(u.hotelId, t, occupazioni, ripetizione);
   });
 }
 
@@ -67,8 +75,25 @@ async function suDettaglio(id: number, fn: (hotelId: number) => Promise<unknown>
 export async function azioneAggiornaTestata(id: number, t: TestataInput) {
   return suDettaglio(id, (h) => aggiornaTestata(h, id, t));
 }
-export async function azioneAggiungiOccupazione(id: number, o: OccupazioneInput) {
-  return suDettaglio(id, (h) => aggiungiOccupazione(h, id, o));
+export async function azioneAggiungiOccupazione(id: number, o: OccupazioneInput, ripetizione: Ripetizione = null) {
+  return suDettaglio(id, (h) => aggiungiOccupazione(h, id, o, ripetizione));
+}
+export async function azioneApplicaPacchetto(id: number, d: { pacchettoId: number; giorno: string | null; partecipanti: number | null }) {
+  return suDettaglio(id, (h) => applicaPacchetto(h, id, d));
+}
+export async function azioneSalvaPersona(id: number, personaId: number | null, d: PersonaEventoInput) {
+  return suDettaglio(id, (h) => salvaPersonaEvento(h, id, personaId, d));
+}
+export async function azioneRimuoviPersona(id: number, personaId: number) {
+  return suDettaglio(id, (h) => rimuoviPersonaEvento(h, id, personaId));
+}
+/** Collegare una camera o un uso diurno alla persona: tocca le prenotazioni, serve anche quel permesso. */
+export async function azioneCollegaPrenotazionePersona(id: number, personaId: number, prenotazioneId: number | null) {
+  return conEsito(async () => {
+    const u = await richiediPermesso(PERMESSI.SALE_GESTISCI);
+    await collegaPrenotazionePersona(u.hotelId, personaId, prenotazioneId);
+    return dettaglioPrenotazioneSala(u.hotelId, id);
+  });
 }
 export async function azioneModificaOccupazione(id: number, occupazioneId: number, o: OccupazioneInput) {
   return suDettaglio(id, (h) => modificaOccupazione(h, id, occupazioneId, o));

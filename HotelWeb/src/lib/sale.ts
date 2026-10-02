@@ -254,13 +254,51 @@ async function valoriTestata(db: Db, hotelId: number, t: TestataInput) {
   };
 }
 
-export async function creaPrenotazioneSala(hotelId: number, t: TestataInput, occupazioni: OccupazioneInput[]) {
+// Ripetizione: stessa sala e orario dal giorno indicato fino a "al", nei giorni della settimana scelti
+// (0 = domenica … 6 = sabato; vuoto = tutti i giorni). Es. sessione d'esami dal lunedì al venerdì.
+export type Ripetizione = { al: string; giorniSettimana: number[] } | null;
+const MAX_OCCORRENZE = 180;
+
+export function espandiOccupazioni(occupazioni: OccupazioneInput[], r: Ripetizione): OccupazioneInput[] {
+  if (!r) return occupazioni;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(r.al)) throw new Error("Indica fino a quando ripetere.");
+  const risultato: OccupazioneInput[] = [];
+  for (const o of occupazioni) {
+    if (r.al < o.giorno) throw new Error("La data finale della ripetizione è prima del primo giorno.");
+    for (let d = new Date(`${o.giorno}T00:00:00Z`); giornoDi(d) <= r.al; d = new Date(d.getTime() + 24 * 60 * MINUTO)) {
+      if (r.giorniSettimana.length && !r.giorniSettimana.includes(d.getUTCDay())) continue;
+      risultato.push({ ...o, giorno: giornoDi(d) });
+      if (risultato.length > MAX_OCCORRENZE) throw new Error(`Troppi giorni (oltre ${MAX_OCCORRENZE}): accorcia il periodo.`);
+    }
+  }
+  if (!risultato.length) throw new Error("Nessun giorno corrisponde ai giorni della settimana scelti.");
+  return risultato;
+}
+
+/** Controlla tutte le occupazioni prima di scrivere: se ci sono conflitti li elenca tutti insieme. */
+async function verificaDisponibilitaTutte(db: Db, hotelId: number, occupazioni: OccupazioneInput[]) {
+  const occupati: string[] = [];
+  for (const o of occupazioni) {
+    const sala = await db.sala.findFirstOrThrow({ where: { id: o.salaId, hotelId } });
+    const { inizio, fine } = await intervallo(db, hotelId, o);
+    const c = await conflittiSala(db, sala.id, inizio, fine);
+    if (c.length) occupati.push(`${o.giorno.split("-").reverse().join("/")} (${sala.nome}: "${c[0].prenotazioneSala.titolo}")`);
+  }
+  if (occupati.length) throw new Error(`Sala non libera in ${occupati.length === 1 ? "questo giorno" : "questi giorni"}: ${occupati.join(", ")}. Nessun giorno è stato prenotato.`);
+}
+
+export async function creaPrenotazioneSala(hotelId: number, t: TestataInput, occupazioni: OccupazioneInput[], ripetizione: Ripetizione = null) {
   if (!occupazioni.length) throw new Error("Indica almeno una sala e un orario.");
-  return prisma.$transaction(async (tx) => {
-    const p = await tx.prenotazioneSala.create({ data: { ...(await valoriTestata(tx, hotelId, t)), hotelId } });
-    for (const o of occupazioni) await scriviOccupazione(tx, hotelId, p.id, o);
-    return p.id;
-  });
+  const tutte = espandiOccupazioni(occupazioni, ripetizione);
+  return prisma.$transaction(
+    async (tx) => {
+      await verificaDisponibilitaTutte(tx, hotelId, tutte);
+      const p = await tx.prenotazioneSala.create({ data: { ...(await valoriTestata(tx, hotelId, t)), hotelId } });
+      for (const o of tutte) await scriviOccupazione(tx, hotelId, p.id, o);
+      return p.id;
+    },
+    { timeout: 60000 },
+  );
 }
 
 async function prenotazioneSalaDelHotel(db: Db, hotelId: number, id: number) {
@@ -284,9 +322,16 @@ export async function aggiornaTestata(hotelId: number, id: number, t: TestataInp
   });
 }
 
-export async function aggiungiOccupazione(hotelId: number, prenotazioneSalaId: number, o: OccupazioneInput) {
+export async function aggiungiOccupazione(hotelId: number, prenotazioneSalaId: number, o: OccupazioneInput, ripetizione: Ripetizione = null) {
   await prenotazioneSalaDelHotel(prisma, hotelId, prenotazioneSalaId);
-  await prisma.$transaction((tx) => scriviOccupazione(tx, hotelId, prenotazioneSalaId, o));
+  const tutte = espandiOccupazioni([o], ripetizione);
+  await prisma.$transaction(
+    async (tx) => {
+      await verificaDisponibilitaTutte(tx, hotelId, tutte);
+      for (const x of tutte) await scriviOccupazione(tx, hotelId, prenotazioneSalaId, x);
+    },
+    { timeout: 60000 },
+  );
 }
 
 export async function modificaOccupazione(hotelId: number, prenotazioneSalaId: number, occupazioneId: number, o: OccupazioneInput) {
@@ -343,7 +388,11 @@ export async function dettaglioPrenotazioneSala(hotelId: number, id: number) {
       cliente: true,
       prenotazione: { include: { ospitePrenotante: true } },
       occupazioni: { include: { sala: true, fascia: true, allestimento: true }, orderBy: { inizio: "asc" } },
-      servizi: { include: { servizioCatalogo: true }, orderBy: { createdAt: "asc" } },
+      servizi: { include: { servizioCatalogo: true }, orderBy: [{ data: "asc" }, { createdAt: "asc" }] },
+      persone: {
+        include: { prenotazione: { include: { segmenti: { include: { camera: true }, orderBy: { dataInizio: "asc" } } } } },
+        orderBy: { createdAt: "asc" },
+      },
     },
   });
   const avvisi: string[] = [];
@@ -382,7 +431,29 @@ export async function dettaglioPrenotazioneSala(hotelId: number, id: number) {
     totale: Number(s.prezzoUnitario) * s.quantita,
     data: s.data ? giornoDi(s.data) : null,
     note: s.note,
+    pacchetto: s.pacchetto,
   }));
+  const persone = p.persone.map((x) => {
+    const seg = x.prenotazione?.segmenti.find((g) => g.stato !== "ANNULLATO") ?? x.prenotazione?.segmenti[0];
+    return {
+      id: x.id,
+      nome: x.nome,
+      ruolo: x.ruolo,
+      telefono: x.telefono ?? "",
+      email: x.email ?? "",
+      note: x.note ?? "",
+      prenotazione:
+        x.prenotazione && seg
+          ? {
+              id: x.prenotazione.id,
+              annullata: x.prenotazione.stato === "ANNULLATA",
+              descrizione: seg.usoDiurno
+                ? `uso diurno ${giornoDi(seg.dataInizio).split("-").reverse().join("/")} ${seg.oraDal}–${seg.oraAl}${seg.camera ? `, camera ${seg.camera.codice}` : ""}`
+                : `${seg.camera ? `camera ${seg.camera.codice}` : "camera da assegnare"}, ${giornoDi(seg.dataInizio).split("-").reverse().join("/")} → ${giornoDi(seg.dataFine).split("-").reverse().join("/")}`,
+            }
+          : null,
+    };
+  });
   const totaleSale = occupazioni.reduce((t, o) => t + o.prezzo + o.costoAllestimento, 0);
   const totaleServizi = servizi.reduce((t, s) => t + s.totale, 0);
   return {
@@ -398,6 +469,8 @@ export async function dettaglioPrenotazioneSala(hotelId: number, id: number) {
       : null,
     occupazioni,
     servizi,
+    persone,
+    giorni: [...new Set(occupazioni.map((o) => o.giorno))],
     totali: { sale: totaleSale, servizi: totaleServizi, totale: totaleSale + totaleServizi },
     avvisi,
   };
@@ -472,7 +545,14 @@ export async function anteprimaOccupazione(hotelId: number, o: OccupazioneInput,
   } catch (e) {
     errorePrezzo = e instanceof Error ? e.message : String(e);
   }
+  // Partecipanti oltre la capienza (dell'allestimento scelto, altrimenti della sala): avviso subito.
+  const capienza = allestimento?.capienza ?? sala.capienzaMax;
+  const avvisoCapienza =
+    o.partecipanti && capienza && o.partecipanti > capienza
+      ? `${o.partecipanti} partecipanti, ma ${allestimento ? `l'allestimento "${allestimento.nome}"` : `la sala`} ne contiene ${capienza}.`
+      : null;
   return {
+    avvisoCapienza,
     libera: conflitti.length === 0,
     conflitto: conflitti[0]
       ? `Occupata da "${conflitti[0].prenotazioneSala.titolo}" (${conflitti[0].prenotazioneSala.stato}) ${oraDi(conflitti[0].inizio)}-${oraDi(conflitti[0].fine, giornoDi(conflitti[0].inizio))}${sala.riassettoMinuti ? `, riassetto ${sala.riassettoMinuti} min` : ""}`
@@ -509,4 +589,135 @@ export async function contestoPrenotazioneSala(hotelId: number) {
       return { id: p.id, etichetta: `#${p.id} ${p.ospitePrenotante.cognome} ${p.ospitePrenotante.nome} · ${it(dal)}–${it(al)}` };
     }),
   };
+}
+
+// ---------------- Pacchetti (es. "Giornata congressuale") ----------------
+
+export type RigaPacchettoInput = { servizioCatalogoId: number | null; descrizione: string; prezzoUnitario: number; quantitaPer: "persona" | "evento" };
+export type PacchettoInput = { nome: string; descrizione: string; attivo: boolean; righe: RigaPacchettoInput[] };
+
+export async function elencoPacchetti(hotelId: number, soloAttivi = false) {
+  const p = await prisma.pacchettoSala.findMany({
+    where: { hotelId, ...(soloAttivi ? { attivo: true } : {}) },
+    include: { righe: { include: { servizioCatalogo: true }, orderBy: { ordine: "asc" } } },
+    orderBy: { nome: "asc" },
+  });
+  return p.map((x) => ({
+    id: x.id,
+    nome: x.nome,
+    descrizione: x.descrizione ?? "",
+    attivo: x.attivo,
+    righe: x.righe.map((r) => ({
+      servizioCatalogoId: r.servizioCatalogoId,
+      descrizione: r.descrizione ?? "",
+      nome: r.servizioCatalogo?.nome ?? r.descrizione ?? "Servizio",
+      prezzoUnitario: Number(r.prezzoUnitario),
+      quantitaPer: (r.quantitaPer === "evento" ? "evento" : "persona") as "persona" | "evento",
+    })),
+    // Prezzo indicativo: a persona (righe a persona) + a evento (righe una tantum), per giorno.
+    aPersona: x.righe.filter((r) => r.quantitaPer !== "evento").reduce((t, r) => t + Number(r.prezzoUnitario), 0),
+    aEvento: x.righe.filter((r) => r.quantitaPer === "evento").reduce((t, r) => t + Number(r.prezzoUnitario), 0),
+  }));
+}
+
+export async function salvaPacchetto(hotelId: number, id: number | null, d: PacchettoInput) {
+  const nome = d.nome.trim();
+  if (!nome) throw new Error("Dai un nome al pacchetto.");
+  if (!d.righe.length) throw new Error("Aggiungi almeno un servizio al pacchetto.");
+  for (const [i, r] of d.righe.entries()) {
+    if (r.servizioCatalogoId) await prisma.servizioCatalogo.findFirstOrThrow({ where: { id: r.servizioCatalogoId, hotelId } });
+    else if (!r.descrizione.trim()) throw new Error(`Riga ${i + 1}: scegli un servizio o scrivi la descrizione.`);
+    if (!(r.prezzoUnitario >= 0)) throw new Error(`Riga ${i + 1}: prezzo non valido.`);
+    if (r.quantitaPer !== "persona" && r.quantitaPer !== "evento") throw new Error(`Riga ${i + 1}: indica se è a persona o a evento.`);
+  }
+  const righe = d.righe.map((r, ordine) => ({
+    servizioCatalogoId: r.servizioCatalogoId,
+    descrizione: r.servizioCatalogoId ? null : r.descrizione.trim(),
+    prezzoUnitario: r.prezzoUnitario,
+    quantitaPer: r.quantitaPer,
+    ordine,
+  }));
+  const doppio = await prisma.pacchettoSala.findFirst({ where: { hotelId, nome, id: id ? { not: id } : undefined } });
+  if (doppio) throw new Error(`Esiste già un pacchetto "${nome}".`);
+  await prisma.$transaction(async (tx) => {
+    if (id) {
+      await tx.pacchettoSala.findFirstOrThrow({ where: { id, hotelId } });
+      await tx.rigaPacchettoSala.deleteMany({ where: { pacchettoId: id } });
+      await tx.pacchettoSala.update({ where: { id }, data: { nome, descrizione: d.descrizione.trim() || null, attivo: d.attivo, righe: { create: righe } } });
+    } else {
+      await tx.pacchettoSala.create({ data: { hotelId, nome, descrizione: d.descrizione.trim() || null, attivo: d.attivo, righe: { create: righe } } });
+    }
+  });
+  return elencoPacchetti(hotelId);
+}
+
+export async function eliminaPacchetto(hotelId: number, id: number) {
+  await prisma.pacchettoSala.findFirstOrThrow({ where: { id, hotelId } });
+  await prisma.pacchettoSala.delete({ where: { id } });
+  return elencoPacchetti(hotelId);
+}
+
+/**
+ * Applica un pacchetto all'evento: un servizio per riga, per ogni giorno scelto (tutti i giorni
+ * dell'evento o uno solo), con quantità = partecipanti per le righe a persona e 1 per quelle a evento.
+ * I servizi creati restano modificabili e portano il nome del pacchetto.
+ */
+export async function applicaPacchetto(hotelId: number, prenotazioneSalaId: number, d: { pacchettoId: number; giorno: string | null; partecipanti: number | null }) {
+  const evento = await prisma.prenotazioneSala.findFirstOrThrow({ where: { id: prenotazioneSalaId, hotelId }, include: { occupazioni: true } });
+  const pacchetto = await prisma.pacchettoSala.findFirstOrThrow({ where: { id: d.pacchettoId, hotelId, attivo: true }, include: { righe: { orderBy: { ordine: "asc" } } } });
+  const persone = d.partecipanti ?? evento.partecipanti;
+  if (pacchetto.righe.some((r) => r.quantitaPer !== "evento") && !(persone && persone > 0)) {
+    throw new Error("Indica il numero di partecipanti: il pacchetto ha servizi a persona.");
+  }
+  const giorni = d.giorno ? [d.giorno] : [...new Set(evento.occupazioni.map((o) => giornoDi(o.inizio)))].sort();
+  if (!giorni.length) throw new Error("L'evento non ha ancora giorni in sala.");
+  await prisma.servizioSala.createMany({
+    data: giorni.flatMap((g) =>
+      pacchetto.righe.map((r) => ({
+        prenotazioneSalaId,
+        servizioCatalogoId: r.servizioCatalogoId,
+        descrizione: r.descrizione,
+        prezzoUnitario: r.prezzoUnitario,
+        quantita: r.quantitaPer === "evento" ? 1 : persone!,
+        data: new Date(`${g}T00:00:00Z`),
+        pacchetto: pacchetto.nome,
+      })),
+    ),
+  });
+}
+
+// ---------------- Persone dell'evento (relatori, organizzatori) ----------------
+
+export const RUOLI_PERSONA_EVENTO = { relatore: "Relatore", organizzatore: "Organizzatore", tecnico: "Tecnico", altro: "Altro" } as const;
+export type PersonaEventoInput = { nome: string; ruolo: string; telefono: string; email: string; note: string };
+
+function valoriPersona(d: PersonaEventoInput) {
+  if (!d.nome.trim()) throw new Error("Indica il nome.");
+  if (!(d.ruolo in RUOLI_PERSONA_EVENTO)) throw new Error("Ruolo non valido.");
+  return { nome: d.nome.trim(), ruolo: d.ruolo, telefono: d.telefono.trim() || null, email: d.email.trim().toLowerCase() || null, note: d.note.trim() || null };
+}
+
+export async function salvaPersonaEvento(hotelId: number, prenotazioneSalaId: number, id: number | null, d: PersonaEventoInput) {
+  await prenotazioneSalaDelHotel(prisma, hotelId, prenotazioneSalaId);
+  const dati = valoriPersona(d);
+  if (id) await prisma.personaEvento.update({ where: { id, prenotazioneSalaId }, data: dati });
+  else await prisma.personaEvento.create({ data: { ...dati, prenotazioneSalaId } });
+}
+
+export async function rimuoviPersonaEvento(hotelId: number, prenotazioneSalaId: number, id: number) {
+  await prenotazioneSalaDelHotel(prisma, hotelId, prenotazioneSalaId);
+  await prisma.personaEvento.delete({ where: { id, prenotazioneSalaId } });
+}
+
+/** Collega (o scollega) la camera o l'uso diurno prenotato per la persona. */
+export async function collegaPrenotazionePersona(hotelId: number, personaId: number, prenotazioneId: number | null) {
+  await prisma.personaEvento.findFirstOrThrow({ where: { id: personaId, prenotazioneSala: { hotelId } } });
+  if (prenotazioneId) await prisma.prenotazione.findFirstOrThrow({ where: { id: prenotazioneId, hotelId } });
+  await prisma.personaEvento.update({ where: { id: personaId }, data: { prenotazioneId } });
+}
+
+/** Per l'uso diurno aperto da un evento: nome della persona e titolo dell'evento. */
+export async function personaPerUsoDiurno(hotelId: number, personaId: number) {
+  const p = await prisma.personaEvento.findFirst({ where: { id: personaId, prenotazioneSala: { hotelId } }, include: { prenotazioneSala: true } });
+  return p ? { id: p.id, nome: p.nome, evento: p.prenotazioneSala.titolo, prenotazioneSalaId: p.prenotazioneSalaId } : null;
 }

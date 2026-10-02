@@ -63,6 +63,12 @@ export function NuovoUsoDiurno({ dati, cameraIniziale, giornoIniziale }: { dati:
         </p>
         <p>Non c&apos;è pernottamento: niente tassa di soggiorno, schedina di Polizia né statistica ISTAT.</p>
       </Suggerimento>
+      {dati.persona && (
+        <Avviso tipo="info">
+          Per <strong>{dati.persona.nome}</strong>, dell&apos;evento «{dati.persona.evento}»: salvando, l&apos;uso diurno si collega alla persona e si torna
+          all&apos;evento. Come ospite cerca o crea la stessa persona.
+        </Avviso>
+      )}
       {errore && <Avviso tipo="errore">{errore}</Avviso>}
 
       <Sezione titolo="Camera e orari">
@@ -131,9 +137,9 @@ export function NuovoUsoDiurno({ dati, cameraIniziale, giornoIniziale }: { dati:
                   ospite: ospite.mode === "esistente" ? { id: ospite.id } : ospite.mode === "nuovo" ? { nome: ospite.nome, cognome: ospite.cognome } : { id: 0 },
                   prezzo: prezzo ?? 0,
                   note: f.note,
-                }),
+                }, dati.persona?.id ?? null),
               );
-              router.push(`/prenotazioni/${r.id}`);
+              router.push(dati.persona ? `/sale/prenotazioni/${dati.persona.prenotazioneSalaId}` : `/prenotazioni/${r.id}`);
             } catch (e) {
               setErrore(e instanceof Error ? e.message : "Errore imprevisto.");
               setBusy(false);

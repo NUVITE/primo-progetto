@@ -78,6 +78,7 @@ model Hotel {
   fasceOrarie            FasciaOraria[]
   prenotazioniSala       PrenotazioneSala[]
   politicheCancellazione PoliticaCancellazione[]
+  pacchettiSala          PacchettoSala[]
 }
 
 /**
@@ -309,6 +310,7 @@ model Prenotazione {
   serviziAggiunti  ServizioAggiunto[]
   posizioniTassa   PosizioneTassa[]
   prenotazioniSala PrenotazioneSala[]
+  personeEvento    PersonaEvento[]
 }
 
 enum StatoSegmento {
@@ -392,6 +394,7 @@ model ServizioCatalogo {
 
   serviziAggiunti ServizioAggiunto[]
   serviziSala     ServizioSala[]
+  righePacchetto  RigaPacchettoSala[]
 }
 
 /**
@@ -906,6 +909,7 @@ model PrenotazioneSala {
 
   occupazioni OccupazioneSala[]
   servizi     ServizioSala[]
+  persone     PersonaEvento[]
 }
 
 /**
@@ -947,6 +951,8 @@ model ServizioSala {
   quantita           Int               @default(1)
   data               DateTime?         @db.Date
   note               String?
+  // Nome del pacchetto da cui è nato il servizio (es. "Giornata congressuale"), per raggrupparlo.
+  pacchetto          String?
   createdAt          DateTime          @default(now())
 }
 
@@ -1091,4 +1097,57 @@ model RuoloAggiuntivo {
 
   @@id([utenteId, hotelId, ruoloId])
   @@index([ruoloId])
+}
+
+/**
+ * Pacchetto per gli eventi in sala (es. "Giornata congressuale"): un insieme di servizi che si
+ * aggiungono all'evento in un colpo solo. Le quantità si calcolano dai partecipanti.
+ */
+model PacchettoSala {
+  id          Int      @id @default(autoincrement())
+  hotelId     Int
+  hotel       Hotel    @relation(fields: [hotelId], references: [id])
+  nome        String
+  descrizione String?
+  attivo      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  righe RigaPacchettoSala[]
+
+  @@unique([hotelId, nome])
+}
+
+/**
+ * Riga di un pacchetto: servizio del catalogo (o descrizione libera), prezzo e come si conta.
+ */
+model RigaPacchettoSala {
+  id                 Int               @id @default(autoincrement())
+  pacchettoId        Int
+  pacchetto          PacchettoSala     @relation(fields: [pacchettoId], references: [id], onDelete: Cascade)
+  servizioCatalogoId Int?
+  servizioCatalogo   ServizioCatalogo? @relation(fields: [servizioCatalogoId], references: [id])
+  descrizione        String?
+  prezzoUnitario     Decimal           @db.Decimal(10, 2)
+  // "persona" (× partecipanti) | "evento" (una volta)
+  quantitaPer        String            @default("persona")
+  ordine             Int               @default(0)
+}
+
+/**
+ * Persona di un evento in sala (relatore, organizzatore…): con l'eventuale camera o uso diurno
+ * prenotato per lei (prenotazioneId).
+ */
+model PersonaEvento {
+  id                 Int              @id @default(autoincrement())
+  prenotazioneSalaId Int
+  prenotazioneSala   PrenotazioneSala @relation(fields: [prenotazioneSalaId], references: [id], onDelete: Cascade)
+  nome               String
+  // "relatore" | "organizzatore" | "tecnico" | "altro"
+  ruolo              String           @default("relatore")
+  telefono           String?
+  email              String?
+  note               String?
+  prenotazioneId     Int?
+  prenotazione       Prenotazione?    @relation(fields: [prenotazioneId], references: [id], onDelete: SetNull)
+  createdAt          DateTime         @default(now())
 }
