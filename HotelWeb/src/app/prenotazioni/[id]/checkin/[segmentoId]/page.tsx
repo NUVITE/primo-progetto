@@ -9,5 +9,5 @@ export default async function CheckinPage({ params }: { params: Promise<{ id: st
   const { id, segmentoId } = await params;
   const dati = await datiCheckin(utente.hotelId, Number(segmentoId), puo(utente, PERMESSI.PRENOTAZIONI_GESTISCI)).catch(() => null);
   if (!dati || dati.segmento.prenotazioneId !== Number(id)) notFound();
-  return <CheckinCamera iniziale={dati} puoGestire={puo(utente, PERMESSI.PRENOTAZIONI_GESTISCI)} />;
+  return <CheckinCamera iniziale={dati} puoGestire={puo(utente, PERMESSI.PRENOTAZIONI_GESTISCI)} puoIncassare={puo(utente, PERMESSI.PAGAMENTI_REGISTRA)} />;
 }

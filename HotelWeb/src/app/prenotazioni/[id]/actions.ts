@@ -51,6 +51,7 @@ import {
 import { PERMESSI } from "@/lib/permessi";
 import { descriviPolitica, elencoPolitiche, type PoliticaCopiata } from "@/lib/politiche";
 import { prisma } from "@/lib/prisma";
+import { sospendiConto, statoConto, togliSospeso } from "@/lib/contiSospesi";
 import { composizioneDi, composizioneReale, descriviComposizione, stessaComposizione, type Composizione, type DettaglioNotte } from "@/lib/pricing";
 
 import { datiIniziali as _datiIniziali } from "@/app/prenotazioni/nuova/actions";
@@ -78,6 +79,11 @@ async function serializza(prenotazione: Awaited<ReturnType<typeof trovaPrenotazi
     stato: prenotazione.stato,
     ospitePrenotante: `${prenotazione.ospitePrenotante.nome} ${prenotazione.ospitePrenotante.cognome}`,
     gruppoNome: prenotazione.gruppo?.nome ?? null,
+    // Conto da chiudere dopo la partenza (o penale da incassare) ed eventuale sospeso.
+    conto: (() => {
+      const c = statoConto(prenotazione);
+      return { aperto: c.aperto, sospeso: c.sospeso };
+    })(),
     provenienza: {
       canale: prenotazione.canale,
       canaleTesto: CANALI[prenotazione.canale as keyof typeof CANALI] ?? prenotazione.canale,
@@ -398,4 +404,12 @@ export async function azioneRiapriSoggiorno(prenotazioneId: number, ospiteId: nu
     await riapriPosizione(utente.hotelId, utente.id, prenotazioneId, ospiteId, nota);
     return serializza(await trovaPrenotazione(utente.hotelId, prenotazioneId), utente);
   });
+}
+
+export async function azioneSospendi(id: number, d: { clienteId: number | null; nota: string }) {
+  return suPrenotazione(PERMESSI.PAGAMENTI_REGISTRA, (u) => sospendiConto(u.hotelId, id, d, u.nome));
+}
+
+export async function azioneTogliSospeso(id: number) {
+  return suPrenotazione(PERMESSI.PAGAMENTI_REGISTRA, (u) => togliSospeso(u.hotelId, id));
 }

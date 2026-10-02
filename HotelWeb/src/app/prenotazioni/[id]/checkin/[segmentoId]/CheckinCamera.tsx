@@ -7,6 +7,7 @@ import { CODICE_ITALIA } from "@/lib/codiciPolizia";
 import type { datiCheckin, AnagraficaInput, DatiPresenzaInput } from "@/lib/checkin";
 import { OspiteSearch, type OspiteValue } from "../../../nuova/OspiteSearch";
 import { LuogoSearch } from "./LuogoSearch";
+import { ContoApertoCheckout } from "./ContoApertoCheckout";
 import { ArrowLeft, CheckCircle2, LogIn, LogOut, RefreshCw, Save, UserMinus, UserPlus, UserRoundCog } from "lucide-react";
 import { Avviso, CLASSE_CAMPO, Etichetta, IntestazionePagina, Pulsante, Sezione } from "@/components/ui";
 import { AiutoSezione } from "@/components/AiutoSezione";
@@ -50,23 +51,26 @@ function tipoSuggerito(dati: Dati, o: Occupante): { tipo: number; capo: number |
   return { tipo: gruppo ? 20 : 19, capo };
 }
 
-export function CheckinCamera({ iniziale, puoGestire }: { iniziale: Dati; puoGestire: boolean }) {
+export function CheckinCamera({ iniziale, puoGestire, puoIncassare = false }: { iniziale: Dati; puoGestire: boolean; puoIncassare?: boolean }) {
   const [dati, setDati] = useState(iniziale);
   const [messaggio, setMessaggio] = useState<{ tipo: "ok" | "errore" | "avviso"; testo: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [nuovo, setNuovo] = useState<OspiteValue>({ mode: "vuoto" });
   const [aggiungi, setAggiungi] = useState(false);
   const [dataCheckout, setDataCheckout] = useState<string | null>(null);
+  // Ultima partenza con saldo da pagare: si chiede subito se incassare o lasciare in sospeso.
+  const [contoAperto, setContoAperto] = useState<{ prenotazioneId: number; daPagare: number | null } | null>(null);
   const s = dati.segmento;
   const tuttiArrivati = dati.occupanti.every((o) => o.stato !== "attesa");
   const tuttiPartiti = dati.occupanti.every((o) => o.stato === "partito");
 
-  async function esegui(fn: () => Promise<{ dati: Dati; avviso: string | null }>, ok?: string) {
+  async function esegui(fn: () => Promise<{ dati: Dati; avviso: string | null; contoAperto?: { prenotazioneId: number; daPagare: number | null } | null }>, ok?: string) {
     setMessaggio(null);
     setBusy(true);
     try {
       const r = await fn();
       setDati(r.dati);
+      setContoAperto(r.contoAperto ?? null);
       setMessaggio(r.avviso ? { tipo: "avviso", testo: r.avviso } : ok ? { tipo: "ok", testo: ok } : null);
       return true;
     } catch (e) {
@@ -144,6 +148,18 @@ export function CheckinCamera({ iniziale, puoGestire }: { iniziale: Dati; puoGes
         </Avviso>
       )}
       {messaggio && <Avviso tipo={messaggio.tipo}>{messaggio.testo}</Avviso>}
+      {contoAperto && (
+        <ContoApertoCheckout
+          segmentoId={s.id}
+          conto={contoAperto}
+          puoIncassare={puoIncassare}
+          onSospeso={(r) => {
+            setDati(r.dati);
+            setContoAperto(null);
+            setMessaggio({ tipo: "ok", testo: "Conto lasciato in sospeso: lo trovi in Conti aperti e sospesi." });
+          }}
+        />
+      )}
 
       {dati.occupanti.map((o) => (
         <SchedaOccupante key={`${o.presenzaId}-${o.ospiteId}`} dati={dati} o={o} puoGestire={puoGestire} busy={busy} esegui={esegui} />

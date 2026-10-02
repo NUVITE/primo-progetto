@@ -344,6 +344,7 @@ async function caricaPrenotazioneCompleta(db: Db, hotelId: number, id: number) {
       gruppo: true,
       intermediario: true,
       clientePagante: true,
+      sospesoCliente: true,
       segmenti: {
         orderBy: { dataInizio: "asc" },
         include: {

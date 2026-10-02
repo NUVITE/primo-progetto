@@ -5,6 +5,7 @@ import { useState } from "react";
 import { sbusta } from "@/lib/esito";
 import { Avviso, Campo, Dato, Etichetta, Input, Pulsante, Select, Sezione, Textarea } from "@/components/ui";
 import { AiutoSezione, Esempio } from "@/components/AiutoSezione";
+import { ContoSospeso } from "./ContoSospeso";
 import {
   azioneAnnulla,
   azioneConferma,
@@ -263,6 +264,8 @@ export function PannelloPagamenti({
         <Esempio>totale 400 €, acconto di 100 € con bonifico: da pagare 300 € al check-out.</Esempio>
       </AiutoSezione>
 
+
+      <ContoSospeso prenotazione={p} puoIncassare={puoIncassare} salvando={salvando} esegui={esegui} aggiorna={aggiorna} />
 
       {!annullata && accontoMancante > 0 && (
         <Avviso tipo={accontoScaduto ? "avviso" : "info"} className="mt-3">

@@ -17,7 +17,9 @@ import {
   type OspiteRif,
 } from "@/lib/checkin";
 import { cercaLuoghi } from "@/lib/tabellePolizia";
-import { aggiornaComposizione } from "@/lib/prenotazioni";
+import { aggiornaComposizione, trovaPrenotazione } from "@/lib/prenotazioni";
+import { sospendiConto, statoConto } from "@/lib/contiSospesi";
+import { prisma } from "@/lib/prisma";
 
 const mostraDocumenti = (u: UtenteSessione) => puo(u, PERMESSI.PRENOTAZIONI_GESTISCI);
 
@@ -71,10 +73,45 @@ export async function azioneConfermaArrivo(segmentoId: number) {
   return esegui(segmentoId, (u) => confermaArrivo(u.hotelId, segmentoId));
 }
 
+/**
+ * Check-out: se con questa partenza tutti sono partiti e resta qualcosa da pagare, la risposta lo
+ * dice (contoAperto) e la pagina chiede subito se incassare o lasciare il conto in sospeso.
+ */
+async function conControlloConto(segmentoId: number, fn: (u: UtenteSessione) => Promise<void>) {
+  return conEsito(async () => {
+    const utente = await richiediPermesso(PERMESSI.PRENOTAZIONI_GESTISCI);
+    await fn(utente);
+    const seg = await prisma.segmentoSoggiorno.findFirstOrThrow({ where: { id: segmentoId, prenotazione: { hotelId: utente.hotelId } } });
+    const conto = statoConto(await trovaPrenotazione(utente.hotelId, seg.prenotazioneId));
+    const contoAperto =
+      conto.aperto && !conto.sospeso
+        ? { prenotazioneId: seg.prenotazioneId, daPagare: puo(utente, PERMESSI.IMPORTI_VEDI) ? conto.daPagare : null }
+        : null;
+    return { dati: await datiCheckin(utente.hotelId, segmentoId, true), avviso: null as string | null, contoAperto };
+  });
+}
+
 export async function azioneCheckoutCamera(segmentoId: number, dataPartenza: string) {
-  return esegui(segmentoId, (u) => checkoutCamera(u.hotelId, u.id, segmentoId, dataPartenza));
+  return conControlloConto(segmentoId, (u) => checkoutCamera(u.hotelId, u.id, segmentoId, dataPartenza));
 }
 
 export async function azioneCheckoutOccupante(segmentoId: number, presenzaId: number, dataPartenza: string) {
-  return esegui(segmentoId, (u) => checkoutOccupante(u.hotelId, u.id, presenzaId, dataPartenza));
+  return conControlloConto(segmentoId, (u) => checkoutOccupante(u.hotelId, u.id, presenzaId, dataPartenza));
+}
+
+/** Clienti (aziende, agenzie) a cui addebitare un conto lasciato in sospeso. */
+export async function azioneClientiSospeso() {
+  return conEsito(async () => {
+    const utente = await richiediPermesso(PERMESSI.PAGAMENTI_REGISTRA);
+    return prisma.cliente.findMany({ where: { hotelId: utente.hotelId, attivo: true }, select: { id: true, denominazione: true }, orderBy: { denominazione: "asc" } });
+  });
+}
+
+export async function azioneSospendiDaCheckout(segmentoId: number, d: { clienteId: number | null; nota: string }) {
+  return conEsito(async () => {
+    const utente = await richiediPermesso(PERMESSI.PAGAMENTI_REGISTRA);
+    const seg = await prisma.segmentoSoggiorno.findFirstOrThrow({ where: { id: segmentoId, prenotazione: { hotelId: utente.hotelId } } });
+    await sospendiConto(utente.hotelId, seg.prenotazioneId, d, utente.nome);
+    return { dati: await datiCheckin(utente.hotelId, segmentoId, true), avviso: "Conto lasciato in sospeso." as string | null, contoAperto: null };
+  });
 }

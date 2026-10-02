@@ -266,6 +266,14 @@ model Prenotazione {
   // cambia, vale quella accettata dal cliente.
   politicaId         Int?
   politica           Json?
+  // Conto lasciato in sospeso (dopo la partenza con saldo da pagare): a carico dell'ospite o di un
+  // cliente (azienda/agenzia), con nota e ultimo sollecito. Si chiude da solo quando il saldo è pagato.
+  sospesoIl          DateTime?
+  sospesoDa          String?
+  sospesoClienteId   Int?
+  sospesoCliente     Cliente?          @relation("sospeso", fields: [sospesoClienteId], references: [id])
+  sospesoNota        String?
+  sollecitoIl        DateTime?         @db.Date
   stato              StatoPrenotazione @default(OPZIONE)
   accontoRichiesto   Decimal?          @db.Decimal(10, 2)
   accontoRicevuto    Decimal?          @db.Decimal(10, 2)
@@ -777,6 +785,7 @@ model Cliente {
   prenotazioniSala          PrenotazioneSala[]
   prenotazioniIntermediario Prenotazione[]     @relation("intermediario")
   prenotazioniPagate        Prenotazione[]     @relation("clientePagante")
+  prenotazioniSospese       Prenotazione[]     @relation("sospeso")
 }
 
 /**
