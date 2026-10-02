@@ -241,7 +241,9 @@ export function PannelloPagamenti({
 }) {
   const p = prenotazione;
   const annullata = p.stato === "ANNULLATA";
-  const [nuovo, setNuovo] = useState<null | { data: string; importo: string; metodo: string; tipo: string; nota: string }>(null);
+  const [nuovo, setNuovo] = useState<null | { data: string; importo: string; metodo: string; tipo: string; nota: string; intestatario: string }>(null);
+  const intestatari = p.contoVoci.intestatari;
+  const nomeIntestatario = (k: string) => intestatari.find((x) => x.chiave === k)?.nome ?? "ospite";
   const [storno, setStorno] = useState<null | { id: number; motivo: string }>(null);
   const [scadenze, setScadenze] = useState<null | { scadenzaOpzione: string; accontoEntro: string; accontoRichiesto: string }>(null);
   const accontoMancante = p.accontoRichiesto ? Math.max(0, p.accontoRichiesto - p.accontoRicevuto) : 0;
@@ -348,6 +350,7 @@ export function PannelloPagamenti({
               </div>
               <div className="text-xs text-stone-600">
                 {it(x.data)} · {x.registratoDa}
+                {intestatari.length > 1 && <> · pagato da {nomeIntestatario(x.intestatario)}</>}
                 {x.nota && ` · ${x.nota}`}
               </div>
               {x.stornato && (
@@ -417,6 +420,23 @@ export function PannelloPagamenti({
               <Campo etichetta="Data">
                 <Input type="date" value={nuovo.data} onChange={(e) => setNuovo({ ...nuovo, data: e.target.value })} />
               </Campo>
+              {intestatari.length > 1 && (
+                <Campo etichetta="Paga">
+                  <Select
+                    value={nuovo.intestatario}
+                    onChange={(e) => {
+                      const resto = intestatari.find((x) => x.chiave === e.target.value)?.daPagare ?? 0;
+                      setNuovo({ ...nuovo, intestatario: e.target.value, importo: resto > 0 ? resto.toFixed(2) : nuovo.importo });
+                    }}
+                  >
+                    {intestatari.map((x) => (
+                      <option key={x.chiave} value={x.chiave}>
+                        {x.nome} (da pagare {eur(x.daPagare)})
+                      </option>
+                    ))}
+                  </Select>
+                </Campo>
+              )}
             </div>
             <Campo etichetta="Nota">
               <Textarea rows={1} value={nuovo.nota} onChange={(e) => setNuovo({ ...nuovo, nota: e.target.value })} placeholder="es. numero del bonifico" />
@@ -428,7 +448,16 @@ export function PannelloPagamenti({
                 disabled={salvando || !(Number(nuovo.importo) > 0)}
                 onClick={async () => {
                   const r = await esegui(() =>
-                    sbusta(azioneRegistraPagamento(p.id, { data: nuovo.data, importo: Number(nuovo.importo), metodo: nuovo.metodo, tipo: nuovo.tipo, nota: nuovo.nota })),
+                    sbusta(
+                      azioneRegistraPagamento(p.id, {
+                        data: nuovo.data,
+                        importo: Number(nuovo.importo),
+                        metodo: nuovo.metodo,
+                        tipo: nuovo.tipo,
+                        nota: nuovo.nota,
+                        intestatario: nuovo.intestatario,
+                      }),
+                    ),
                   );
                   if (r) {
                     aggiorna(r);
@@ -456,6 +485,7 @@ export function PannelloPagamenti({
                 metodo: "contanti",
                 tipo: p.totali.daPagare < 0 ? "rimborso" : accontoMancante > 0 ? "acconto" : "saldo",
                 nota: "",
+                intestatario: "ospite",
               })
             }
           >

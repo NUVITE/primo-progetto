@@ -53,7 +53,8 @@ import { PERMESSI } from "@/lib/permessi";
 import { descriviPolitica, elencoPolitiche, type PoliticaCopiata } from "@/lib/politiche";
 import { prisma } from "@/lib/prisma";
 import { sospendiConto, statoConto, togliSospeso } from "@/lib/contiSospesi";
-import { elencoReparti, registraAddebito, riepilogoIva, righeConto, stornaAddebito, type AddebitoInput } from "@/lib/conto";
+import { elencoReparti, registraAddebito, riepilogoIva, stornaAddebito, type AddebitoInput } from "@/lib/conto";
+import { dividiConto, impostaRegolaConto, REGOLE_CONTO, segnaFatturate, spostaRiga, type RegolaConto } from "@/lib/contoDiviso";
 import { composizioneDi, composizioneReale, descriviComposizione, stessaComposizione, type Composizione, type DettaglioNotte } from "@/lib/pricing";
 
 import { datiIniziali as _datiIniziali } from "@/app/prenotazioni/nuova/actions";
@@ -73,13 +74,37 @@ async function serializza(prenotazione: Awaited<ReturnType<typeof trovaPrenotazi
   const tassa = await datiTassaPrenotazione(utente.hotelId, prenotazione.id);
   // Conto con IVA per voce (solo per chi vede gli importi) e reparti per gli addebiti.
   const hotelConto = await prisma.hotel.findUniqueOrThrow({ where: { id: utente.hotelId }, select: { aliquotaAlloggio: true } });
-  const righe = importiVisibili ? righeConto(prenotazione, Number(hotelConto.aliquotaAlloggio)) : [];
+  const diviso = importiVisibili ? dividiConto(prenotazione, Number(hotelConto.aliquotaAlloggio)) : null;
+  const righe = diviso?.righe ?? [];
   const riepilogo = riepilogoIva(righe);
   const puoAddebitare = puo(utente, PERMESSI.ADDEBITI_REGISTRA);
   const reparti = puoAddebitare ? await elencoReparti(utente.hotelId, true) : [];
   return {
     importiVisibili,
-    contoVoci: { righe, riepilogoIva: riepilogo, reparti, puoAddebitare, puoAbbuonare: puo(utente, PERMESSI.PREZZI_MODIFICA), aliquotaAlloggio: Number(hotelConto.aliquotaAlloggio) },
+    contoVoci: {
+      righe,
+      riepilogoIva: riepilogo,
+      reparti,
+      puoAddebitare,
+      puoAbbuonare: puo(utente, PERMESSI.PREZZI_MODIFICA),
+      aliquotaAlloggio: Number(hotelConto.aliquotaAlloggio),
+      // Conto diviso fra ospite e cliente che paga, e righe da passare al gestionale per la fattura.
+      regola: diviso?.regola ?? "predefinita",
+      regole: Object.entries(REGOLE_CONTO),
+      intestatari: (diviso?.intestatari ?? []).map((x) => ({
+        chiave: x.chiave,
+        nome: x.nome,
+        tipo: x.tipo,
+        totale: x.totale,
+        pagato: x.pagato,
+        daPagare: x.daPagare,
+        fatturato: x.fatturato,
+        daFatturare: x.daFatturare.reduce((t, r) => t + r.importo, 0),
+        righeDaFatturare: x.daFatturare.length,
+        notaDiCredito: x.notaDiCredito.reduce((t, r) => t + r.importo, 0),
+      })),
+      puoDividere: puo(utente, PERMESSI.PAGAMENTI_REGISTRA),
+    },
     tassa: {
       ...tassa,
       ospiti: tassa.ospiti.map((o) => ({ ...o, notti: o.notti.map((n) => ({ ...n, importo: imp(n.importo) })) })),
@@ -148,6 +173,7 @@ async function serializza(prenotazione: Awaited<ReturnType<typeof trovaPrenotazi
           tipo: x.tipo,
           tipoTesto: TIPI_PAGAMENTO[x.tipo as keyof typeof TIPI_PAGAMENTO] ?? x.tipo,
           nota: x.nota ?? "",
+          intestatario: x.intestatario ?? "ospite",
           registratoDa: x.registratoDa,
           stornato: x.stornatoIl ? { il: x.stornatoIl.toISOString(), da: x.stornatoDa ?? "", motivo: x.motivoStorno ?? "" } : null,
         }))
@@ -315,7 +341,7 @@ export async function azioneScadenze(id: number, d: { scadenzaOpzione: string; a
 
 // --- Pagamenti ---
 
-export async function azioneRegistraPagamento(id: number, d: { data: string; importo: number; metodo: string; tipo: string; nota: string }) {
+export async function azioneRegistraPagamento(id: number, d: { data: string; importo: number; metodo: string; tipo: string; nota: string; intestatario?: string | null }) {
   return suPrenotazione(PERMESSI.PAGAMENTI_REGISTRA, (u) => registraPagamento(u.hotelId, id, d, u.nome));
 }
 export async function azioneStornaPagamento(pagamentoId: number, motivo: string) {
@@ -448,4 +474,19 @@ export async function azioneStornaAddebito(id: number, addebitoId: number, motiv
     await stornaAddebito(utente.hotelId, addebitoId, motivo, utente.nome);
     return serializza(await trovaPrenotazione(utente.hotelId, id), utente);
   });
+}
+
+/** Regola del conto diviso (chi paga cosa fra ospite e cliente). */
+export async function azioneRegolaConto(id: number, regola: RegolaConto) {
+  return suPrenotazione(PERMESSI.PAGAMENTI_REGISTRA, (u) => (async () => { await impostaRegolaConto(u.hotelId, id, regola); return trovaPrenotazione(u.hotelId, id); })());
+}
+
+/** Sposta una riga del conto su un altro intestatario (null = torna alla regola). */
+export async function azioneSpostaRiga(id: number, chiave: string, intestatario: string | null) {
+  return suPrenotazione(PERMESSI.PAGAMENTI_REGISTRA, (u) => (async () => { await spostaRiga(u.hotelId, id, chiave, intestatario); return trovaPrenotazione(u.hotelId, id); })());
+}
+
+/** Le righe da fatturare di un intestatario risultano passate al gestionale. */
+export async function azioneSegnaFatturate(id: number, intestatario: string) {
+  return suPrenotazione(PERMESSI.PAGAMENTI_REGISTRA, (u) => (async () => { await segnaFatturate(u.hotelId, id, intestatario, u.nome); return trovaPrenotazione(u.hotelId, id); })());
 }

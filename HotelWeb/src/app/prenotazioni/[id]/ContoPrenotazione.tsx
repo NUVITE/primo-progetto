@@ -1,12 +1,12 @@
 "use client";
 
-import { Plus, Printer, Receipt, Undo2 } from "lucide-react";
+import { Download, FileCheck2, Plus, Printer, Receipt, RotateCcw, Undo2 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { sbusta } from "@/lib/esito";
 import { Avviso, Campo, classePulsante, Etichetta, Input, Pulsante, Select, Sezione } from "@/components/ui";
 import { AiutoSezione, Esempio } from "@/components/AiutoSezione";
-import { azioneAddebito, azioneStornaAddebito, caricaPrenotazione } from "./actions";
+import { azioneAddebito, azioneRegolaConto, azioneSegnaFatturate, azioneSpostaRiga, azioneStornaAddebito, caricaPrenotazione } from "./actions";
 
 type Prenotazione = Awaited<ReturnType<typeof caricaPrenotazione>>;
 type Esegui = <T>(fn: () => Promise<T>) => Promise<T | null>;
@@ -25,7 +25,10 @@ export function ContoPrenotazione({ prenotazione: p, salvando, esegui, aggiorna 
   const c = p.contoVoci;
   const [nuovo, setNuovo] = useState<null | { tipo: Tipo; repartoId: string; segmentoId: string; data: string; descrizione: string; quantita: string; prezzo: string; buono: string; nota: string }>(null);
   const [storno, setStorno] = useState<null | { id: number; motivo: string }>(null);
+  const [inviare, setInviare] = useState<string | null>(null);
   if (!p.importiVisibili) return null;
+  const diviso = c.intestatari.length > 1;
+  const nomeDi = (k: string) => c.intestatari.find((x) => x.chiave === k)?.nome ?? k;
   const annullata = p.stato === "ANNULLATA";
   const camere = p.segmenti.filter((s) => !s.annullata && !s.usoDiurno);
   const totale = c.righe.filter((r) => !r.stornato).reduce((t, r) => t + r.importo, 0);
@@ -65,8 +68,34 @@ export function ContoPrenotazione({ prenotazione: p, salvando, esegui, aggiorna 
           importo, con il motivo. Un addebito sbagliato non si cancella: si storna.
         </p>
         <p>Il proforma non è un documento fiscale: la fattura la emette il gestionale con questi dati. Le aliquote si impostano in Impostazioni.</p>
+        <p>
+          Se paga un&apos;azienda o un&apos;agenzia il conto si divide: di solito camere e trattamento al cliente, consumi e tassa all&apos;ospite. Ogni
+          intestatario ha il suo saldo e la sua fattura. Dopo aver passato i dati al gestionale si segnano come inviati: se poi il conto cambia, si
+          fattura solo la differenza.
+        </p>
         <Esempio>Due caffè al bar a 1,50 € = consumo Bar, quantità 2, 1,50 €: in conto 3,00 € di cui IVA 10% 0,27 €.</Esempio>
       </AiutoSezione>
+
+      {diviso && (
+        <div className="mt-3 flex flex-wrap items-end gap-3 rounded-md border border-stone-200 bg-stone-50 p-3 text-sm">
+          <Campo etichetta="Chi paga cosa" aiuto="Vale per tutte le righe; una singola riga si sposta dalla colonna «A carico di».">
+            <Select
+              value={c.regola}
+              disabled={!c.puoDividere || salvando}
+              onChange={async (e) => {
+                const x = await esegui(() => sbusta(azioneRegolaConto(p.id, e.target.value as "predefinita")));
+                if (x) aggiorna(x);
+              }}
+            >
+              {c.regole.map(([v, t]) => (
+                <option key={v} value={v}>
+                  {t}
+                </option>
+              ))}
+            </Select>
+          </Campo>
+        </div>
+      )}
 
       <div className="mt-3 overflow-x-auto">
         <table className="w-full text-sm">
@@ -77,6 +106,7 @@ export function ContoPrenotazione({ prenotazione: p, salvando, esegui, aggiorna 
               <th className="py-1.5 pr-2 text-right">Q.tà</th>
               <th className="py-1.5 pr-2 text-right">Importo</th>
               <th className="py-1.5 pr-2">IVA</th>
+              {diviso && <th className="py-1.5 pr-2">A carico di</th>}
               <th />
             </tr>
           </thead>
@@ -96,6 +126,46 @@ export function ContoPrenotazione({ prenotazione: p, salvando, esegui, aggiorna 
                 <td className="py-1.5 pr-2 text-right">{r.quantita}</td>
                 <td className="py-1.5 pr-2 text-right font-mono">{eur(r.importo)}</td>
                 <td className="py-1.5 pr-2 text-xs">{aliquotaTesto(r.aliquota, r.natura)}</td>
+                {diviso && (
+                  <td className="py-1.5 pr-2 text-xs no-underline">
+                    {c.puoDividere && !r.stornato ? (
+                      <span className="flex items-center gap-1">
+                        <Select
+                          className="h-7 min-w-32 py-0 text-xs"
+                          aria-label={`A carico di: ${r.descrizione}`}
+                          value={r.intestatario}
+                          disabled={salvando}
+                          onChange={async (e) => {
+                            const x = await esegui(() => sbusta(azioneSpostaRiga(p.id, r.chiave, e.target.value)));
+                            if (x) aggiorna(x);
+                          }}
+                        >
+                          {c.intestatari.map((x) => (
+                            <option key={x.chiave} value={x.chiave}>
+                              {x.nome}
+                            </option>
+                          ))}
+                        </Select>
+                        {r.spostata && (
+                          <button
+                            type="button"
+                            title="Torna alla regola"
+                            className="text-stone-500 hover:text-teal-700"
+                            disabled={salvando}
+                            onClick={async () => {
+                              const x = await esegui(() => sbusta(azioneSpostaRiga(p.id, r.chiave, null)));
+                              if (x) aggiorna(x);
+                            }}
+                          >
+                            <RotateCcw className="h-3.5 w-3.5" aria-hidden />
+                          </button>
+                        )}
+                      </span>
+                    ) : (
+                      nomeDi(r.intestatario)
+                    )}
+                  </td>
+                )}
                 <td className="py-1.5 text-right">
                   {r.addebitoId && !r.stornato && c.puoAddebitare && !annullata && storno?.id !== r.addebitoId && (
                     <Pulsante variante="leggero" dimensione="piccolo" icona={Undo2} onClick={() => setStorno({ id: r.addebitoId!, motivo: "" })}>
@@ -129,7 +199,7 @@ export function ContoPrenotazione({ prenotazione: p, salvando, esegui, aggiorna 
             ))}
             {c.righe.length === 0 && (
               <tr>
-                <td colSpan={6} className="py-3 text-center text-stone-600">
+                <td colSpan={diviso ? 7 : 6} className="py-3 text-center text-stone-600">
                   Nessuna voce.
                 </td>
               </tr>
@@ -141,7 +211,7 @@ export function ContoPrenotazione({ prenotazione: p, salvando, esegui, aggiorna 
                 Totale
               </td>
               <td className="py-1.5 pr-2 text-right font-mono">{eur(totale)}</td>
-              <td colSpan={2} />
+              <td colSpan={diviso ? 3 : 2} />
             </tr>
           </tfoot>
         </table>
@@ -161,6 +231,92 @@ export function ContoPrenotazione({ prenotazione: p, salvando, esegui, aggiorna 
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {c.puoDividere && c.intestatari.length > 0 && (
+        <div className="mt-4 border-t border-stone-200 pt-3">
+          <p className="mb-2 text-sm font-semibold text-stone-800">{diviso ? "Conto per intestatario e fattura" : "Fattura"}</p>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {c.intestatari.map((x) => {
+              const daInviare = x.righeDaFatturare > 0 || x.notaDiCredito < 0;
+              const url = `/api/prenotazioni/${p.id}/fattura?intestatario=${encodeURIComponent(x.chiave)}`;
+              return (
+                <div key={x.chiave} className="rounded-md border border-stone-200 p-3 text-sm">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="font-semibold text-stone-900">{x.nome}</span>
+                    <Etichetta>{x.tipo === "ospite" ? "ospite" : "cliente"}</Etichetta>
+                  </div>
+                  {diviso && (
+                    <dl className="mt-1 grid grid-cols-3 gap-1 text-xs">
+                      <div>
+                        <dt className="text-stone-500">Conto</dt>
+                        <dd className="font-mono">{eur(x.totale)}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-stone-500">Pagato</dt>
+                        <dd className="font-mono">{eur(x.pagato)}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-stone-500">Da pagare</dt>
+                        <dd className={`font-mono ${x.daPagare > 0.005 ? "font-semibold text-red-700" : ""}`}>{eur(x.daPagare)}</dd>
+                      </div>
+                    </dl>
+                  )}
+                  <p className="mt-2 text-xs text-stone-700">
+                    {x.fatturato !== 0 && <>Già passato al gestionale: {eur(x.fatturato)}. </>}
+                    {x.righeDaFatturare > 0 ? (
+                      <>
+                        Da fatturare: <strong>{eur(x.daFatturare)}</strong> ({x.righeDaFatturare} {x.righeDaFatturare === 1 ? "riga" : "righe"}
+                        {x.fatturato !== 0 ? ", conguaglio" : ""}).
+                      </>
+                    ) : x.notaDiCredito < 0 ? null : (
+                      "Niente da fatturare."
+                    )}
+                    {x.notaDiCredito < 0 && (
+                      <span className="block text-red-800">Dopo l&apos;invio il conto è diminuito di {eur(-x.notaDiCredito)}: serve una nota di credito.</span>
+                    )}
+                  </p>
+                  {daInviare && (
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <a href={url} className={classePulsante("secondario", "piccolo")}>
+                        <Download className="h-3.5 w-3.5" aria-hidden /> Dati (JSON)
+                      </a>
+                      <a href={`${url}&formato=csv`} className={classePulsante("secondario", "piccolo")}>
+                        <Download className="h-3.5 w-3.5" aria-hidden /> CSV
+                      </a>
+                      {inviare === x.chiave ? (
+                        <span className="flex items-center gap-1 text-xs">
+                          Inviati al gestionale?
+                          <Pulsante
+                            variante="primario"
+                            dimensione="piccolo"
+                            disabled={salvando}
+                            onClick={async () => {
+                              const r = await esegui(() => sbusta(azioneSegnaFatturate(p.id, x.chiave)));
+                              if (r) {
+                                aggiorna(r);
+                                setInviare(null);
+                              }
+                            }}
+                          >
+                            Sì, segna
+                          </Pulsante>
+                          <Pulsante dimensione="piccolo" onClick={() => setInviare(null)}>
+                            No
+                          </Pulsante>
+                        </span>
+                      ) : (
+                        <Pulsante dimensione="piccolo" icona={FileCheck2} onClick={() => setInviare(x.chiave)}>
+                          Segna come inviati
+                        </Pulsante>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 

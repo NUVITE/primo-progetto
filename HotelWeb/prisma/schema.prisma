@@ -287,6 +287,9 @@ model Prenotazione {
   sospesoCliente     Cliente?          @relation("sospeso", fields: [sospesoClienteId], references: [id])
   sospesoNota        String?
   sollecitoIl        DateTime?         @db.Date
+  // Conto diviso quando paga un cliente (azienda/agenzia): "predefinita" (camere e trattamento al
+  // cliente, extra e tassa all'ospite) | "tutto_ospite" | "tutto_cliente". Le singole righe si possono spostare.
+  regolaConto        String            @default("predefinita")
   stato              StatoPrenotazione @default(OPZIONE)
   accontoRichiesto   Decimal?          @db.Decimal(10, 2)
   accontoRicevuto    Decimal?          @db.Decimal(10, 2)
@@ -308,13 +311,15 @@ model Prenotazione {
   createdAt          DateTime          @default(now())
   updatedAt          DateTime          @updatedAt
 
-  segmenti         SegmentoSoggiorno[]
-  pagamenti        Pagamento[]
-  serviziAggiunti  ServizioAggiunto[]
-  posizioniTassa   PosizioneTassa[]
-  prenotazioniSala PrenotazioneSala[]
-  personeEvento    PersonaEvento[]
-  addebiti         AddebitoConto[]
+  segmenti          SegmentoSoggiorno[]
+  pagamenti         Pagamento[]
+  serviziAggiunti   ServizioAggiunto[]
+  posizioniTassa    PosizioneTassa[]
+  prenotazioniSala  PrenotazioneSala[]
+  personeEvento     PersonaEvento[]
+  addebiti          AddebitoConto[]
+  intestazioniRighe IntestazioneRigaConto[]
+  righeFatturate    RigaFatturata[]
 }
 
 enum StatoSegmento {
@@ -984,6 +989,8 @@ model Pagamento {
   stornatoIl     DateTime?
   stornatoDa     String?
   motivoStorno   String?
+  // Intestatario del conto che ha pagato: "ospite" (o null) | "cliente:<id>".
+  intestatario   String?
 
   @@index([prenotazioneId])
 }
@@ -1211,4 +1218,39 @@ model AddebitoConto {
 
   @@index([prenotazioneId])
   @@index([data])
+}
+
+/**
+ * Riga del conto spostata a mano su un altro intestatario (chiave della riga, es. "camera-12").
+ */
+model IntestazioneRigaConto {
+  prenotazioneId Int
+  prenotazione   Prenotazione @relation(fields: [prenotazioneId], references: [id], onDelete: Cascade)
+  chiave         String
+  // "ospite" | "cliente:<id>"
+  intestatario   String
+
+  @@id([prenotazioneId, chiave])
+}
+
+/**
+ * Riga passata al gestionale per la fattura (copia dell'importo inviato). Se la riga del conto cambia
+ * dopo l'invio, si fattura solo la differenza (conguaglio) o si segnala la nota di credito.
+ * lotto = un invio (tutte le righe mandate insieme per un intestatario).
+ */
+model RigaFatturata {
+  id             Int          @id @default(autoincrement())
+  prenotazioneId Int
+  prenotazione   Prenotazione @relation(fields: [prenotazioneId], references: [id])
+  chiave         String
+  intestatario   String
+  descrizione    String
+  importo        Decimal      @db.Decimal(10, 2)
+  aliquota       Decimal?     @db.Decimal(4, 2)
+  natura         String?
+  lotto          String
+  inviataIl      DateTime     @default(now())
+  da             String
+
+  @@index([prenotazioneId, chiave])
 }

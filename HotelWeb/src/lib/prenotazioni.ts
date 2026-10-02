@@ -355,6 +355,9 @@ async function caricaPrenotazioneCompleta(db: Db, hotelId: number, id: number) {
       intermediario: true,
       clientePagante: true,
       sospesoCliente: true,
+      ospitePagante: true,
+      intestazioniRighe: true,
+      righeFatturate: true,
       addebiti: { include: { reparto: true, segmento: { include: { camera: true } } }, orderBy: [{ data: "asc" }, { id: "asc" }] },
       segmenti: {
         orderBy: { dataInizio: "asc" },
@@ -991,10 +994,11 @@ export const TIPI_PAGAMENTO = { caparra: "Caparra confirmatoria", acconto: "Acco
 export async function registraPagamento(
   hotelId: number,
   prenotazioneId: number,
-  d: { data: string; importo: number; metodo: string; tipo: string; nota: string },
+  d: { data: string; importo: number; metodo: string; tipo: string; nota: string; intestatario?: string | null },
   utente: string,
 ) {
   if (!d.data) throw new Error("Indica la data del pagamento.");
+  if (d.intestatario && d.intestatario !== "ospite" && !/^cliente:\d+$/.test(d.intestatario)) throw new Error("Intestatario non valido.");
   if (!(d.importo > 0)) throw new Error("L'importo deve essere maggiore di zero.");
   if (!(d.metodo in METODI_PAGAMENTO)) throw new Error("Metodo di pagamento non valido.");
   if (!(d.tipo in TIPI_PAGAMENTO)) throw new Error("Tipo di pagamento non valido.");
@@ -1004,7 +1008,16 @@ export async function registraPagamento(
       throw new Error(`Non si può rimborsare più di quanto incassato (€ ${pagatoNetto(p.pagamenti).toFixed(2)}).`);
     }
     await tx.pagamento.create({
-      data: { prenotazioneId, data: new Date(d.data), importo: d.importo, metodo: d.metodo, tipo: d.tipo, nota: d.nota.trim() || null, registratoDa: utente },
+      data: {
+        prenotazioneId,
+        data: new Date(d.data),
+        importo: d.importo,
+        metodo: d.metodo,
+        tipo: d.tipo,
+        nota: d.nota.trim() || null,
+        registratoDa: utente,
+        intestatario: d.intestatario && d.intestatario !== "ospite" ? d.intestatario : null,
+      },
     });
     return caricaPrenotazioneCompleta(tx, hotelId, prenotazioneId);
   });
