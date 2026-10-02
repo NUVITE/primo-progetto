@@ -35,7 +35,8 @@ async function main() {
   const hotel = await prisma.hotel.findFirstOrThrow({ orderBy: { id: "asc" } });
   const camera = await prisma.camera.findFirstOrThrow({ where: { hotelId: hotel.id, attivo: true }, orderBy: { codice: "asc" } });
   const listino = await prisma.listino.findFirstOrThrow({ where: { hotelId: hotel.id, tipo: "base" } });
-  const sala = await prisma.sala.findFirstOrThrow({ where: { hotelId: hotel.id } });
+  // Sala di prova dedicata (l'hotel potrebbe non averne): si cancella alla fine.
+  const sala = await prisma.sala.create({ data: { hotelId: hotel.id, nome: `__${NOME} sala` } });
   const esistenti = await prisma.chiusuraCassa.count({ where: { hotelId: hotel.id, giorno: { in: [new Date(GIORNO), new Date(DOPO)] } } });
   if (esistenti) throw new Error("Ci sono già chiusure di prova nel 2020: cancellale prima.");
   const ids: number[] = [];
@@ -140,6 +141,7 @@ async function main() {
       await prisma.pagamento.deleteMany({ where: { prenotazioneSalaId: eventoId } });
       await prisma.prenotazioneSala.delete({ where: { id: eventoId } });
     }
+    await prisma.sala.delete({ where: { id: sala.id } });
     await prisma.ospite.deleteMany({ where: { hotelId: hotel.id, cognome: NOME } });
   }
   console.log(falliti ? `\n${falliti} verifiche fallite` : "\nTutte le verifiche superate (dati di prova cancellati)");
