@@ -40,6 +40,9 @@ model Hotel {
   orarioCheckOut         String?
   // Giorni di validità proposti per una nuova opzione (modificabili nella singola prenotazione).
   giorniOpzione          Int       @default(3)
+  // Prenotazioni NON garantite: oltre quest'ora del giorno di arrivo l'ospite che non è arrivato è un
+  // possibile no-show e la camera si può rivendere ("HH:MM").
+  orarioLimiteArrivo     String    @default("18:00")
   // Alloggiati Web (Polizia): utente in chiaro, password e chiave del servizio web CIFRATE
   // (src/lib/cifratura.ts). verificatoIl = ultima prova di accesso riuscita.
   alloggiatiUtente       String?
@@ -57,20 +60,21 @@ model Hotel {
   createdAt              DateTime  @default(now())
   updatedAt              DateTime  @updatedAt
 
-  camere           Camera[]
-  tipiCamera       TipoCamera[]
-  ospiti           Ospite[]
-  gruppi           Gruppo[]
-  prenotazioni     Prenotazione[]
-  listini          Listino[]
-  accessi          UtenteHotel[]
-  ruoli            Ruolo[]
-  serviziCatalogo  ServizioCatalogo[]
-  trattamenti      Trattamento[]
-  clienti          Cliente[]
-  sale             Sala[]
-  fasceOrarie      FasciaOraria[]
-  prenotazioniSala PrenotazioneSala[]
+  camere                 Camera[]
+  tipiCamera             TipoCamera[]
+  ospiti                 Ospite[]
+  gruppi                 Gruppo[]
+  prenotazioni           Prenotazione[]
+  listini                Listino[]
+  accessi                UtenteHotel[]
+  ruoli                  Ruolo[]
+  serviziCatalogo        ServizioCatalogo[]
+  trattamenti            Trattamento[]
+  clienti                Cliente[]
+  sale                   Sala[]
+  fasceOrarie            FasciaOraria[]
+  prenotazioniSala       PrenotazioneSala[]
+  politicheCancellazione PoliticaCancellazione[]
 }
 
 /**
@@ -244,7 +248,24 @@ model Prenotazione {
   ospitePrenotante   Ospite            @relation("prenotante", fields: [ospitePrenotanteId], references: [id])
   ospitePaganteId    Int?
   ospitePagante      Ospite?           @relation("pagante", fields: [ospitePaganteId], references: [id])
+  // Provenienza: canale = chi ha portato la prenotazione ("diretta" | "azienda" | "agenzia" |
+  // "portale" | "altro"); mezzo = come è arrivata ("telefono" | "email" | "web" | "persona" | "altro").
   canale             String            @default("diretta")
+  mezzo              String?
+  // Azienda, agenzia o portale che ha prenotato (anagrafica Clienti) e cliente che paga, se il conto
+  // non è dell'ospite (es. l'azienda paga il soggiorno del dipendente).
+  intermediarioId    Int?
+  intermediario      Cliente?          @relation("intermediario", fields: [intermediarioId], references: [id])
+  clientePaganteId   Int?
+  clientePagante     Cliente?          @relation("clientePagante", fields: [clientePaganteId], references: [id])
+  // Garanzia: "nessuna" | "caparra" | "carta" (solo l'indicazione: i dati della carta NON si
+  // salvano) | "prepagata". Le non garantite hanno l'orario limite di arrivo dell'hotel.
+  garanzia           String            @default("nessuna")
+  oraArrivo          String?
+  // Politica di cancellazione applicata, COPIATA al momento della prenotazione: se poi l'hotel la
+  // cambia, vale quella accettata dal cliente.
+  politicaId         Int?
+  politica           Json?
   stato              StatoPrenotazione @default(OPZIONE)
   accontoRichiesto   Decimal?          @db.Decimal(10, 2)
   accontoRicevuto    Decimal?          @db.Decimal(10, 2)
@@ -399,23 +420,25 @@ model NotteSoggiorno {
 }
 
 model Listino {
-  id                            Int      @id @default(autoincrement())
+  id                            Int                    @id @default(autoincrement())
   hotelId                       Int
-  hotel                         Hotel    @relation(fields: [hotelId], references: [id])
+  hotel                         Hotel                  @relation(fields: [hotelId], references: [id])
   codice                        String
   descrizione                   String
   // "base" | "personalizzato" | "gruppo"
-  tipo                          String   @default("base")
+  tipo                          String                 @default("base")
   // "camera": prezzo del periodo = camera per notte; "persona": prezzo per persona per notte.
-  modalita                      String   @default("camera")
+  modalita                      String                 @default("camera")
   // Solo a persona: supplemento se in camera c'è una sola persona (doppia uso singola).
-  supplementoSingola            Decimal? @db.Decimal(10, 2)
-  supplementoSingolaPercentuale Boolean  @default(false)
+  supplementoSingola            Decimal?               @db.Decimal(10, 2)
+  supplementoSingolaPercentuale Boolean                @default(false)
   // Condizioni dei listini di gruppo: categoria libera (scout, scuola, ecclesiastico...),
   // minimo di persone (sotto compare un avviso) e 1 gratuito ogni N paganti.
   categoria                     String?
   minPersone                    Int?
   gratuitaOgni                  Int?
+  politicaId                    Int?
+  politica                      PoliticaCancellazione? @relation(fields: [politicaId], references: [id])
 
   periodi                PeriodoTariffario[]
   segmenti               SegmentoSoggiorno[]
@@ -729,8 +752,10 @@ model Cliente {
   id                 Int      @id @default(autoincrement())
   hotelId            Int
   hotel              Hotel    @relation(fields: [hotelId], references: [id])
-  // "azienda" | "privato"
+  // "azienda" | "privato" | "agenzia" (anche tour operator) | "portale" (agenzia online)
   tipo               String   @default("azienda")
+  // Agenzie e portali: commissione in percentuale sui servizi prenotati.
+  commissione        Decimal? @db.Decimal(5, 2)
   denominazione      String
   partitaIva         String?
   codiceFiscale      String?
@@ -749,7 +774,9 @@ model Cliente {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
-  prenotazioniSala PrenotazioneSala[]
+  prenotazioniSala          PrenotazioneSala[]
+  prenotazioniIntermediario Prenotazione[]     @relation("intermediario")
+  prenotazioniPagate        Prenotazione[]     @relation("clientePagante")
 }
 
 /**
@@ -973,4 +1000,26 @@ model InvioIstat {
   da       String
 
   @@unique([hotelId, giorno])
+}
+
+/**
+ * Politica di cancellazione dell'hotel. scaglioni = [{ oreMin, tipo, valore }] dal più largo: si
+ * applica il primo con ore che mancano all'arrivo >= oreMin. tipo: "nessuna" | "notti" (valore =
+ * numero di notti, la prima o le prime) | "percentuale" (del soggiorno) | "importo". noShow = penale
+ * per il mancato arrivo, stessa forma senza oreMin. Una tariffa non rimborsabile ha un solo scaglione
+ * con oreMin 0 al 100%.
+ */
+model PoliticaCancellazione {
+  id          Int      @id @default(autoincrement())
+  hotelId     Int
+  hotel       Hotel    @relation(fields: [hotelId], references: [id])
+  nome        String
+  scaglioni   Json
+  noShow      Json
+  predefinita Boolean  @default(false)
+  attiva      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  listini Listino[]
 }

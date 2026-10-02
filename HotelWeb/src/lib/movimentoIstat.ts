@@ -76,6 +76,9 @@ export type Soggiorno = {
   mezzoArrivo: string | null;
   mezzoMovimento: string | null;
   postoLetto: boolean;
+  // Provenienza della prenotazione (canale e mezzo): per il canale di prenotazione ISTAT.
+  canale: string;
+  mezzoPrenotazione: string | null;
 };
 
 async function soggiorniDelPeriodo(hotelId: number, dal: string, al: string) {
@@ -88,7 +91,7 @@ async function soggiorniDelPeriodo(hotelId: number, dal: string, al: string) {
   });
   const presenze = await prisma.presenza.findMany({
     where: { segmento: { prenotazioneId: { in: segmenti.map((s) => s.prenotazioneId) }, stato: { not: "ANNULLATO" } } },
-    include: { ospite: true, segmento: true },
+    include: { ospite: true, segmento: { include: { prenotazione: { select: { canale: true, mezzo: true } } } } },
     orderBy: { id: "asc" },
   });
 
@@ -137,6 +140,8 @@ async function soggiorniDelPeriodo(hotelId: number, dal: string, al: string) {
       mezzoArrivo: primo.mezzoArrivo,
       mezzoMovimento: primo.mezzoMovimento,
       postoLetto: primo.occupaPostoLetto,
+      canale: primo.segmento.prenotazione.canale,
+      mezzoPrenotazione: primo.segmento.prenotazione.mezzo,
     });
   }
 
@@ -256,6 +261,26 @@ const impronta = (s: string) => createHash("sha256").update(s).digest("hex").sli
 const testoRoss = (v: string | null, lista: { valore: string }[], nonSpecificato: string) =>
   (v && lista.some((x) => x.valore === v) ? v : nonSpecificato).toUpperCase();
 
+/**
+ * Canale di prenotazione Ross1000 dalla provenienza: diretta o indiretta (azienda, agenzia, portale),
+ * tradizionale o web. Vuoto se la diretta non ha il mezzo (campo facoltativo).
+ */
+export function canaleRoss1000(s: Pick<Soggiorno, "canale" | "mezzoPrenotazione">) {
+  const web = s.mezzoPrenotazione === "web";
+  if (s.canale === "altro") return "ALTRO CANALE";
+  if (s.canale === "portale") return "INDIRETTA WEB";
+  if (s.canale === "diretta") return !s.mezzoPrenotazione || s.mezzoPrenotazione === "altro" ? "" : web ? "DIRETTA WEB" : "DIRETTA TRADIZIONALE";
+  return web ? "INDIRETTA WEB" : "INDIRETTA TRADIZIONALE";
+}
+
+/** SPOT: caratteristica del viaggio dalla provenienza (null = non si indica, è facoltativa). */
+export function caratteristicaSpot(s: Pick<Soggiorno, "canale" | "mezzoPrenotazione">) {
+  if (s.canale === "agenzia") return "AGENZIA";
+  if (s.canale === "portale") return "DIRETTAALLOGGIOINTERNET";
+  if (s.canale === "diretta" && s.mezzoPrenotazione) return s.mezzoPrenotazione === "web" ? "DIRETTAALLOGGIOINTERNET" : "DIRETTAALLOGGIOSR";
+  return null;
+}
+
 export function movimentoRoss1000(g: GiornoIstat, tutti: Soggiorno[], eliminati: { idswh: string; tipo: number; arrivo: string }[] = []) {
   const L = LISTE_ISTAT.ROSS1000;
   // Il capo prima dei suoi familiari o membri del gruppo (idcapo deve essere già trasmesso).
@@ -281,7 +306,7 @@ export function movimentoRoss1000(g: GiornoIstat, tutti: Soggiorno[], eliminati:
       // Familiari e membri del gruppo: se non indicati, motivo e mezzo del capo.
       el("tipoturismo", testoRoss(s.motivo ?? capo?.motivo ?? null, L.motivo, "Non specificato")) +
       el("mezzotrasporto", testoRoss(s.mezzoArrivo ?? capo?.mezzoArrivo ?? null, L.mezzoArrivo, "Non Specificato")) +
-      el("canaleprenotazione", "") +
+      el("canaleprenotazione", canaleRoss1000(s)) +
       el("titolostudio", "") +
       el("professione", "") +
       el("esenzioneimposta", "") +
@@ -328,6 +353,7 @@ function arrivoSpot(s: Soggiorno, tutti: Soggiorno[], dataArrivo: string) {
   const mezzoA = valido(s.mezzoArrivo, L.mezzoArrivo);
   const mezzoM = valido(s.mezzoMovimento, L.mezzoMovimento);
   const motivo = valido(s.motivo, L.motivo);
+  const caratteristica = caratteristicaSpot(s);
   return (
     "<arrivo>" +
     el("codiceclientesr", s.idswh) +
@@ -335,6 +361,7 @@ function arrivoSpot(s: Soggiorno, tutti: Soggiorno[], dataArrivo: string) {
     el("cittadinanza", s.cittadinanza) +
     residenzaSpot(s) +
     el("occupazionepostoletto", s.postoLetto ? "si" : "no") +
+    (caratteristica ? `<caratteristicheviaggio>${el("caratteristica", caratteristica)}</caratteristicheviaggio>` : "") +
     (mezzoA ? el("mezzotrasportoarrivo", mezzoA) : "") +
     (mezzoM ? el("mezzotrasportomovimento", mezzoM) : "") +
     (motivo ? el("motivazioniviaggio", motivo) : "") +

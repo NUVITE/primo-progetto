@@ -72,10 +72,10 @@ async function main() {
     const e2 = await errore(() => annullaCamera(hotel.id, dopoCamera.segmenti[1].id));
     verifica("L'ultima camera non si annulla da sola", !!e2, e2 ?? "");
 
-    const e3 = await errore(() => annullaPrenotazione(hotel.id, id, { motivo: "cliente", nota: "", incassi: null }, "collaudo"));
-    verifica("Con incassi serve decidere penale o rimborso", !!e3, e3 ?? "");
+    const e3 = await errore(() => annullaPrenotazione(hotel.id, id, { motivo: "cliente", nota: "", penale: -5, rimborsaEccedenza: false }, "collaudo"));
+    verifica("Penale negativa rifiutata", !!e3, e3 ?? "");
 
-    await annullaPrenotazione(hotel.id, id, { motivo: "cliente", nota: "disdetta", incassi: "trattieni" }, "collaudo");
+    await annullaPrenotazione(hotel.id, id, { motivo: "cliente", nota: "disdetta", penale: 100, rimborsaEccedenza: false }, "collaudo");
     const ann = await trovaPrenotazione(hotel.id, id);
     t = calcolaTotaliPrenotazione(ann);
     verifica("Annullata con penale: dovuto 100, da pagare 0", ann.stato === "ANNULLATA" && t.totale === 100 && t.daPagare === 0, `${t.totale} / ${t.daPagare}`);
@@ -94,7 +94,7 @@ async function main() {
     verifica("Storno: pagato torna 0", t.pagato === 0);
 
     await registraPagamento(hotel.id, id, { data: "2031-01-12", importo: 80, metodo: "contanti", tipo: "acconto", nota: "" }, "collaudo");
-    await annullaPrenotazione(hotel.id, id, { motivo: "no_show", nota: "", incassi: "rimborsa", metodoRimborso: "contanti" }, "collaudo");
+    await annullaPrenotazione(hotel.id, id, { motivo: "no_show", nota: "", penale: 0, rimborsaEccedenza: true, metodoRimborso: "contanti" }, "collaudo");
     const rimb = await trovaPrenotazione(hotel.id, id);
     t = calcolaTotaliPrenotazione(rimb);
     verifica("Annullata con rimborso: pagato 0, dovuto 0", t.pagato === 0 && t.totale === 0 && rimb.motivoAnnullamento === "no_show", `${t.pagato} / ${t.totale}`);

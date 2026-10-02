@@ -2,7 +2,7 @@
 
 import { conEsito } from "@/lib/esito";
 import { prisma } from "@/lib/prisma";
-import { calcolaTotaliPrenotazione, creaPrenotazione, type CreaPrenotazioneInput } from "@/lib/prenotazioni";
+import { calcolaTotaliPrenotazione, creaPrenotazione, type CreaPrenotazioneInput, CANALI, MEZZI, GARANZIE } from "@/lib/prenotazioni";
 import { calcolaNotte, nottiTraDate, regoleListino, verificaComposizione, type Composizione } from "@/lib/pricing";
 import { stimaTassaPersona } from "@/lib/tassaSoggiorno";
 import { puo, richiediPermesso } from "@/lib/auth";
@@ -13,12 +13,13 @@ import { elencoTrattamenti } from "@/lib/impostazioniHotel";
 export async function datiIniziali() {
   const { hotelId } = await richiediPermesso(PERMESSI.PRENOTAZIONI_VEDI);
   const hotel = await prisma.hotel.findUniqueOrThrow({ where: { id: hotelId } });
-  const [camere, tipiCamera, listini, serviziCatalogo, trattamenti] = await Promise.all([
+  const [camere, tipiCamera, listini, serviziCatalogo, trattamenti, intermediari] = await Promise.all([
     prisma.camera.findMany({ where: { hotelId, attivo: true }, include: { tipoCamera: true }, orderBy: { codice: "asc" } }),
     prisma.tipoCamera.findMany({ where: { hotelId } }),
     prisma.listino.findMany({ where: { hotelId } }),
     elencoServiziCatalogo(hotelId),
     elencoTrattamenti(hotelId, true),
+    prisma.cliente.findMany({ where: { hotelId, attivo: true, tipo: { not: "privato" } }, select: { id: true, denominazione: true, tipo: true }, orderBy: { denominazione: "asc" } }),
   ]);
 
   return {
@@ -38,6 +39,12 @@ export async function datiIniziali() {
     trattamenti: trattamenti.map((t) => t.nome),
     // Scadenza proposta per le nuove opzioni (Impostazioni > Struttura).
     giorniOpzione: hotel.giorniOpzione,
+    // Provenienza e garanzia (vedi lib/prenotazioni): scelte per il modulo.
+    canali: Object.entries(CANALI).map(([valore, nome]) => ({ valore, nome })),
+    mezzi: Object.entries(MEZZI).map(([valore, nome]) => ({ valore, nome })),
+    garanzie: Object.entries(GARANZIE).map(([valore, nome]) => ({ valore, nome })),
+    intermediari,
+    orarioLimiteArrivo: hotel.orarioLimiteArrivo,
   };
 }
 

@@ -9,6 +9,7 @@ import { AiutoSezione, Esempio } from "@/components/AiutoSezione";
 import { Suggerimento } from "@/components/Suggerimento";
 import { statoPrenotazione } from "../stato";
 import { BarraStato, PannelloPagamenti } from "./StatoEPagamenti";
+import { ProvenienzaCondizioni } from "./ProvenienzaCondizioni";
 import Link from "next/link";
 import { OspiteSearch, type OspiteValue } from "../nuova/OspiteSearch";
 import { CampoComposizione } from "../CampoComposizione";
@@ -787,8 +788,9 @@ export function PrenotazioneDettaglio({
           </Sezione>
         </div>
 
-        {importi && (
-          <div className="flex flex-col gap-4 xl:w-80 xl:flex-shrink-0">
+        <div className="flex flex-col gap-4 xl:w-80 xl:flex-shrink-0">
+          {importi && (
+          <>
           <Sezione titolo="Riepilogo">
             <dl className="space-y-1 text-sm">
               <div className="flex justify-between"><dt>Soggiorno</dt><dd className="font-mono">{eur(prenotazione.totali.subtotale)}</dd></div>
@@ -835,8 +837,10 @@ export function PrenotazioneDettaglio({
             )}
           </Sezione>
           <PannelloPagamenti prenotazione={prenotazione} puoGestire={puoGestire} puoIncassare={puoIncassare && importi} salvando={salvando} esegui={eseguendo} aggiorna={setPrenotazione} />
-          </div>
-        )}
+          </>
+          )}
+          <ProvenienzaCondizioni prenotazione={prenotazione} puoGestire={puoGestireRuolo} salvando={salvando} esegui={eseguendo} aggiorna={setPrenotazione} />
+        </div>
       </div>
     </div>
   );

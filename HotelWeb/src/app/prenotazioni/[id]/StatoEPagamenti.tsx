@@ -3,11 +3,12 @@
 import { Ban, CalendarClock, CheckCircle2, Plus, RotateCcw, Undo2, Wallet } from "lucide-react";
 import { useState } from "react";
 import { sbusta } from "@/lib/esito";
-import { Avviso, Campo, Etichetta, Input, Pulsante, Select, Sezione, Textarea } from "@/components/ui";
+import { Avviso, Campo, Dato, Etichetta, Input, Pulsante, Select, Sezione, Textarea } from "@/components/ui";
 import { AiutoSezione, Esempio } from "@/components/AiutoSezione";
 import {
   azioneAnnulla,
   azioneConferma,
+  azionePenaleProposta,
   azioneRegistraPagamento,
   azioneRiattiva,
   azioneScadenze,
@@ -57,11 +58,32 @@ export function BarraStato({
   esegui: Esegui;
   aggiorna: (p: Prenotazione) => void;
 }) {
-  const [annulla, setAnnulla] = useState<null | { motivo: (typeof MOTIVI)[number]["valore"]; nota: string; incassi: "trattieni" | "rimborsa" | null; metodo: string }>(null);
+  const [annulla, setAnnulla] = useState<null | {
+    motivo: (typeof MOTIVI)[number]["valore"];
+    nota: string;
+    penale: string;
+    spiegazione: string;
+    rimborsa: boolean;
+    metodo: string;
+  }>(null);
   const p = prenotazione;
   const incassato = p.totali.pagato;
   const scaduta = p.stato === "OPZIONE" && p.scadenzaOpzione && p.scadenzaOpzione < oggiIso();
   const conArrivi = p.segmenti.some((s) => s.occupanti.some((o) => o.stato !== "attesa"));
+
+  // Penale proposta dalla politica di cancellazione per quel motivo: si può sempre cambiare.
+  async function apriAnnulla(motivo: (typeof MOTIVI)[number]["valore"], base?: NonNullable<typeof annulla>) {
+    const r = await esegui(() => sbusta(azionePenaleProposta(p.id, motivo)));
+    setAnnulla({
+      nota: "",
+      metodo: "contanti",
+      rimborsa: true,
+      ...base,
+      motivo,
+      penale: r?.importo == null ? "" : String(r.importo),
+      spiegazione: r?.spiegazione ?? "",
+    });
+  }
 
   if (p.stato === "ANNULLATA" && p.annullamento) {
     const a = p.annullamento;
@@ -99,7 +121,7 @@ export function BarraStato({
             </Pulsante>
           )}
           {!conArrivi && (
-            <Pulsante variante="pericolo" icona={Ban} onClick={() => setAnnulla({ motivo: "cliente", nota: "", incassi: null, metodo: "contanti" })}>
+            <Pulsante variante="pericolo" icona={Ban} disabled={salvando} onClick={() => apriAnnulla("cliente")}>
               Annulla prenotazione
             </Pulsante>
           )}
@@ -112,7 +134,7 @@ export function BarraStato({
           <p className="text-sm font-bold text-red-900">Annullare la prenotazione #{p.id}? Le camere torneranno libere e la tassa di soggiorno si azzera.</p>
           <div className="grid gap-3 sm:grid-cols-2">
             <Campo etichetta="Motivo" obbligatorio>
-              <Select value={annulla.motivo} onChange={(e) => setAnnulla({ ...annulla, motivo: e.target.value as typeof annulla.motivo })}>
+              <Select value={annulla.motivo} disabled={salvando} onChange={(e) => apriAnnulla(e.target.value as typeof annulla.motivo, annulla)}>
                 {MOTIVI.map((m) => (
                   <option key={m.valore} value={m.valore}>{m.testo}</option>
                 ))}
@@ -122,37 +144,67 @@ export function BarraStato({
               <Input value={annulla.nota} onChange={(e) => setAnnulla({ ...annulla, nota: e.target.value })} placeholder="es. disdetta per telefono" />
             </Campo>
           </div>
-          {incassato > 0 && (
+          {p.importiVisibili && (
             <div className="flex flex-col gap-2">
-              <p className="text-sm text-stone-800">
-                Sono stati incassati <strong>{eur(incassato)}</strong>. Cosa fai con questa somma?
-              </p>
-              <label className="inline-flex items-center gap-2 text-sm">
-                <input type="radio" checked={annulla.incassi === "trattieni"} onChange={() => setAnnulla({ ...annulla, incassi: "trattieni" })} />
-                La trattengo come penale
-              </label>
-              <label className="inline-flex flex-wrap items-center gap-2 text-sm">
-                <input type="radio" checked={annulla.incassi === "rimborsa"} onChange={() => setAnnulla({ ...annulla, incassi: "rimborsa" })} />
-                La rimborso
-                {annulla.incassi === "rimborsa" && (
-                  <Select aria-label="Metodo del rimborso" className="w-44" value={annulla.metodo} onChange={(e) => setAnnulla({ ...annulla, metodo: e.target.value })}>
-                    {METODI.map(([v, t]) => (
-                      <option key={v} value={v}>{t}</option>
-                    ))}
-                  </Select>
-                )}
-              </label>
-              {!puoIncassare && <p className="text-xs text-red-800">Per trattenere o rimborsare serve il permesso «Registrare pagamenti».</p>}
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Campo
+                  etichetta="Penale (€)"
+                  obbligatorio
+                  aiuto={annulla.spiegazione || "Importo che il cliente deve all'hotel per l'annullamento (0 = nessuna penale)."}
+                >
+                  <Input type="number" min={0} step="0.01" value={annulla.penale} onChange={(e) => setAnnulla({ ...annulla, penale: e.target.value })} />
+                </Campo>
+                {incassato > 0 && <Dato etichetta="Già incassato">{eur(incassato)}</Dato>}
+              </div>
+              {(() => {
+                const pen = Number(annulla.penale);
+                if (annulla.penale === "" || !(pen >= 0)) return null;
+                const differenza = Math.round((incassato - pen) * 100) / 100;
+                if (differenza > 0)
+                  return (
+                    <div className="flex flex-col gap-1.5 text-sm">
+                      <span className="text-stone-800">
+                        Sono stati incassati <strong>{eur(differenza)}</strong> in più della penale. Cosa fai con la differenza?
+                      </span>
+                      <label className="inline-flex flex-wrap items-center gap-2">
+                        <input type="radio" checked={annulla.rimborsa} onChange={() => setAnnulla({ ...annulla, rimborsa: true })} />
+                        La rimborso
+                        {annulla.rimborsa && (
+                          <Select aria-label="Metodo del rimborso" className="w-44" value={annulla.metodo} onChange={(e) => setAnnulla({ ...annulla, metodo: e.target.value })}>
+                            {METODI.map(([v, t]) => (
+                              <option key={v} value={v}>{t}</option>
+                            ))}
+                          </Select>
+                        )}
+                      </label>
+                      <label className="inline-flex items-center gap-2">
+                        <input type="radio" checked={!annulla.rimborsa} onChange={() => setAnnulla({ ...annulla, rimborsa: false })} />
+                        La trattengo: la penale diventa {eur(incassato)}
+                      </label>
+                    </div>
+                  );
+                if (differenza < 0) return <p className="text-sm text-amber-900">Resteranno da incassare <strong>{eur(-differenza)}</strong> di penale.</p>;
+                return null;
+              })()}
+              {incassato > 0 && !puoIncassare && <p className="text-xs text-red-800">Per trattenere o rimborsare serve il permesso «Registrare pagamenti».</p>}
             </div>
           )}
           <div className="flex flex-wrap gap-2">
             <Pulsante
               variante="pericolo"
               icona={Ban}
-              disabled={salvando || (incassato > 0 && !annulla.incassi)}
+              disabled={salvando || (p.importiVisibili && (annulla.penale === "" || !(Number(annulla.penale) >= 0)))}
               onClick={async () => {
                 const r = await esegui(() =>
-                  sbusta(azioneAnnulla(p.id, { motivo: annulla.motivo, nota: annulla.nota, incassi: incassato > 0 ? annulla.incassi : null, metodoRimborso: annulla.metodo })),
+                  sbusta(
+                    azioneAnnulla(p.id, {
+                      motivo: annulla.motivo,
+                      nota: annulla.nota,
+                      penale: p.importiVisibili ? Number(annulla.penale) : 0,
+                      rimborsaEccedenza: annulla.rimborsa,
+                      metodoRimborso: annulla.metodo,
+                    }),
+                  ),
                 );
                 if (r) {
                   aggiorna(r);
@@ -343,6 +395,7 @@ export function PannelloPagamenti({
             <div className="grid grid-cols-2 gap-2">
               <Campo etichetta="Tipo">
                 <Select value={nuovo.tipo} onChange={(e) => setNuovo({ ...nuovo, tipo: e.target.value })}>
+                  <option value="caparra">Caparra confirmatoria</option>
                   <option value="acconto">Acconto</option>
                   <option value="saldo">Saldo</option>
                   <option value="rimborso">Rimborso</option>

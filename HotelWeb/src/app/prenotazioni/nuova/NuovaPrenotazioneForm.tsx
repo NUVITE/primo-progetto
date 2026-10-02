@@ -46,6 +46,14 @@ export function NuovaPrenotazioneForm() {
   const [camere, setCamere] = useState<Camera[]>([]);
   const [listini, setListini] = useState<Listino[]>([]);
   const [caricato, setCaricato] = useState(false);
+  // Scelte per provenienza e garanzia (canali, mezzi, aziende/agenzie/portali, orario limite).
+  const [scelte, setScelte] = useState<Pick<Awaited<ReturnType<typeof datiIniziali>>, "canali" | "mezzi" | "garanzie" | "intermediari" | "orarioLimiteArrivo">>({
+    canali: [],
+    mezzi: [],
+    garanzie: [],
+    intermediari: [],
+    orarioLimiteArrivo: "18:00",
+  });
   const [erroreCaricamento, setErroreCaricamento] = useState<string | null>(null);
 
   const [ospitePrenotante, setOspitePrenotante] = useState<OspiteValue>({ mode: "vuoto" });
@@ -55,6 +63,8 @@ export function NuovaPrenotazioneForm() {
   const [accontoRichiesto, setAccontoRichiesto] = useState("");
   const [accontoEntro, setAccontoEntro] = useState("");
   const [scadenzaOpzione, setScadenzaOpzione] = useState("");
+  // Provenienza e garanzia: diretta e senza garanzia se non si indica altro.
+  const [provenienza, setProvenienza] = useState({ canale: "diretta", mezzo: "", intermediarioId: "", garanzia: "nessuna", oraArrivo: "" });
 
   const [trattamenti, setTrattamenti] = useState<string[]>([]);
   const [salvando, setSalvando] = useState(false);
@@ -66,6 +76,7 @@ export function NuovaPrenotazioneForm() {
       .then((d) => {
         setCamere(d.camere);
         setListini(d.listini);
+        setScelte({ canali: d.canali, mezzi: d.mezzi, garanzie: d.garanzie, intermediari: d.intermediari, orarioLimiteArrivo: d.orarioLimiteArrivo });
         setTrattamenti(d.trattamenti);
         if (d.giorniOpzione > 0) {
           const scad = new Date();
@@ -142,6 +153,13 @@ export function NuovaPrenotazioneForm() {
         accontoRichiesto: accontoRichiesto ? Number(accontoRichiesto) : undefined,
         scadenzaOpzione: scadenzaOpzione || undefined,
         accontoEntro: accontoEntro || undefined,
+        provenienza: {
+          canale: provenienza.canale,
+          mezzo: provenienza.mezzo || null,
+          intermediarioId: provenienza.canale !== "diretta" && provenienza.intermediarioId ? Number(provenienza.intermediarioId) : null,
+          garanzia: provenienza.garanzia,
+          oraArrivo: provenienza.oraArrivo || null,
+        },
         segmenti: segmenti.map((s) => ({
           cameraId: s.cameraId!,
           tipoCameraId: camere.find((c) => c.id === s.cameraId)!.tipoCameraId,
@@ -333,6 +351,49 @@ export function NuovaPrenotazioneForm() {
             <div className="flex justify-between border-t border-stone-200 pt-1 text-base font-bold"><dt>Totale stimato</dt><dd className="font-mono">€ {totali.totale.toFixed(2)}</dd></div>
           </dl>
           <div className="mt-4 grid grid-cols-2 gap-2">
+            <Campo etichetta="Canale">
+              <Select value={provenienza.canale} onChange={(e) => setProvenienza({ ...provenienza, canale: e.target.value })}>
+                {scelte.canali.map((c) => (
+                  <option key={c.valore} value={c.valore}>
+                    {c.nome}
+                  </option>
+                ))}
+              </Select>
+            </Campo>
+            <Campo etichetta="Mezzo">
+              <Select value={provenienza.mezzo} onChange={(e) => setProvenienza({ ...provenienza, mezzo: e.target.value })}>
+                <option value="">—</option>
+                {scelte.mezzi.map((m) => (
+                  <option key={m.valore} value={m.valore}>
+                    {m.nome}
+                  </option>
+                ))}
+              </Select>
+            </Campo>
+            {provenienza.canale !== "diretta" && (
+              <Campo etichetta="Tramite" className="col-span-2" aiuto={scelte.intermediari.length ? undefined : "Aziende, agenzie e portali si aggiungono in Anagrafiche > Clienti e aziende."}>
+                <Select value={provenienza.intermediarioId} onChange={(e) => setProvenienza({ ...provenienza, intermediarioId: e.target.value })}>
+                  <option value="">—</option>
+                  {scelte.intermediari.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.denominazione}
+                    </option>
+                  ))}
+                </Select>
+              </Campo>
+            )}
+            <Campo etichetta="Garanzia" aiuto={provenienza.garanzia === "nessuna" ? `Senza garanzia, dopo le ${scelte.orarioLimiteArrivo} è un possibile no-show.` : undefined}>
+              <Select value={provenienza.garanzia} onChange={(e) => setProvenienza({ ...provenienza, garanzia: e.target.value })}>
+                {scelte.garanzie.map((g) => (
+                  <option key={g.valore} value={g.valore}>
+                    {g.nome}
+                  </option>
+                ))}
+              </Select>
+            </Campo>
+            <Campo etichetta="Ora di arrivo">
+              <Input type="time" value={provenienza.oraArrivo} onChange={(e) => setProvenienza({ ...provenienza, oraArrivo: e.target.value })} />
+            </Campo>
             <Campo etichetta="Acconto richiesto">
               <Input inputMode="decimal" value={accontoRichiesto} onChange={(e) => setAccontoRichiesto(e.target.value)} placeholder="€ 0,00" />
             </Campo>

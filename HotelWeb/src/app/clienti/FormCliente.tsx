@@ -1,12 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import type { DatiCliente } from "@/lib/clienti";
+import type { DatiCliente, TipoCliente } from "@/lib/clienti";
+
+const TIPI: { valore: TipoCliente; nome: string }[] = [
+  { valore: "azienda", nome: "Azienda / ente" },
+  { valore: "privato", nome: "Privato" },
+  { valore: "agenzia", nome: "Agenzia / tour operator" },
+  { valore: "portale", nome: "Portale online" },
+];
 
 const CELLA = "h-8 w-full min-w-0 rounded-md border border-stone-300 bg-white px-2.5 text-sm text-stone-900 hover:border-stone-400 disabled:bg-stone-100 pointer-coarse:h-10";
 
 export const clienteVuoto = (): DatiCliente => ({
   tipo: "azienda",
+  commissione: "",
   denominazione: "",
   partitaIva: "",
   codiceFiscale: "",
@@ -45,16 +53,17 @@ export function FormCliente({
   );
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-teal-200 bg-teal-50/40 p-3">
-      <div className="flex gap-4 text-sm">
-        {(["azienda", "privato"] as const).map((t) => (
-          <label key={t} className="flex items-center gap-1.5">
-            <input type="radio" checked={d.tipo === t} onChange={() => set({ tipo: t })} /> {t === "azienda" ? "Azienda / ente" : "Privato"}
+      <div className="flex flex-wrap gap-4 text-sm">
+        {TIPI.map((t) => (
+          <label key={t.valore} className="flex items-center gap-1.5">
+            <input type="radio" checked={d.tipo === t.valore} onChange={() => set({ tipo: t.valore })} /> {t.nome}
           </label>
         ))}
       </div>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {campo(d.tipo === "azienda" ? "Ragione sociale" : "Nome e cognome", "denominazione", {}, "sm:col-span-2")}
-        {d.tipo === "azienda" && campo("Partita IVA", "partitaIva", { inputMode: "numeric" })}
+        {campo(d.tipo === "privato" ? "Nome e cognome" : "Ragione sociale", "denominazione", {}, "sm:col-span-2")}
+        {d.tipo !== "privato" && campo("Partita IVA", "partitaIva", { inputMode: "numeric" })}
+        {(d.tipo === "agenzia" || d.tipo === "portale") && campo("Commissione %", "commissione", { inputMode: "decimal", placeholder: "es. 15" })}
         {campo("Codice fiscale", "codiceFiscale")}
         {campo("Indirizzo", "indirizzo", {}, "sm:col-span-2")}
         {campo("CAP", "cap", { inputMode: "numeric" })}

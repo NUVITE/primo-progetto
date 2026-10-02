@@ -122,6 +122,11 @@ export function FormStruttura({ iniziale, chiusure }: { iniziale: Struttura; chi
             <input min={0} max={60} {...campo("giorniOpzione", "number")} />
             <span className="text-xs font-normal text-stone-600">Scadenza proposta per le nuove opzioni (modificabile in ogni prenotazione; 0 = nessuna).</span>
           </label>
+          <label className={ETICHETTA}>
+            Orario limite di arrivo
+            <input {...campo("orarioLimiteArrivo", "time")} />
+            <span className="text-xs font-normal text-stone-600">Prenotazioni senza garanzia: oltre quest&apos;ora l&apos;ospite non arrivato è un possibile no-show.</span>
+          </label>
         </div>
       </section>
 

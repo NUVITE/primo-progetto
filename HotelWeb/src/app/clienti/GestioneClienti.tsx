@@ -6,6 +6,8 @@ import { azioneEliminaCliente, azioneSalvaCliente, datiClienti } from "./actions
 import { clienteVuoto, FormCliente } from "./FormCliente";
 import { Suggerimento } from "@/components/Suggerimento";
 
+const TIPO: Record<string, string> = { azienda: "azienda", privato: "privato", agenzia: "agenzia", portale: "portale online" };
+
 type Dati = Awaited<ReturnType<typeof datiClienti>>;
 
 export function GestioneClienti({ iniziale }: { iniziale: Dati }) {
@@ -43,7 +45,8 @@ export function GestioneClienti({ iniziale }: { iniziale: Dati }) {
         <h1 className="text-xl font-bold">Clienti e aziende</h1>
         <Suggerimento id="clienti" titolo="Chi sono i clienti e le aziende">
           <p>
-            Sono i committenti di eventi e sale e gli intestatari dei documenti (anche per la fattura elettronica: partita IVA, codice SDI, PEC).
+            Sono i committenti di eventi e sale, le aziende e le agenzie (anche online) che prenotano o pagano camere, e gli intestatari dei documenti
+            (partita IVA, codice SDI, PEC). Per agenzie e portali si indica la commissione.
             Gli ospiti che dormono in hotel sono un&apos;anagrafica a parte, compilata al check-in. Un cliente già usato non si elimina: si disattiva.
           </p>
         </Suggerimento>
@@ -79,7 +82,7 @@ export function GestioneClienti({ iniziale }: { iniziale: Dati }) {
               <th className="pb-1 pr-2">P.IVA / C.F.</th>
               <th className="pb-1 pr-2">Comune</th>
               <th className="pb-1 pr-2">Contatti</th>
-              <th className="pb-1 pr-2">Eventi</th>
+              <th className="pb-1 pr-2">Uso</th>
               <th />
             </tr>
           </thead>
@@ -102,14 +105,19 @@ export function GestioneClienti({ iniziale }: { iniziale: Dati }) {
                 <tr key={c.id} className={`border-t border-stone-100 ${c.dati.attivo ? "" : "text-stone-400"}`}>
                   <td data-label="Cliente" className="py-1.5 pr-2">
                     <span className="font-semibold">{c.dati.denominazione}</span>
-                    <span className="ml-1 text-xs text-stone-500">{c.dati.tipo === "azienda" ? "azienda" : "privato"}</span>
+                    <span className="ml-1 text-xs text-stone-500">
+                      {TIPO[c.dati.tipo] ?? c.dati.tipo}
+                      {c.dati.commissione ? ` · commissione ${c.dati.commissione}%` : ""}
+                    </span>
                     {!c.dati.attivo && <span className="ml-1 rounded bg-stone-200 px-1.5 py-0.5 text-xs text-stone-600">non attivo</span>}
                     {c.dati.referente && <div className="text-xs text-stone-500">Rif. {c.dati.referente}</div>}
                   </td>
                   <td data-label="P.IVA / C.F." className="py-1.5 pr-2 font-mono text-xs">{c.dati.partitaIva || c.dati.codiceFiscale || "—"}</td>
                   <td data-label="Comune" className="py-1.5 pr-2">{c.dati.comune ? `${c.dati.comune}${c.dati.provincia ? ` (${c.dati.provincia})` : ""}` : "—"}</td>
                   <td data-label="Contatti" className="py-1.5 pr-2 text-xs">{[c.dati.telefono, c.dati.email].filter(Boolean).join(" · ") || "—"}</td>
-                  <td data-label="Eventi" className="py-1.5 pr-2">{c.eventi}</td>
+                  <td data-label="Uso" className="py-1.5 pr-2 text-xs">
+                    {c.eventi} eventi · {c.prenotazioni} prenotazioni
+                  </td>
                   <td className="cella-intera py-1.5 md:text-right">
                     {daEliminare === c.id ? (
                       <span className="text-xs">
@@ -135,7 +143,7 @@ export function GestioneClienti({ iniziale }: { iniziale: Dati }) {
                           <button type="button" className="mr-2 inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-semibold text-teal-800 hover:bg-teal-50 pointer-coarse:h-9" onClick={() => setInModifica(c.id)}>
                             Modifica
                           </button>
-                          {c.eventi === 0 && (
+                          {c.eventi === 0 && c.prenotazioni === 0 && (
                             <button type="button" className="inline-flex h-7 items-center gap-1 rounded-md border border-red-300 bg-white px-2 text-xs font-semibold text-red-700 shadow-sm hover:bg-red-50 disabled:opacity-45 pointer-coarse:h-9" onClick={() => setDaEliminare(c.id)}>
                               Elimina
                             </button>

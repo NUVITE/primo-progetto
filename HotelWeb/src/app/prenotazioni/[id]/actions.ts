@@ -6,6 +6,14 @@ import {
   aggiungiSegmentoAPrenotazione,
   annullaCamera,
   annullaPrenotazione,
+  aggiornaProvenienza,
+  cambiaPoliticaPrenotazione,
+  CANALI,
+  GARANZIE,
+  MEZZI,
+  penaleProposta,
+  pagatoNetto,
+  type ProvenienzaInput,
   confermaPrenotazione,
   impostaScadenze,
   METODI_PAGAMENTO,
@@ -41,6 +49,8 @@ import {
   type DichiarazioneInput,
 } from "@/lib/posizioneTassa";
 import { PERMESSI } from "@/lib/permessi";
+import { descriviPolitica, elencoPolitiche, type PoliticaCopiata } from "@/lib/politiche";
+import { prisma } from "@/lib/prisma";
 import { composizioneDi, composizioneReale, descriviComposizione, stessaComposizione, type Composizione, type DettaglioNotte } from "@/lib/pricing";
 
 import { datiIniziali as _datiIniziali } from "@/app/prenotazioni/nuova/actions";
@@ -68,6 +78,26 @@ async function serializza(prenotazione: Awaited<ReturnType<typeof trovaPrenotazi
     stato: prenotazione.stato,
     ospitePrenotante: `${prenotazione.ospitePrenotante.nome} ${prenotazione.ospitePrenotante.cognome}`,
     gruppoNome: prenotazione.gruppo?.nome ?? null,
+    provenienza: {
+      canale: prenotazione.canale,
+      canaleTesto: CANALI[prenotazione.canale as keyof typeof CANALI] ?? prenotazione.canale,
+      mezzo: prenotazione.mezzo ?? "",
+      mezzoTesto: prenotazione.mezzo ? (MEZZI[prenotazione.mezzo as keyof typeof MEZZI] ?? prenotazione.mezzo) : "",
+      intermediarioId: prenotazione.intermediarioId,
+      intermediario: prenotazione.intermediario?.denominazione ?? null,
+      clientePaganteId: prenotazione.clientePaganteId,
+      clientePagante: prenotazione.clientePagante?.denominazione ?? null,
+      garanzia: prenotazione.garanzia,
+      garanziaTesto: GARANZIE[prenotazione.garanzia as keyof typeof GARANZIE] ?? prenotazione.garanzia,
+      oraArrivo: prenotazione.oraArrivo ?? "",
+    },
+    politica: prenotazione.politica
+      ? {
+          id: (prenotazione.politica as PoliticaCopiata).id,
+          nome: (prenotazione.politica as PoliticaCopiata).nome,
+          righe: descriviPolitica(prenotazione.politica as PoliticaCopiata),
+        }
+      : null,
     accontoRichiesto: importiVisibili && prenotazione.accontoRichiesto ? Number(prenotazione.accontoRichiesto) : null,
     totali: {
       subtotale: imp(totali.subtotale),
@@ -91,7 +121,7 @@ async function serializza(prenotazione: Awaited<ReturnType<typeof trovaPrenotazi
       : null,
     // Acconti ricevuti (al netto di storni), per l'avviso "acconto da ricevere".
     accontoRicevuto: imp(
-      prenotazione.pagamenti.filter((x) => !x.stornatoIl && x.tipo === "acconto").reduce((t, x) => t + Number(x.importo), 0),
+      prenotazione.pagamenti.filter((x) => !x.stornatoIl && (x.tipo === "acconto" || x.tipo === "caparra")).reduce((t, x) => t + Number(x.importo), 0),
     ),
     pagamenti: importiVisibili
       ? prenotazione.pagamenti.map((x) => ({
@@ -207,12 +237,50 @@ async function suPrenotazione(permesso: (typeof PERMESSI)[keyof typeof PERMESSI]
 export async function azioneConferma(id: number) {
   return suPrenotazione(PERMESSI.PRENOTAZIONI_GESTISCI, (u) => confermaPrenotazione(u.hotelId, id));
 }
-export async function azioneAnnulla(id: number, dati: { motivo: MotivoAnnullamento; nota: string; incassi: "trattieni" | "rimborsa" | null; metodoRimborso?: string }) {
+export async function azioneAnnulla(id: number, dati: { motivo: MotivoAnnullamento; nota: string; penale: number; rimborsaEccedenza: boolean; metodoRimborso?: string }) {
   return conEsito(async () => {
     const utente = await richiediPermesso(PERMESSI.PRENOTAZIONI_GESTISCI);
     // Trattenere o rimborsare denaro è un'operazione di cassa.
-    if (dati.incassi && !puo(utente, PERMESSI.PAGAMENTI_REGISTRA)) throw new Error("Ci sono incassi da trattenere o rimborsare: serve il permesso «Registrare pagamenti».");
+    const p = await prisma.prenotazione.findFirstOrThrow({ where: { id, hotelId: utente.hotelId }, include: { pagamenti: true } });
+    if (pagatoNetto(p.pagamenti) > 0 && !puo(utente, PERMESSI.PAGAMENTI_REGISTRA)) {
+      throw new Error("Ci sono incassi da trattenere o rimborsare: serve il permesso «Registrare pagamenti».");
+    }
     return serializza(await annullaPrenotazione(utente.hotelId, id, dati, utente.nome), utente);
+  });
+}
+
+/** Penale proposta dalla politica per quel motivo (sempre modificabile prima di confermare). */
+export async function azionePenaleProposta(id: number, motivo: string) {
+  return conEsito(async () => {
+    const utente = await richiediPermesso(PERMESSI.PRENOTAZIONI_GESTISCI);
+    if (!puo(utente, PERMESSI.IMPORTI_VEDI)) return { importo: null, spiegazione: "", incassato: 0 };
+    return penaleProposta(utente.hotelId, id, motivo);
+  });
+}
+
+export async function azioneProvenienza(id: number, dati: ProvenienzaInput) {
+  return suPrenotazione(PERMESSI.PRENOTAZIONI_GESTISCI, (u) => aggiornaProvenienza(u.hotelId, id, dati));
+}
+
+export async function azionePolitica(id: number, politicaId: number | null) {
+  return suPrenotazione(PERMESSI.PRENOTAZIONI_GESTISCI, (u) => cambiaPoliticaPrenotazione(u.hotelId, id, politicaId));
+}
+
+/** Scelte per provenienza e politica: clienti (aziende, agenzie, portali) e politiche dell'hotel. */
+export async function azioneOpzioniProvenienza() {
+  return conEsito(async () => {
+    const utente = await richiediPermesso(PERMESSI.PRENOTAZIONI_VEDI);
+    const [clienti, politiche] = await Promise.all([
+      prisma.cliente.findMany({ where: { hotelId: utente.hotelId, attivo: true }, select: { id: true, denominazione: true, tipo: true }, orderBy: { denominazione: "asc" } }),
+      elencoPolitiche(utente.hotelId),
+    ]);
+    return {
+      clienti,
+      politiche: politiche.map((p) => ({ id: p.id, nome: p.nome, predefinita: p.predefinita })),
+      canali: Object.entries(CANALI).map(([valore, nome]) => ({ valore, nome })),
+      mezzi: Object.entries(MEZZI).map(([valore, nome]) => ({ valore, nome })),
+      garanzie: Object.entries(GARANZIE).map(([valore, nome]) => ({ valore, nome })),
+    };
   });
 }
 export async function azioneAnnullaCamera(segmentoId: number) {

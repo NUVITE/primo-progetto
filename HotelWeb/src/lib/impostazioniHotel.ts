@@ -25,6 +25,7 @@ export type DatiStruttura = {
   orarioCheckIn: string;
   orarioCheckOut: string;
   giorniOpzione: string;
+  orarioLimiteArrivo: string;
 };
 
 export async function caricaStruttura(hotelId: number) {
@@ -44,6 +45,7 @@ export async function caricaStruttura(hotelId: number) {
       orarioCheckIn: t(h.orarioCheckIn),
       orarioCheckOut: t(h.orarioCheckOut),
       giorniOpzione: String(h.giorniOpzione),
+      orarioLimiteArrivo: h.orarioLimiteArrivo,
     } satisfies DatiStruttura,
   };
 }
@@ -54,7 +56,7 @@ export async function salvaStruttura(hotelId: number, d: DatiStruttura) {
   const cap = txt(d.cap);
   if (cap && !/^\d{5}$/.test(cap)) throw new Error("Il CAP ha 5 cifre.");
   const ora = /^([01]\d|2[0-3]):[0-5]\d$/;
-  for (const [nome, v] of [["check-in", d.orarioCheckIn], ["check-out", d.orarioCheckOut]] as const) {
+  for (const [nome, v] of [["check-in", d.orarioCheckIn], ["check-out", d.orarioCheckOut], ["limite di arrivo", d.orarioLimiteArrivo]] as const) {
     if (v.trim() && !ora.test(v.trim())) throw new Error(`Orario di ${nome} nel formato HH:MM.`);
   }
   const giorniOpzione = Number(d.giorniOpzione || 0);
@@ -63,6 +65,7 @@ export async function salvaStruttura(hotelId: number, d: DatiStruttura) {
     where: { id: hotelId },
     data: {
       giorniOpzione,
+      orarioLimiteArrivo: d.orarioLimiteArrivo.trim() || "18:00",
       ragioneSociale: txt(d.ragioneSociale),
       partitaIva,
       codiceFiscale: txt(d.codiceFiscale)?.toUpperCase() ?? null,
@@ -151,7 +154,9 @@ export async function elencoListini(hotelId: number) {
     if (cursore <= fine) risultato.push({ dal: iso(cursore), al: iso(fine) });
     return risultato.filter((b) => b.dal <= b.al && b.dal <= iso(fine));
   };
+  const politiche = await prisma.politicaCancellazione.findMany({ where: { hotelId, attiva: true }, orderBy: { nome: "asc" } });
   return {
+    politiche: politiche.map((p) => ({ id: p.id, nome: p.nome, predefinita: p.predefinita })),
     tipi: tipi.map((t) => ({ id: t.id, descrizione: t.descrizione })),
     trattamenti: trattamenti.map((t) => ({ id: t.id, nome: t.nome, attivo: t.attivo })),
     listini: listini.map((l) => ({
@@ -167,6 +172,7 @@ export async function elencoListini(hotelId: number) {
         categoria: l.categoria ?? "",
         minPersone: l.minPersone,
         gratuitaOgni: l.gratuitaOgni,
+        politicaId: l.politicaId,
       } satisfies RegoleListinoInput,
       supplementiTrattamento: Object.fromEntries(l.supplementiTrattamento.map((x) => [x.trattamentoId, Number(x.importo)])) as Record<number, number>,
       riduzioni: l.riduzioni.map((r) => ({
@@ -207,6 +213,8 @@ export type RegoleListinoInput = {
   categoria: string;
   minPersone: number | null;
   gratuitaOgni: number | null;
+  // Politica di cancellazione del listino (null = la predefinita dell'hotel).
+  politicaId: number | null;
 };
 export type RiduzioneInput = { etaDa: number; etaA: number | null; tipo: "percentuale" | "importo" | "gratis"; valore: number; dalTerzoLetto: boolean };
 
@@ -219,6 +227,7 @@ export async function salvaRegoleListino(hotelId: number, id: number, r: RegoleL
     if (v !== null && !(Number.isInteger(v) && v > 0)) throw new Error(`${nome}: indica un numero intero maggiore di zero.`);
   }
   if (l.tipo === "base" && r.gruppo) throw new Error("Il listino base non può diventare un listino di gruppo: creane uno apposta.");
+  if (r.politicaId) await prisma.politicaCancellazione.findFirstOrThrow({ where: { id: r.politicaId, hotelId, attiva: true } });
   await prisma.listino.update({
     where: { id },
     data: {
@@ -229,6 +238,7 @@ export async function salvaRegoleListino(hotelId: number, id: number, r: RegoleL
       categoria: r.gruppo ? txt(r.categoria) : null,
       minPersone: r.gruppo ? r.minPersone : null,
       gratuitaOgni: r.gruppo ? r.gratuitaOgni : null,
+      politicaId: r.politicaId ?? null,
     },
   });
 }

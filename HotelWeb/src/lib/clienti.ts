@@ -1,12 +1,19 @@
 import { prisma } from "@/lib/prisma";
 
 /**
- * Clienti e aziende: committenti di eventi e sale (e in futuro intestatari di fatture).
- * Anagrafica separata dagli ospiti, che sono le persone che dormono in hotel.
+ * Clienti e aziende: committenti di eventi e sale, aziende e agenzie che prenotano o pagano camere
+ * (e in futuro intestatari di fatture). Anagrafica separata dagli ospiti, che sono le persone che
+ * dormono in hotel. Agenzie e portali hanno la commissione.
  */
 
+export type TipoCliente = "azienda" | "privato" | "agenzia" | "portale";
+export const TIPI_CLIENTE: Record<TipoCliente, string> = { azienda: "Azienda / ente", privato: "Privato", agenzia: "Agenzia / tour operator", portale: "Portale online" };
+const tipoValido = (t: string): TipoCliente => (t in TIPI_CLIENTE ? (t as TipoCliente) : "azienda");
+
 export type DatiCliente = {
-  tipo: "azienda" | "privato";
+  tipo: TipoCliente;
+  // Agenzie e portali: commissione in % (stringa vuota = non indicata).
+  commissione: string;
   denominazione: string;
   partitaIva: string;
   codiceFiscale: string;
@@ -26,13 +33,19 @@ export type DatiCliente = {
 const txt = (s: string) => (s.trim() ? s.trim() : null);
 
 export async function elencoClienti(hotelId: number) {
-  const c = await prisma.cliente.findMany({ where: { hotelId }, orderBy: { denominazione: "asc" }, include: { _count: { select: { prenotazioniSala: true } } } });
+  const c = await prisma.cliente.findMany({
+    where: { hotelId },
+    orderBy: { denominazione: "asc" },
+    include: { _count: { select: { prenotazioniSala: true, prenotazioniIntermediario: true, prenotazioniPagate: true } } },
+  });
   const t = (s: string | null) => s ?? "";
   return c.map((x) => ({
     id: x.id,
     eventi: x._count.prenotazioniSala,
+    prenotazioni: x._count.prenotazioniIntermediario + x._count.prenotazioniPagate,
     dati: {
-      tipo: x.tipo === "privato" ? "privato" : "azienda",
+      tipo: tipoValido(x.tipo),
+      commissione: x.commissione === null ? "" : String(Number(x.commissione)),
       denominazione: x.denominazione,
       partitaIva: t(x.partitaIva),
       codiceFiscale: t(x.codiceFiscale),
@@ -52,7 +65,10 @@ export async function elencoClienti(hotelId: number) {
 }
 
 function valori(d: DatiCliente) {
-  if (!d.denominazione.trim()) throw new Error(d.tipo === "azienda" ? "Indica la ragione sociale." : "Indica nome e cognome.");
+  if (!d.denominazione.trim()) throw new Error(d.tipo === "privato" ? "Indica nome e cognome." : "Indica la ragione sociale.");
+  const tipo = tipoValido(d.tipo);
+  const commissione = tipo === "agenzia" || tipo === "portale" ? (d.commissione.trim() ? Number(d.commissione.replace(",", ".")) : null) : null;
+  if (commissione !== null && !(commissione >= 0 && commissione <= 100)) throw new Error("La commissione è una percentuale tra 0 e 100.");
   const partitaIva = txt(d.partitaIva)?.replace(/\s/g, "") ?? null;
   if (partitaIva && !/^\d{11}$/.test(partitaIva)) throw new Error("La partita IVA deve avere 11 cifre.");
   const codiceFiscale = txt(d.codiceFiscale)?.replace(/\s/g, "").toUpperCase() ?? null;
@@ -64,7 +80,8 @@ function valori(d: DatiCliente) {
   const codiceDestinatario = txt(d.codiceDestinatario)?.toUpperCase() ?? null;
   if (codiceDestinatario && !/^[A-Z0-9]{7}$/.test(codiceDestinatario)) throw new Error("Il codice destinatario SDI ha 7 caratteri.");
   return {
-    tipo: d.tipo === "privato" ? "privato" : "azienda",
+    tipo,
+    commissione,
     denominazione: d.denominazione.trim(),
     partitaIva,
     codiceFiscale,
@@ -100,5 +117,7 @@ export async function salvaCliente(hotelId: number, id: number | null, d: DatiCl
 export async function eliminaCliente(hotelId: number, id: number) {
   const n = await prisma.prenotazioneSala.count({ where: { clienteId: id, hotelId } });
   if (n) throw new Error(`Il cliente ha ${n} prenotazioni di sala: disattivalo invece di eliminarlo.`);
+  const camere = await prisma.prenotazione.count({ where: { hotelId, OR: [{ intermediarioId: id }, { clientePaganteId: id }] } });
+  if (camere) throw new Error(`Il cliente è usato in ${camere} prenotazioni di camere: disattivalo invece di eliminarlo.`);
   await prisma.cliente.delete({ where: { id, hotelId } });
 }

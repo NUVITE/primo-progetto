@@ -14,7 +14,24 @@ function EtichettaOpzione({ opzione }: { opzione: Riga["opzione"] }) {
   return <Etichetta tono={opzione.stato === "scaduta" ? "rosso" : "ambra"}>{opzione.stato === "scaduta" ? `opzione scaduta il ${opzione.data}` : `scade il ${opzione.data}`}</Etichetta>;
 }
 
-export function PrenotazioniLista({ iniziale, soloOpzioni = false }: { iniziale: Riga[]; soloOpzioni?: boolean }) {
+/** Arrivo di oggi: arrivato, atteso (con ora e garanzia) o possibile no-show oltre l'orario limite. */
+function EtichettaArrivo({ p }: { p: Riga }) {
+  const a = p.arrivoOggi;
+  if (!a) return null;
+  if (a.arrivate === a.camere) return <Etichetta tono="verde">arrivato oggi</Etichetta>;
+  return (
+    <>
+      <Etichetta tono={a.possibileNoShow ? "rosso" : "blu"}>
+        {a.possibileNoShow ? "possibile no-show" : `arriva oggi${p.oraArrivo ? ` alle ${p.oraArrivo}` : ""}`}
+        {a.arrivate > 0 ? ` (${a.arrivate} di ${a.camere} camere arrivate)` : ""}
+      </Etichetta>
+      {p.garanzia === "nessuna" && <Etichetta tono="ambra">non garantita</Etichetta>}
+    </>
+  );
+}
+
+export function PrenotazioniLista({ iniziale, vista = "ultime" }: { iniziale: Riga[]; vista?: "ultime" | "opzioni" | "arrivi" }) {
+  const soloOpzioni = vista === "opzioni";
   const [query, setQuery] = useState("");
   const [risultati, setRisultati] = useState<Riga[] | null>(null);
   const [cercando, setCercando] = useState(false);
@@ -41,7 +58,9 @@ export function PrenotazioniLista({ iniziale, soloOpzioni = false }: { iniziale:
       ? "Nessuna prenotazione trovata."
       : soloOpzioni
         ? "Nessuna opzione scaduta o in scadenza."
-        : "Nessuna prenotazione ancora.";
+        : vista === "arrivi"
+          ? "Nessun arrivo previsto oggi."
+          : "Nessuna prenotazione ancora.";
 
   return (
     <div className="flex flex-col gap-3">
@@ -57,7 +76,9 @@ export function PrenotazioniLista({ iniziale, soloOpzioni = false }: { iniziale:
           ? `${righe.length} ${righe.length === 1 ? "risultato" : "risultati"} per “${query.trim()}”`
           : soloOpzioni
             ? "Opzioni scadute o che scadono entro 2 giorni: confermale o annullale dal dettaglio."
-            : "Ultime prenotazioni inserite"}
+            : vista === "arrivi"
+              ? "Prenotazioni con camere che arrivano oggi, in ordine di ora di arrivo. Le non garantite oltre l'orario limite sono un possibile no-show: la camera si può liberare."
+              : "Ultime prenotazioni inserite"}
       </p>
 
       {/* Telefono: una scheda per prenotazione al posto della tabella. */}
@@ -72,6 +93,7 @@ export function PrenotazioniLista({ iniziale, soloOpzioni = false }: { iniziale:
                     <span className="font-bold text-stone-900">{p.ospitePrenotante}</span>
                     <Etichetta tono={stato.tono}>{stato.testo}</Etichetta>
                     <EtichettaOpzione opzione={p.opzione} />
+                    <EtichettaArrivo p={p} />
                   </span>
                   {p.periodo && (
                     <span className="flex items-center gap-1.5 text-sm text-stone-700">
@@ -132,6 +154,7 @@ export function PrenotazioniLista({ iniziale, soloOpzioni = false }: { iniziale:
                     <span className="flex flex-wrap gap-1">
                       <Etichetta tono={stato.tono}>{stato.testo}</Etichetta>
                       <EtichettaOpzione opzione={p.opzione} />
+                      <EtichettaArrivo p={p} />
                     </span>
                   </td>
                   <td className="px-4 py-2 text-right font-mono text-stone-500">#{p.id}</td>

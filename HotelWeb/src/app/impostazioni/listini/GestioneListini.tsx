@@ -169,6 +169,7 @@ export function GestioneListini({ iniziale }: { iniziale: Dati }) {
           key={listino.id}
           listino={listino}
           trattamenti={dati.trattamenti}
+          politiche={dati.politiche}
           busy={busy}
           esegui={(fn, ok) => esegui(fn, () => ok)}
         />

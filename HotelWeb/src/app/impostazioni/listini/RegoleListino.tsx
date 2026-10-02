@@ -24,8 +24,31 @@ export function descriviRiduzione(r: { etaDa: number; etaA: number | null; tipo:
 }
 
 /** Regole del listino: modalità, singola, supplementi per trattamento, riduzioni per età, condizioni di gruppo. */
-export function RegoleListino({ listino, trattamenti, busy, esegui }: { listino: Listino; trattamenti: Dati["trattamenti"]; busy: boolean; esegui: Esegui }) {
-  const [regole, setRegole] = useState<null | { modalita: "camera" | "persona"; singola: string; singolaPerc: boolean; gruppo: boolean; categoria: string; minPersone: string; gratuitaOgni: string }>(null);
+export function RegoleListino({
+  listino,
+  trattamenti,
+  politiche,
+  busy,
+  esegui,
+}: {
+  listino: Listino;
+  trattamenti: Dati["trattamenti"];
+  politiche: Dati["politiche"];
+  busy: boolean;
+  esegui: Esegui;
+}) {
+  const [regole, setRegole] = useState<null | {
+    modalita: "camera" | "persona";
+    singola: string;
+    singolaPerc: boolean;
+    gruppo: boolean;
+    categoria: string;
+    minPersone: string;
+    gratuitaOgni: string;
+    politica: string;
+  }>(null);
+  const politicaPredefinita = politiche.find((p) => p.predefinita);
+  const politicaListino = politiche.find((p) => p.id === listino.regole.politicaId);
   const [supplementi, setSupplementi] = useState<Record<number, string> | null>(null);
   const [riduzione, setRiduzione] = useState<{ id: number; f: FormRiduzione } | null>(null);
   const [daEliminare, setDaEliminare] = useState<number | null>(null);
@@ -103,6 +126,18 @@ export function RegoleListino({ listino, trattamenti, busy, esegui }: { listino:
               </label>
             </div>
           )}
+          <label className="flex max-w-md flex-col gap-1 text-xs font-semibold text-stone-600">
+            Politica di cancellazione
+            <select className={CELLA} value={regole.politica} onChange={(e) => setRegole({ ...regole, politica: e.target.value })}>
+              <option value="">Quella predefinita dell&apos;hotel{politicaPredefinita ? ` (${politicaPredefinita.nome})` : " (nessuna)"}</option>
+              {politiche.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.nome}
+                </option>
+              ))}
+            </select>
+            <span className="font-normal">Es. un listino &quot;non rimborsabile&quot; con la sua politica. Le politiche si creano in Politiche di cancellazione.</span>
+          </label>
           <div className="flex gap-2">
             <button
               type="button"
@@ -117,6 +152,7 @@ export function RegoleListino({ listino, trattamenti, busy, esegui }: { listino:
                   categoria: regole.categoria,
                   minPersone: numOppureNull(regole.minPersone),
                   gratuitaOgni: numOppureNull(regole.gratuitaOgni),
+                  politicaId: regole.politica ? Number(regole.politica) : null,
                 };
                 if (await esegui(() => sbusta(azioneSalvaRegoleListino(listino.id, dati)), "Regole salvate. Valgono per le nuove prenotazioni.")) setRegole(null);
               }}
@@ -134,6 +170,9 @@ export function RegoleListino({ listino, trattamenti, busy, esegui }: { listino:
             <p>
               <span className="font-semibold">{aPersona ? "Prezzo a persona" : "Prezzo a camera"}</span>
               {aPersona && r.supplementoSingola ? ` · singola +${r.supplementoSingolaPercentuale ? `${r.supplementoSingola}%` : `${r.supplementoSingola.toFixed(2)} €`}` : ""}
+            </p>
+            <p className="text-stone-600">
+              Cancellazione: {politicaListino ? politicaListino.nome : politicaPredefinita ? `${politicaPredefinita.nome} (predefinita)` : "nessuna politica"}
             </p>
             {r.gruppo && (
               <p className="text-stone-600">
@@ -155,6 +194,7 @@ export function RegoleListino({ listino, trattamenti, busy, esegui }: { listino:
                 categoria: r.categoria,
                 minPersone: str(r.minPersone),
                 gratuitaOgni: str(r.gratuitaOgni),
+                politica: r.politicaId ? String(r.politicaId) : "",
               })
             }
           >

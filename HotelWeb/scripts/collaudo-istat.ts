@@ -55,13 +55,15 @@ function ospite(p: Partial<Soggiorno> & { arrivo: string; partenza: string; segm
     mezzoArrivo: null,
     mezzoMovimento: null,
     postoLetto: true,
+    canale: "diretta",
+    mezzoPrenotazione: null,
     ...resto,
   };
 }
 
 // Già presente prima del primo giorno (va nell'avvio SPOT).
 const gia = ospite({ arrivo: "2026-09-08", partenza: "2026-09-11", segmento: 1, prenotazioneId: 9 });
-const singolo = ospite({ arrivo: "2026-09-10", partenza: "2026-09-12", segmento: 2, prenotazioneId: 2, motivo: "BALNEARE", mezzoArrivo: "AUTO" });
+const singolo = ospite({ arrivo: "2026-09-10", partenza: "2026-09-12", segmento: 2, prenotazioneId: 2, motivo: "BALNEARE", mezzoArrivo: "AUTO", canale: "portale", mezzoPrenotazione: "web" });
 const capo = ospite({ arrivo: "2026-09-10", partenza: "2026-09-13", segmento: 3, prenotazioneId: 3, tipo: 17, motivo: "Culturale", mezzoArrivo: "Treno" });
 const figlia = ospite({
   arrivo: "2026-09-10",
@@ -133,6 +135,8 @@ verifica("Ross1000: valore non della lista = NON SPECIFICATO", r10.includes(`<ti
 verifica("Ross1000: residente all'estero, luogo residenza vuoto", r10.includes(`<statoresidenza>${GERMANIA}</statoresidenza><luogoresidenza></luogoresidenza>`));
 verifica("Ross1000: nato all'estero, comune di nascita vuoto", r10.includes(`<statonascita>${GERMANIA}</statonascita><comunenascita></comunenascita>`));
 verifica("Ross1000: caratteri speciali protetti", r10.includes("Müller &amp; Söhne &lt;test&gt;"));
+verifica("Ross1000: prenotato da portale = INDIRETTA WEB", r10.includes(`<idswh>${singolo.idswh}</idswh>`) && r10.includes("<canaleprenotazione>INDIRETTA WEB</canaleprenotazione>"));
+verifica("Ross1000: diretta senza mezzo = canale vuoto", (r10.match(/<canaleprenotazione><\/canaleprenotazione>/g) ?? []).length === 4);
 verifica("Ross1000: data di nascita aaaammgg", r10.includes("<datanascita>20150911</datanascita>"));
 const r12 = movimentoRoss1000(giorno("2026-09-12"), tutti).xml;
 verifica("Ross1000: partenze con data di arrivo", r12.includes(`<partenza><idswh>${singolo.idswh}</idswh><tipoalloggiato>16</tipoalloggiato><arrivo>20260910</arrivo></partenza>`));
@@ -153,6 +157,8 @@ verifica("SPOT: gruppo straniero con paese di residenza", s10.includes(`<paesere
 verifica("SPOT: niente nomi (tracciato anonimo)", !s10.includes("Rossi") && !s10.includes("Müller"));
 verifica("SPOT: codici SPOT validi, valori Ross1000 omessi", s10.includes("<mezzotrasportoarrivo>AUTO</mezzotrasportoarrivo><motivazioniviaggio>BALNEARE</motivazioniviaggio>") && !s10.includes("Culturale"));
 const s11 = movimentoSpot(giorno("2026-09-11"), tutti).xml;
+verifica("SPOT: prenotato da portale = caratteristica internet", s10.includes("<caratteristicheviaggio><caratteristica>DIRETTAALLOGGIOINTERNET</caratteristica></caratteristicheviaggio>"));
+verifica("SPOT: senza provenienza nessuna caratteristica", (s10.match(/<caratteristicheviaggio>/g) ?? []).length === 1);
 verifica("SPOT: chi arriva dopo il capo va come ospite singolo", s11.includes(`<codiceclientesr>${nonno.idswh}</codiceclientesr>`) && s11.includes("<tipologiaalloggiato>16</tipologiaalloggiato>"));
 verifica("SPOT: partenze solo di singoli e capi", s11.includes(`<partenze><codiceclientesr>${gia.idswh}</codiceclientesr></partenze>`));
 const s13 = movimentoSpot(giorno("2026-09-13"), tutti).xml;
