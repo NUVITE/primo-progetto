@@ -7,7 +7,7 @@ function isoGiorno(d: Date) {
   return d.toISOString().slice(0, 10);
 }
 
-type Stato = "libera" | "occupata" | "in_arrivo" | "in_partenza" | "fuori_servizio" | "occupata_generica";
+type Stato = "libera" | "occupata" | "in_arrivo" | "in_partenza" | "fuori_servizio" | "occupata_generica" | "uso_diurno";
 type Candidato = { segmentoId: number; prenotazioneId: number; label: string };
 
 export async function GET(request: NextRequest) {
@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
   const dal = new Date(dalStr);
   const al = new Date(alStr); // esclusivo: primo giorno NON incluso nella vista
 
-  const [camere, tipiCamera, segmenti, indisponibilita] = await Promise.all([
+  const [camere, tipiCamera, segmenti, indisponibilita, diurni] = await Promise.all([
     prisma.camera.findMany({
       where: { hotelId: HOTEL_ID, attivo: true },
       include: { tipoCamera: true },
@@ -41,6 +41,7 @@ export async function GET(request: NextRequest) {
       where: {
         prenotazione: { hotelId: HOTEL_ID },
         stato: { not: "ANNULLATO" },
+        usoDiurno: false,
         dataInizio: { lt: al },
         dataFine: { gt: dal },
       },
@@ -48,6 +49,12 @@ export async function GET(request: NextRequest) {
     }),
     prisma.cameraIndisponibilita.findMany({
       where: { camera: { hotelId: HOTEL_ID }, dal: { lt: al }, al: { gt: dal } },
+    }),
+    // Usi diurni (day use): la camera di giorno, senza notte. Non tolgono disponibilità per la notte.
+    prisma.segmentoSoggiorno.findMany({
+      where: { prenotazione: { hotelId: HOTEL_ID }, stato: { not: "ANNULLATO" }, usoDiurno: true, dataInizio: { gte: dal, lt: al } },
+      include: { ospite: true },
+      orderBy: { oraDal: "asc" },
     }),
   ]);
 
@@ -133,6 +140,16 @@ export async function GET(request: NextRequest) {
           label: `${attivo.ospite.nome} ${attivo.ospite.cognome}`,
           segmentoId: attivo.id,
           prenotazioneId: attivo.prenotazioneId,
+        };
+        continue;
+      }
+      const diurno = diurni.find((s) => s.cameraId === c.id && isoGiorno(s.dataInizio) === giornoIso);
+      if (diurno) {
+        celle[giornoIso] = {
+          stato: "uso_diurno",
+          label: `${diurno.ospite.nome} ${diurno.ospite.cognome} ${diurno.oraDal}–${diurno.oraAl}`,
+          segmentoId: diurno.id,
+          prenotazioneId: diurno.prenotazioneId,
         };
         continue;
       }

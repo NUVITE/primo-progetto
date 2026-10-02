@@ -151,6 +151,7 @@ async function serializza(prenotazione: Awaited<ReturnType<typeof trovaPrenotazi
       return {
       id: s.id,
       annullata: s.stato === "ANNULLATO",
+      usoDiurno: s.usoDiurno ? { dalle: s.oraDal ?? "", alle: s.oraAl ?? "", prezzo: importiVisibili ? Number(s.prezzoUsoDiurno ?? 0) : 0 } : null,
       prezzoConcordato: importiVisibili && s.prezzoConcordato !== null ? Number(s.prezzoConcordato) : null,
       prezzoConcordatoNota: s.prezzoConcordatoNota ?? "",
       prezzoConcordatoDa: s.prezzoConcordatoDa ?? "",

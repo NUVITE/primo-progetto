@@ -44,8 +44,11 @@ export type RigaElenco = ReturnType<typeof righeElenco>[number];
 /** Arrivo di oggi: quante camere arrivano, quante sono già arrivate, se è un possibile no-show. */
 function arrivoOggi(p: Awaited<ReturnType<typeof cercaPrenotazioni>>[number], oggi: string, ora: string, limite: string) {
   if (p.stato === "ANNULLATA") return null;
-  const camere = p.segmenti.filter((s) => s.stato !== "ANNULLATO" && s.dataInizio.toISOString().slice(0, 10) === oggi);
-  if (!camere.length) return null;
+  const diOggi = p.segmenti.filter((s) => s.stato !== "ANNULLATO" && s.dataInizio.toISOString().slice(0, 10) === oggi);
+  // Uso diurno: niente check-in né no-show, si mostra la fascia oraria.
+  const diurno = diOggi.find((s) => s.usoDiurno);
+  const camere = diOggi.filter((s) => !s.usoDiurno);
+  if (!camere.length) return diurno ? { camere: 0, arrivate: 0, possibileNoShow: false, usoDiurno: `${diurno.oraDal}–${diurno.oraAl}` } : null;
   const arrivate = camere.filter((s) => s.presenze.some((x) => x.stato !== "attesa")).length;
-  return { camere: camere.length, arrivate, possibileNoShow: arrivate === 0 && p.garanzia === "nessuna" && ora >= limite };
+  return { camere: camere.length, arrivate, possibileNoShow: arrivate === 0 && p.garanzia === "nessuna" && ora >= limite, usoDiurno: null as string | null };
 }

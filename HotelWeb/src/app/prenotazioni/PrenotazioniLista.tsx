@@ -18,6 +18,7 @@ function EtichettaOpzione({ opzione }: { opzione: Riga["opzione"] }) {
 function EtichettaArrivo({ p }: { p: Riga }) {
   const a = p.arrivoOggi;
   if (!a) return null;
+  if (a.camere === 0) return <Etichetta tono="viola">uso diurno {a.usoDiurno}</Etichetta>;
   if (a.arrivate === a.camere) return <Etichetta tono="verde">arrivato oggi</Etichetta>;
   return (
     <>

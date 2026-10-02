@@ -228,7 +228,10 @@ export function calcolaTotaliPrenotazione(prenotazione: PrenotazioneCompleta) {
   }
   const attivi = prenotazione.segmenti.filter((s) => s.stato !== "ANNULLATO");
   const idAttivi = new Set(attivi.map((s) => s.id));
-  const subtotale = attivi.reduce((tot, seg) => tot + seg.notti.reduce((s, n) => s + Number(n.prezzo), 0), 0);
+  const subtotale = attivi.reduce(
+    (tot, seg) => tot + (seg.usoDiurno ? Number(seg.prezzoUsoDiurno ?? 0) : seg.notti.reduce((s, n) => s + Number(n.prezzo), 0)),
+    0,
+  );
   const tassa = attivi.reduce(
     (tot, seg) => tot + seg.notti.reduce((s, n) => s + n.tasse.reduce((t, x) => t + Number(x.importo), 0), 0),
     0
@@ -298,6 +301,9 @@ const SEGMENTI_ELENCO = {
   dataInizio: true,
   dataFine: true,
   stato: true,
+  usoDiurno: true,
+  oraDal: true,
+  oraAl: true,
   camera: { select: { codice: true } },
   tipoCamera: { select: { descrizione: true } },
   presenze: { select: { stato: true } },
@@ -365,12 +371,13 @@ async function caricaPrenotazioneCompleta(db: Db, hotelId: number, id: number) {
 }
 
 /** Camera della prenotazione, sempre dell'hotel. Una camera annullata non si modifica (solo annullaCamera la legge così). */
-async function trovaSegmentoDelHotel(db: Db, hotelId: number, segmentoId: number, ancheAnnullato = false) {
+async function trovaSegmentoDelHotel(db: Db, hotelId: number, segmentoId: number, ancheAnnullato = false, ancheUsoDiurno = false) {
   const segmento = await db.segmentoSoggiorno.findFirstOrThrow({
     where: { id: segmentoId, prenotazione: { hotelId } },
     include: { camera: true, tipoCamera: true, ospite: true },
   });
   if (!ancheAnnullato && segmento.stato === "ANNULLATO") throw new Error("Questa camera è annullata: non si può modificare.");
+  if (!ancheUsoDiurno && segmento.usoDiurno) throw new Error("È un uso diurno (day use): non ha notti né ospiti registrati, si può solo annullare.");
   return segmento;
 }
 
@@ -915,7 +922,7 @@ export async function cambiaPoliticaPrenotazione(hotelId: number, id: number, po
 /** Annulla una sola camera di una prenotazione con più camere (es. il gruppo si è ridotto). */
 export async function annullaCamera(hotelId: number, segmentoId: number) {
   return prisma.$transaction(async (tx) => {
-    const segmento = await trovaSegmentoDelHotel(tx, hotelId, segmentoId, true);
+    const segmento = await trovaSegmentoDelHotel(tx, hotelId, segmentoId, true, true);
     if (segmento.stato === "ANNULLATO") throw new Error("La camera è già annullata.");
     await verificaNessunArrivo(tx, { segmentoId }, "la camera");
     const attive = await tx.segmentoSoggiorno.count({ where: { prenotazioneId: segmento.prenotazioneId, stato: { not: "ANNULLATO" } } });
@@ -933,6 +940,10 @@ export async function riattivaPrenotazione(hotelId: number, id: number) {
     const p = await tx.prenotazione.findFirstOrThrow({ where: { id, hotelId }, include: { segmenti: { include: { camera: true, tipoCamera: true } } } });
     if (p.stato !== "ANNULLATA") throw new Error("La prenotazione non è annullata.");
     for (const s of p.segmenti) {
+      if (s.usoDiurno) {
+        await verificaUsoDiurnoLibero(tx, hotelId, { cameraId: s.cameraId!, giorno: s.dataInizio, dalle: s.oraDal ?? "00:00", alle: s.oraAl ?? "23:59" }, s.id);
+        continue;
+      }
       const libera = s.cameraId
         ? await cameraDisponibile(tx, s.cameraId, s.dataInizio, s.dataFine, s.id)
         : (await capacitaLiberaPerTipo(tx, s.tipoCameraId, s.dataInizio, s.dataFine, s.id)) > 0;
@@ -1002,5 +1013,97 @@ export async function stornaPagamento(hotelId: number, pagamentoId: number, moti
     if (pag.stornatoIl) throw new Error("Pagamento già stornato.");
     await tx.pagamento.update({ where: { id: pagamentoId }, data: { stornatoIl: new Date(), stornatoDa: utente, motivoStorno: motivo.trim() } });
     return caricaPrenotazioneCompleta(tx, hotelId, pag.prenotazioneId);
+  });
+}
+
+// ---------------- Uso diurno (day use) ----------------
+
+const ORA = /^([01]\d|2[0-3]):[0-5]\d$/;
+const minuti = (h: string) => Number(h.slice(0, 2)) * 60 + Number(h.slice(3, 5));
+
+/**
+ * La camera è libera per un uso diurno quel giorno in quella fascia: non c'è un soggiorno che la
+ * occupa per tutta la giornata (chi parte la mattina o arriva la sera non la blocca), non è fuori
+ * servizio e non c'è un altro uso diurno che si sovrappone negli orari.
+ */
+async function verificaUsoDiurnoLibero(db: Db, hotelId: number, d: { cameraId: number; giorno: Date; dalle: string; alle: string }, escludiId?: number) {
+  const camera = await trovaCameraDelHotel(db, hotelId, d.cameraId);
+  const occupata = await db.segmentoSoggiorno.findFirst({
+    where: { cameraId: d.cameraId, stato: { not: "ANNULLATO" }, usoDiurno: false, dataInizio: { lt: d.giorno }, dataFine: { gt: d.giorno }, id: escludiId ? { not: escludiId } : undefined },
+  });
+  if (occupata) throw new Error(`La camera ${camera.codice} quel giorno è occupata da un soggiorno.`);
+  const ferma = await db.cameraIndisponibilita.findFirst({ where: { cameraId: d.cameraId, dal: { lte: d.giorno }, al: { gt: d.giorno } } });
+  if (ferma) throw new Error(`La camera ${camera.codice} quel giorno è fuori servizio.`);
+  const altri = await db.segmentoSoggiorno.findMany({
+    where: { cameraId: d.cameraId, stato: { not: "ANNULLATO" }, usoDiurno: true, dataInizio: d.giorno, id: escludiId ? { not: escludiId } : undefined },
+  });
+  const sovrapposto = altri.find((x) => minuti(x.oraDal ?? "00:00") < minuti(d.alle) && minuti(x.oraAl ?? "23:59") > minuti(d.dalle));
+  if (sovrapposto) throw new Error(`La camera ${camera.codice} è già in uso diurno dalle ${sovrapposto.oraDal} alle ${sovrapposto.oraAl}.`);
+  return camera;
+}
+
+/** Prezzo proposto: prezzo orario del tipo di camera per le ore della fascia (arrotondato ai centesimi). */
+export async function prezzoPropostoUsoDiurno(hotelId: number, cameraId: number, dalle: string, alle: string) {
+  const camera = await trovaCameraDelHotel(prisma, hotelId, cameraId);
+  const tipo = await prisma.tipoCamera.findFirstOrThrow({ where: { id: camera.tipoCameraId, hotelId } });
+  if (!ORA.test(dalle) || !ORA.test(alle) || minuti(alle) <= minuti(dalle) || tipo.prezzoOraUsoDiurno === null) return null;
+  return Math.round(((Number(tipo.prezzoOraUsoDiurno) * (minuti(alle) - minuti(dalle))) / 60) * 100) / 100;
+}
+
+export type UsoDiurnoInput = {
+  cameraId: number;
+  giorno: string;
+  dalle: string;
+  alle: string;
+  ospite: OspiteRif;
+  prezzo: number;
+  note?: string;
+  provenienza?: ProvenienzaInput;
+};
+
+/**
+ * Uso diurno (day use): la camera usata di giorno, senza pernottamento (es. relatore di un evento,
+ * ospite con il volo la sera). Nasce come prenotazione confermata con una sola camera, senza notti:
+ * niente tassa di soggiorno, schedina di Polizia né ISTAT, che riguardano i pernottamenti.
+ */
+export async function creaUsoDiurno(hotelId: number, d: UsoDiurnoInput) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d.giorno)) throw new Error("Indica il giorno.");
+  if (!ORA.test(d.dalle) || !ORA.test(d.alle)) throw new Error("Indica gli orari (hh:mm).");
+  if (minuti(d.alle) <= minuti(d.dalle)) throw new Error("L'ora di fine deve essere dopo quella di inizio.");
+  if (!(d.prezzo >= 0)) throw new Error("Prezzo non valido.");
+  const giorno = new Date(`${d.giorno}T00:00:00.000Z`);
+  return prisma.$transaction(async (tx) => {
+    const camera = await verificaUsoDiurnoLibero(tx, hotelId, { cameraId: d.cameraId, giorno, dalle: d.dalle, alle: d.alle });
+    const ospiteId = await risolviOspite(tx, hotelId, d.ospite);
+    const listino =
+      (await tx.listino.findFirst({ where: { hotelId, tipo: "base" } })) ?? (await tx.listino.findFirstOrThrow({ where: { hotelId }, orderBy: { id: "asc" } }));
+    const p = await tx.prenotazione.create({
+      data: {
+        hotelId,
+        ospitePrenotanteId: ospiteId,
+        stato: "CONFERMATA",
+        confermataIl: new Date(),
+        note: d.note?.trim() || null,
+        ...(await datiProvenienza(tx, hotelId, d.provenienza ?? {})),
+      },
+    });
+    await tx.segmentoSoggiorno.create({
+      data: {
+        prenotazioneId: p.id,
+        cameraId: camera.id,
+        tipoCameraId: camera.tipoCameraId,
+        ospiteId,
+        trattamento: "Uso diurno",
+        listinoId: listino.id,
+        dataInizio: giorno,
+        dataFine: giorno,
+        stato: "PREVISTO",
+        usoDiurno: true,
+        oraDal: d.dalle,
+        oraAl: d.alle,
+        prezzoUsoDiurno: Math.round(d.prezzo * 100) / 100,
+      },
+    });
+    return caricaPrenotazioneCompleta(tx, hotelId, p.id);
   });
 }

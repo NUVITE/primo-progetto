@@ -3,7 +3,7 @@
 import { SezioneTassa } from "./SezioneTassa";
 import { sbusta } from "@/lib/esito";
 import { Fragment, useEffect, useState } from "react";
-import { ArrowLeft, Ban, BedDouble, CalendarRange, Check, ChevronDown, ChevronUp, KeyRound, LogIn, Pencil, Plus, RefreshCw, Repeat, Trash2, Users } from "lucide-react";
+import { ArrowLeft, Ban, BedDouble, CalendarRange, Check, ChevronDown, ChevronUp, KeyRound, LogIn, Pencil, Plus, RefreshCw, Repeat, Trash2, Users, Sun } from "lucide-react";
 import { Avviso, Campo, classePulsante, Etichetta, Input, IntestazionePagina, Pulsante, Select, Sezione, Spunta } from "@/components/ui";
 import { AiutoSezione, Esempio } from "@/components/AiutoSezione";
 import { Suggerimento } from "@/components/Suggerimento";
@@ -278,7 +278,31 @@ export function PrenotazioneDettaglio({
 
       <div className="flex flex-col gap-4 xl:flex-row xl:items-start">
         <div className="flex min-w-0 flex-1 flex-col gap-4">
-          {prenotazione.segmenti.map((s) => (
+          {prenotazione.segmenti.map((s) =>
+            s.usoDiurno ? (
+              <Sezione
+                key={s.id}
+                className={s.annullata ? "opacity-60" : undefined}
+                titolo={
+                  <span className="flex flex-wrap items-center gap-2">
+                    <Sun className="h-4 w-4 text-violet-700" aria-hidden />
+                    {s.cameraCodice ? `Camera ${s.cameraCodice}` : "Camera"}
+                    <span className="font-normal text-stone-600">{s.tipoCameraNome}</span>
+                    <Etichetta tono="viola">uso diurno</Etichetta>
+                    {s.annullata && <Etichetta tono="neutro">annullata</Etichetta>}
+                  </span>
+                }
+                descrizione={`${it(s.dataInizio)} dalle ${s.usoDiurno.dalle} alle ${s.usoDiurno.alle} · senza pernottamento`}
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                  <span>
+                    Ospite: <strong>{s.ospiteNome}</strong>
+                    {importi && <> · prezzo <strong className="font-mono">{eur(s.usoDiurno.prezzo)}</strong></>}
+                  </span>
+                  <span className="text-xs text-stone-600">Niente check-in, tassa di soggiorno, schedina né ISTAT: non c&apos;è pernottamento.</span>
+                </div>
+              </Sezione>
+            ) : (
             <Sezione
               key={s.id}
               className={s.annullata ? "opacity-60" : undefined}
@@ -582,14 +606,17 @@ export function PrenotazioneDettaglio({
               </div>
             ))}
 
-          <SezioneTassa
-            prenotazioneId={prenotazione.id}
-            tassa={prenotazione.tassa}
-            importi={importi}
-            puoGestire={puoGestire}
-            puoRiaprire={puoRiaprire}
-            onAggiornata={setPrenotazione}
-          />
+          {/* Solo usi diurni: non c'è pernottamento, quindi nemmeno tassa di soggiorno. */}
+          {!prenotazione.segmenti.every((s) => s.usoDiurno) && (
+            <SezioneTassa
+              prenotazioneId={prenotazione.id}
+              tassa={prenotazione.tassa}
+              importi={importi}
+              puoGestire={puoGestire}
+              puoRiaprire={puoRiaprire}
+              onAggiornata={setPrenotazione}
+            />
+          )}
 
           <Sezione
             titolo="Servizi aggiuntivi"

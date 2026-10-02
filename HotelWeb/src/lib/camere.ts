@@ -20,6 +20,13 @@ export async function datiGestioneCamere(hotelId: number) {
 }
 
 /** Letti aggiunti possibili oltre la capienza e animali ammessi (supplementi con effetto). */
+/** Prezzo orario proposto per l'uso diurno (day use) del tipo di camera; null = da scrivere ogni volta. */
+export async function impostaPrezzoUsoDiurno(hotelId: number, id: number, prezzo: number | null) {
+  if (prezzo !== null && !(prezzo >= 0)) throw new Error("Prezzo orario non valido.");
+  await prisma.tipoCamera.findFirstOrThrow({ where: { id, hotelId } });
+  return prisma.tipoCamera.update({ where: { id }, data: { prezzoOraUsoDiurno: prezzo } });
+}
+
 export async function impostaOpzioniTipoCamera(hotelId: number, id: number, lettiAggiuntiMax: number, animaliAmmessi: boolean) {
   if (!(Number.isInteger(lettiAggiuntiMax) && lettiAggiuntiMax >= 0 && lettiAggiuntiMax <= 5)) throw new Error("Letti aggiunti: da 0 a 5.");
   await prisma.tipoCamera.findFirstOrThrow({ where: { id, hotelId } });

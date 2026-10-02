@@ -106,10 +106,13 @@ async function presenzaDelHotel(db: Db, hotelId: number, presenzaId: number) {
 }
 
 async function segmentoDelHotel(db: Db, hotelId: number, segmentoId: number) {
-  return db.segmentoSoggiorno.findFirstOrThrow({
+  const s = await db.segmentoSoggiorno.findFirstOrThrow({
     where: { id: segmentoId, prenotazione: { hotelId } },
     include: { camera: true, tipoCamera: true, prenotazione: { include: { gruppo: true, ospitePrenotante: true, hotel: true } } },
   });
+  // L'uso diurno non ha pernottamento: niente check-in, schedina né tassa.
+  if (s.usoDiurno) throw new Error("È un uso diurno (day use): non c'è check-in.");
+  return s;
 }
 
 export async function datiCheckin(hotelId: number, segmentoId: number, mostraDocumenti: boolean) {

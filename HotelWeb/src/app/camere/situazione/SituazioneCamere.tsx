@@ -7,13 +7,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { OspiteSearch, type OspiteValue } from "../../prenotazioni/nuova/OspiteSearch";
 import { anteprimaGenerica, assegnaCameraASegmento, datiIniziali, salvaPrenotazioneGenerica } from "./actions";
 import { CampoComposizione } from "@/app/prenotazioni/CampoComposizione";
-import { ChevronLeft, ChevronRight, ExternalLink, KeyRound, Lock, Plus, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, ExternalLink, KeyRound, Lock, Plus, Sun, X } from "lucide-react";
 import { Avviso, Campo, classePulsante, Input, Pulsante, Select, Textarea } from "@/components/ui";
 import { Suggerimento } from "@/components/Suggerimento";
 import { AiutoSezione } from "@/components/AiutoSezione";
 import type { Composizione } from "@/lib/pricing";
 
-type Stato = "libera" | "occupata" | "in_arrivo" | "in_partenza" | "fuori_servizio" | "occupata_generica";
+type Stato = "libera" | "occupata" | "in_arrivo" | "in_partenza" | "fuori_servizio" | "occupata_generica" | "uso_diurno";
 type Candidato = { segmentoId: number; prenotazioneId: number; label: string };
 type Cella = { stato: Stato; label: string | null; segmentoId: number | null; prenotazioneId: number | null; genericiCandidati?: Candidato[] };
 type CameraRiga = { id: number; codice: string; piano: string | null; tipoCameraId: number; tipoCameraNome: string; celle: Record<string, Cella> };
@@ -30,6 +30,7 @@ const STILE: Record<Stato, { bg: string; border: string; text: string }> = {
   in_arrivo: { bg: "#C3DCEC", border: "#8FB8D6", text: "#0D3348" },
   fuori_servizio: { bg: "#DCD9D3", border: "#B3ACA1", text: "#3A352C" },
   occupata_generica: { bg: "#E3D6F2", border: "#B79BD9", text: "#3D2A5C" },
+  uso_diurno: { bg: "#FFFFFF", border: "#7C5BB5", text: "#3D2A5C" },
 };
 
 const ETICHETTA: Record<Stato, string> = {
@@ -39,6 +40,7 @@ const ETICHETTA: Record<Stato, string> = {
   in_arrivo: "Occupata (arriva oggi)",
   fuori_servizio: "Fuori servizio",
   occupata_generica: "Occupata (da assegnare)",
+  uso_diurno: "Uso diurno (libera per la notte)",
 };
 
 
@@ -827,9 +829,17 @@ export function SituazioneCamere({ puoGestire }: { puoGestire: boolean }) {
                   {ETICHETTA[cellaSelezionata.stato]}
                 </span>
                 {cellaSelezionata.label && <div className="text-sm"><strong>{cellaSelezionata.label}</strong></div>}
-                {(cellaSelezionata.stato === "libera" || cellaSelezionata.stato === "in_partenza") && (
+                {(cellaSelezionata.stato === "libera" || cellaSelezionata.stato === "in_partenza" || cellaSelezionata.stato === "uso_diurno") && (
                   <Link href="/prenotazioni/nuova" className={classePulsante("primario", "normale", "mt-2")}>
                     <Plus className="h-4 w-4" aria-hidden /> Nuova prenotazione (camera specifica)
+                  </Link>
+                )}
+                {puoGestire && selezionata && (cellaSelezionata.stato === "libera" || cellaSelezionata.stato === "in_partenza" || cellaSelezionata.stato === "uso_diurno") && (
+                  <Link
+                    href={`/prenotazioni/uso-diurno?camera=${cameraSelezionata.id}&giorno=${selezionata.giorno}`}
+                    className={classePulsante("secondario", "normale")}
+                  >
+                    <Sun className="h-4 w-4" aria-hidden /> Uso diurno (day use)
                   </Link>
                 )}
                 {cellaSelezionata.prenotazioneId && (

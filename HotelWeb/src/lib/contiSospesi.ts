@@ -13,10 +13,18 @@ import { calcolaTotaliPrenotazione, trovaPrenotazione } from "@/lib/prenotazioni
 type Prenotazione = Awaited<ReturnType<typeof trovaPrenotazione>>;
 const arrotonda = (n: number) => Math.round(n * 100) / 100;
 
-/** Tutte le persone delle camere non annullate sono partite (e almeno una è passata dal check-in). */
+/**
+ * Soggiorno finito: tutte le persone delle camere non annullate sono partite (e almeno una è passata
+ * dal check-in). Gli usi diurni (day use) non hanno check-in: sono finiti quando il giorno è passato.
+ */
 export function tuttiPartiti(p: Pick<Prenotazione, "segmenti">) {
-  const presenze = p.segmenti.filter((s) => s.stato !== "ANNULLATO").flatMap((s) => s.presenze);
-  return presenze.length > 0 && presenze.every((x) => x.stato === "partito");
+  const attivi = p.segmenti.filter((s) => s.stato !== "ANNULLATO");
+  const diurni = attivi.filter((s) => s.usoDiurno);
+  const oggi = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome" }).format(new Date());
+  if (diurni.some((s) => s.dataInizio.toISOString().slice(0, 10) >= oggi)) return false;
+  const presenze = attivi.filter((s) => !s.usoDiurno).flatMap((s) => s.presenze);
+  if (!presenze.length) return diurni.length > 0;
+  return presenze.every((x) => x.stato === "partito");
 }
 
 /** Situazione del conto di una prenotazione (per il dettaglio e per il check-out). */
@@ -79,7 +87,7 @@ export async function contiAperti(hotelId: number) {
         {
           stato: { not: "ANNULLATA" },
           segmenti: {
-            some: { stato: { not: "ANNULLATO" }, dataFine: { gte: da }, presenze: { some: { stato: "partito" } } },
+            some: { stato: { not: "ANNULLATO" }, dataFine: { gte: da }, OR: [{ usoDiurno: true }, { presenze: { some: { stato: "partito" } } }] },
             none: { stato: { not: "ANNULLATO" }, presenze: { some: { stato: { not: "partito" } } } },
           },
         },

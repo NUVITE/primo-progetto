@@ -4,6 +4,7 @@ import { sbusta } from "@/lib/esito";
 import { useEffect, useState } from "react";
 import {
   azioneOpzioniTipoCamera,
+  azionePrezzoUsoDiurno,
   azioneCambiaTipoCamera,
   azioneCreaCamera,
   azioneCreaIndisponibilita,
@@ -59,7 +60,7 @@ export function GestioneCamere({ iniziale }: { iniziale: Dati }) {
       <h1 className="text-xl font-bold">Gestione camere</h1>
       <Suggerimento id="gestione-camere" titolo="Come si configurano le camere">
         <ol className="list-decimal space-y-1 pl-5">
-          <li>Crea i <strong>tipi camera</strong> (singola, doppia, suite…): i prezzi dei listini sono per tipo. Qui indichi anche quanti letti aggiunti sono possibili e se gli animali sono ammessi.</li>
+          <li>Crea i <strong>tipi camera</strong> (singola, doppia, suite…): i prezzi dei listini sono per tipo. Qui indichi anche quanti letti aggiunti sono possibili, se gli animali sono ammessi e il prezzo all&apos;ora proposto per l&apos;uso diurno (day use).</li>
           <li>Aggiungi le <strong>camere</strong> con numero, tipo, piano e capienza.</li>
           <li>Per una camera in manutenzione usa <strong>Fuori servizio</strong>: nel periodo indicato non si può prenotare.</li>
         </ol>
@@ -73,7 +74,7 @@ export function GestioneCamere({ iniziale }: { iniziale: Dati }) {
           <h2 className="mb-3 text-sm font-bold text-stone-900">Tipi camera</h2>
           <table className="mb-4 w-full text-sm">
             <thead className="text-left text-xs uppercase text-stone-500">
-              <tr><th className="pb-1">Codice</th><th className="pb-1">Descrizione</th><th className="pb-1" title="Letti aggiunti possibili oltre la capienza">Letti agg.</th><th className="pb-1">Animali</th></tr>
+              <tr><th className="pb-1">Codice</th><th className="pb-1">Descrizione</th><th className="pb-1" title="Letti aggiunti possibili oltre la capienza">Letti agg.</th><th className="pb-1">Animali</th><th className="pb-1" title="Prezzo all'ora proposto per l'uso diurno (day use)">Day use €/ora</th></tr>
             </thead>
             <tbody>
               {dati.tipiCamera.map((t) => (
@@ -100,6 +101,21 @@ export function GestioneCamere({ iniziale }: { iniziale: Dati }) {
                       disabled={busy}
                       checked={t.animaliAmmessi}
                       onChange={(e) => eseguendo(() => sbusta(azioneOpzioniTipoCamera(t.id, t.lettiAggiuntiMax, e.target.checked)))}
+                    />
+                  </td>
+                  <td className="py-1.5">
+                    <input
+                      type="number"
+                      min={0}
+                      step="0.5"
+                      disabled={busy}
+                      placeholder="—"
+                      className="w-20 rounded-md border border-stone-300 px-1.5 py-0.5 text-sm"
+                      defaultValue={t.prezzoOraUsoDiurno ?? ""}
+                      onBlur={(e) => {
+                        const v = e.target.value.trim() === "" ? null : Number(e.target.value);
+                        if (v !== t.prezzoOraUsoDiurno) eseguendo(() => sbusta(azionePrezzoUsoDiurno(t.id, v)));
+                      }}
                     />
                   </td>
                 </tr>

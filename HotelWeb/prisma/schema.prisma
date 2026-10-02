@@ -144,14 +144,16 @@ model Comune {
 }
 
 model TipoCamera {
-  id               Int     @id @default(autoincrement())
-  hotelId          Int
-  hotel            Hotel   @relation(fields: [hotelId], references: [id])
-  codice           String
-  descrizione      String
+  id                 Int      @id @default(autoincrement())
+  hotelId            Int
+  hotel              Hotel    @relation(fields: [hotelId], references: [id])
+  codice             String
+  descrizione        String
   // Letti aggiunti possibili oltre la capienza della camera; animali ammessi in questo tipo.
-  lettiAggiuntiMax Int     @default(0)
-  animaliAmmessi   Boolean @default(false)
+  lettiAggiuntiMax   Int      @default(0)
+  animaliAmmessi     Boolean  @default(false)
+  // Prezzo orario proposto per l'uso diurno (day use) di questo tipo di camera.
+  prezzoOraUsoDiurno Decimal? @db.Decimal(10, 2)
 
   camere                Camera[]
   periodiTariffari      PeriodoTariffario[]
@@ -345,6 +347,12 @@ model SegmentoSoggiorno {
   etaBambini           Json?
   // Prezzo per notte concordato a mano (permesso "Modificare i prezzi"): sostituisce il listino per
   // tutte le notti della camera e i ricalcoli non lo toccano. Chi e perché restano registrati.
+  // Uso diurno (day use): camera usata di giorno senza pernottamento. dataInizio = dataFine = il
+  // giorno; niente notti, tassa di soggiorno, schedina né ISTAT. Prezzo forfettario della fascia oraria.
+  usoDiurno            Boolean       @default(false)
+  oraDal               String?
+  oraAl                String?
+  prezzoUsoDiurno      Decimal?      @db.Decimal(10, 2)
   prezzoConcordato     Decimal?      @db.Decimal(10, 2)
   prezzoConcordatoNota String?
   prezzoConcordatoDa   String?
