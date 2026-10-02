@@ -1,6 +1,7 @@
-import { datiConti } from "./actions";
+import { datiConti, datiEventiDaSaldare } from "./actions";
 import { ContiAperti } from "./ContiAperti";
 
 export default async function ContiPage() {
-  return <ContiAperti iniziale={await datiConti()} />;
+  const [conti, eventi] = await Promise.all([datiConti(), datiEventiDaSaldare()]);
+  return <ContiAperti iniziale={conti} eventi={eventi} />;
 }

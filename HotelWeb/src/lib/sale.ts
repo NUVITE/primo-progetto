@@ -1,5 +1,7 @@
 import type { Prisma, PrismaClient } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
+import { oggiItaliano, verificaCassaAperta } from "@/lib/cassaAperta";
+import { METODI_PAGAMENTO, TIPI_PAGAMENTO } from "@/lib/prenotazioni";
 
 /**
  * Modulo Sale ed eventi (approvato il 2026-09-30). Orari in ORA LOCALE salvata come UTC
@@ -393,6 +395,7 @@ export async function dettaglioPrenotazioneSala(hotelId: number, id: number) {
         include: { prenotazione: { include: { segmenti: { include: { camera: true }, orderBy: { dataInizio: "asc" } } } } },
         orderBy: { createdAt: "asc" },
       },
+      pagamenti: { orderBy: [{ data: "asc" }, { id: "asc" }] },
     },
   });
   const avvisi: string[] = [];
@@ -456,6 +459,19 @@ export async function dettaglioPrenotazioneSala(hotelId: number, id: number) {
   });
   const totaleSale = occupazioni.reduce((t, o) => t + o.prezzo + o.costoAllestimento, 0);
   const totaleServizi = servizi.reduce((t, s) => t + s.totale, 0);
+  const pagamenti = p.pagamenti.map((x) => ({
+    id: x.id,
+    data: giornoDi(x.data),
+    importo: Number(x.importo),
+    tipo: x.tipo,
+    tipoTesto: TIPI_PAGAMENTO[x.tipo as keyof typeof TIPI_PAGAMENTO] ?? x.tipo,
+    metodo: METODI_PAGAMENTO[x.metodo as keyof typeof METODI_PAGAMENTO] ?? x.metodo,
+    nota: x.nota ?? "",
+    registratoDa: x.registratoDa,
+    stornato: x.stornatoIl ? { da: x.stornatoDa ?? "", motivo: x.motivoStorno ?? "" } : null,
+  }));
+  const pagato = arrotondaEuro(pagamenti.filter((x) => !x.stornato).reduce((t, x) => t + (x.tipo === "rimborso" ? -1 : 1) * x.importo, 0));
+  const totaleEvento = arrotondaEuro(totaleSale + totaleServizi);
   return {
     id: p.id,
     titolo: p.titolo,
@@ -471,7 +487,8 @@ export async function dettaglioPrenotazioneSala(hotelId: number, id: number) {
     servizi,
     persone,
     giorni: [...new Set(occupazioni.map((o) => o.giorno))],
-    totali: { sale: totaleSale, servizi: totaleServizi, totale: totaleSale + totaleServizi },
+    totali: { sale: totaleSale, servizi: totaleServizi, totale: totaleEvento, pagato, daPagare: arrotondaEuro(totaleEvento - pagato) },
+    pagamenti,
     avvisi,
   };
 }
@@ -720,4 +737,57 @@ export async function collegaPrenotazionePersona(hotelId: number, personaId: num
 export async function personaPerUsoDiurno(hotelId: number, personaId: number) {
   const p = await prisma.personaEvento.findFirst({ where: { id: personaId, prenotazioneSala: { hotelId } }, include: { prenotazioneSala: true } });
   return p ? { id: p.id, nome: p.nome, evento: p.prenotazioneSala.titolo, prenotazioneSalaId: p.prenotazioneSalaId } : null;
+}
+
+// ---------------- Pagamenti dell'evento ----------------
+
+const arrotondaEuro = (n: number) => Math.round(n * 100) / 100;
+
+export type PagamentoSalaInput = { data: string; importo: number; metodo: string; tipo: string; nota: string };
+
+/** Acconto, saldo o rimborso sull'evento: entra nella cassa del giorno come quelli delle camere. */
+export async function registraPagamentoSala(hotelId: number, prenotazioneSalaId: number, d: PagamentoSalaInput, utente: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d.data)) throw new Error("Indica la data del pagamento.");
+  if (!(d.importo > 0)) throw new Error("L'importo deve essere maggiore di zero.");
+  if (!(d.metodo in METODI_PAGAMENTO)) throw new Error("Metodo di pagamento non valido.");
+  if (!(d.tipo in TIPI_PAGAMENTO)) throw new Error("Tipo di pagamento non valido.");
+  await prisma.$transaction(async (tx) => {
+    const p = await tx.prenotazioneSala.findFirstOrThrow({ where: { id: prenotazioneSalaId, hotelId }, include: { pagamenti: true } });
+    await verificaCassaAperta(tx, hotelId, d.data);
+    const incassato = p.pagamenti.filter((x) => !x.stornatoIl).reduce((t, x) => t + (x.tipo === "rimborso" ? -1 : 1) * Number(x.importo), 0);
+    if (d.tipo === "rimborso" && d.importo > incassato + 0.001) throw new Error(`Non si può rimborsare più di quanto incassato (€ ${incassato.toFixed(2)}).`);
+    await tx.pagamento.create({
+      data: { hotelId, prenotazioneSalaId, data: new Date(d.data), importo: d.importo, metodo: d.metodo, tipo: d.tipo, nota: d.nota.trim() || null, registratoDa: utente },
+    });
+  });
+}
+
+export async function stornaPagamentoSala(hotelId: number, pagamentoId: number, motivo: string, utente: string) {
+  if (!motivo.trim()) throw new Error("Indica il motivo dello storno.");
+  return prisma.$transaction(async (tx) => {
+    const pag = await tx.pagamento.findFirstOrThrow({ where: { id: pagamentoId, hotelId, prenotazioneSalaId: { not: null } } });
+    if (pag.stornatoIl) throw new Error("Pagamento già stornato.");
+    await verificaCassaAperta(tx, hotelId, oggiItaliano());
+    await tx.pagamento.update({ where: { id: pagamentoId }, data: { stornatoIl: new Date(), stornatoDa: utente, motivoStorno: motivo.trim() } });
+    return pag.prenotazioneSalaId!;
+  });
+}
+
+/** Eventi già svolti (ultimo giorno passato) con qualcosa ancora da incassare. */
+export async function eventiDaSaldare(hotelId: number) {
+  const oggi = oggiItaliano();
+  const eventi = await prisma.prenotazioneSala.findMany({
+    where: { hotelId, stato: "confermata", occupazioni: { some: {} }, NOT: { occupazioni: { some: { inizio: { gte: new Date(oggi) } } } } },
+    include: { cliente: true, occupazioni: true, servizi: true, pagamenti: true },
+    orderBy: { id: "desc" },
+    take: 300,
+  });
+  return eventi
+    .map((e) => {
+      const totale = e.occupazioni.reduce((t, o) => t + Number(o.prezzo) + Number(o.costoAllestimento), 0) + e.servizi.reduce((t, s) => t + Number(s.prezzoUnitario) * s.quantita, 0);
+      const pagato = e.pagamenti.filter((x) => !x.stornatoIl).reduce((t, x) => t + (x.tipo === "rimborso" ? -1 : 1) * Number(x.importo), 0);
+      const ultimo = e.occupazioni.map((o) => giornoDi(o.inizio)).sort().pop() ?? null;
+      return { id: e.id, titolo: e.titolo, cliente: e.cliente?.denominazione ?? null, ultimoGiorno: ultimo, daPagare: arrotondaEuro(totale - pagato) };
+    })
+    .filter((e) => e.daPagare > 0.005);
 }

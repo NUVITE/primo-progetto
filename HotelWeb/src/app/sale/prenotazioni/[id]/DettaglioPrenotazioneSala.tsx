@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { PacchettoEvento } from "./PacchettoEvento";
 import { PersoneEvento } from "./PersoneEvento";
+import { PagamentiEvento } from "./PagamentiEvento";
 import { Suggerimento } from "@/components/Suggerimento";
 import { useState } from "react";
 import { sbusta } from "@/lib/esito";
@@ -49,9 +50,11 @@ type FormServizio = {
 export function DettaglioPrenotazioneSala({
   iniziale,
   contestoIniziale,
+  puoIncassare,
 }: {
   iniziale: Dettaglio;
   contestoIniziale: Contesto | null;
+  puoIncassare: boolean;
 }) {
   const [d, setD] = useState(iniziale);
   const [contesto, setContesto] = useState(contestoIniziale);
@@ -799,7 +802,12 @@ export function DettaglioPrenotazioneSala({
           <dd className="text-right font-mono font-bold">
             {euro(d.totali.totale)}
           </dd>
+          <dt>Pagato</dt>
+          <dd className="text-right font-mono">{euro(d.totali.pagato)}</dd>
+          <dt className="font-bold">Da pagare</dt>
+          <dd className={`text-right font-mono font-bold ${d.totali.daPagare > 0.005 ? "text-red-700" : ""}`}>{euro(d.totali.daPagare)}</dd>
         </dl>
+        <PagamentiEvento evento={d} puoIncassare={puoIncassare} busy={busy} esegui={esegui} />
       </section>
     </div>
   );

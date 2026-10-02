@@ -7,9 +7,10 @@ import { sbusta } from "@/lib/esito";
 import { Avviso, Etichetta, IntestazionePagina, Pulsante, Sezione } from "@/components/ui";
 import { AiutoSezione, Esempio } from "@/components/AiutoSezione";
 import { Suggerimento } from "@/components/Suggerimento";
-import { azioneSollecito, datiConti } from "./actions";
+import { azioneSollecito, datiConti, datiEventiDaSaldare } from "./actions";
 
 type Riga = Awaited<ReturnType<typeof datiConti>>[number];
+type Evento = Awaited<ReturnType<typeof datiEventiDaSaldare>>[number];
 
 const it = (g: string) => g.slice(0, 10).split("-").reverse().join("/");
 const eur = (n: number) => n.toLocaleString("it-IT", { style: "currency", currency: "EUR" });
@@ -21,15 +22,16 @@ const GRUPPI = [
   { chiave: "penali", titolo: "Penali da incassare", aiuto: "Prenotazioni annullate con una penale più alta di quanto già incassato." },
 ] as const;
 
-export function ContiAperti({ iniziale }: { iniziale: Riga[] }) {
+export function ContiAperti({ iniziale, eventi }: { iniziale: Riga[]; eventi: Evento[] }) {
   const [righe, setRighe] = useState(iniziale);
   const [busy, setBusy] = useState(false);
   const [errore, setErrore] = useState<string | null>(null);
-  const totale = righe.reduce((t, r) => t + r.daPagare, 0);
+  const totale = righe.reduce((t, r) => t + r.daPagare, 0) + eventi.reduce((t, e) => t + e.daPagare, 0);
+  const quanti = righe.length + eventi.length;
 
   return (
     <div className="flex w-full min-w-0 flex-col gap-4 p-3 sm:p-6">
-      <IntestazionePagina titolo="Conti aperti e sospesi" sottotitolo={righe.length ? `${righe.length} conti, ${eur(totale)} da incassare` : "Nessun conto da chiudere"} />
+      <IntestazionePagina titolo="Conti aperti e sospesi" sottotitolo={quanti ? `${quanti} conti, ${eur(totale)} da incassare` : "Nessun conto da chiudere"} />
       <Suggerimento id="conti-sospesi" titolo="A cosa serve">
         <p>
           Un soggiorno finisce con il saldo pagato oppure con un conto <strong>in sospeso</strong> esplicito, mai con un &quot;da pagare&quot; dimenticato. Qui
@@ -38,7 +40,7 @@ export function ContiAperti({ iniziale }: { iniziale: Riga[] }) {
         </p>
       </Suggerimento>
       {errore && <Avviso tipo="errore">{errore}</Avviso>}
-      {righe.length === 0 && (
+      {quanti === 0 && (
         <p className="flex items-center gap-2 text-sm text-emerald-800">
           <CheckCircle2 className="h-4 w-4" aria-hidden /> Tutti i conti sono chiusi.
         </p>
@@ -114,6 +116,41 @@ export function ContiAperti({ iniziale }: { iniziale: Riga[] }) {
           </Sezione>
         );
       })}
+      {eventi.length > 0 && (
+        <Sezione titolo={`Eventi in sala da saldare (${eventi.length})`}>
+          <AiutoSezione breve="Eventi confermati già svolti con una parte ancora da incassare: apri l'evento per registrare il pagamento." />
+          <table className="tabella-responsive mt-3 w-full text-sm">
+            <thead className="border-b border-stone-200 text-left text-xs font-semibold text-stone-600">
+              <tr>
+                <th className="py-1.5 pr-2">Evento</th>
+                <th className="py-1.5 pr-2">Ultimo giorno</th>
+                <th className="py-1.5 pr-2">Cliente</th>
+                <th className="py-1.5 pr-2 text-right">Da incassare</th>
+              </tr>
+            </thead>
+            <tbody>
+              {eventi.map((e) => (
+                <tr key={e.id} className="border-b border-stone-100 align-top last:border-0">
+                  <td data-label="Evento" className="py-1.5 pr-2">
+                    <Link href={`/sale/prenotazioni/${e.id}`} className="font-semibold text-stone-900 hover:underline">
+                      {e.titolo}
+                    </Link>
+                  </td>
+                  <td data-label="Ultimo giorno" className="py-1.5 pr-2 font-mono text-xs">
+                    {e.ultimoGiorno ? it(e.ultimoGiorno) : "—"}
+                  </td>
+                  <td data-label="Cliente" className="py-1.5 pr-2">
+                    {e.cliente ?? "—"}
+                  </td>
+                  <td data-label="Da incassare" className="py-1.5 pr-2 text-right font-mono font-semibold">
+                    {eur(e.daPagare)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Sezione>
+      )}
     </div>
   );
 }

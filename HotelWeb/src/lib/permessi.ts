@@ -12,6 +12,7 @@ export const PERMESSI = {
   PAGAMENTI_REGISTRA: "pagamenti.registra",
   PREZZI_MODIFICA: "prezzi.modifica",
   ADDEBITI_REGISTRA: "addebiti.registra",
+  CASSA_CHIUDI: "cassa.chiudi",
   ADEMPIMENTI_INVIA: "adempimenti.invia",
   SOGGIORNI_RIAPRI: "soggiorni.riapri",
   CAMERE_GESTISCI: "camere.gestisci",
@@ -42,6 +43,11 @@ export const CATALOGO_PERMESSI: { area: string; modulo?: Modulo; voci: { permess
         permesso: PERMESSI.ADDEBITI_REGISTRA,
         nome: "Registrare addebiti",
         descrizione: "Segnare sul conto delle camere i consumi dei reparti (bar, frigobar, lavanderia…) e stornarli se sbagliati, anche da tablet",
+      },
+      {
+        permesso: PERMESSI.CASSA_CHIUDI,
+        nome: "Chiusura di cassa",
+        descrizione: "Vedere gli incassi del giorno per metodo e operatore, contare i contanti e chiudere la giornata",
       },
       { permesso: PERMESSI.PREZZI_MODIFICA, nome: "Modificare i prezzi", descrizione: "Fissare a mano il prezzo per notte di una camera prenotata (resta traccia di chi e perché)" },
       { permesso: PERMESSI.SOGGIORNI_RIAPRI, nome: "Riaprire soggiorni chiusi", descrizione: "Rettificare un soggiorno dopo il check-out (tassa definitiva): resta traccia di chi e quando" },
@@ -84,6 +90,7 @@ const IMPLICAZIONI: Partial<Record<Permesso, Permesso[]>> = {
   [PERMESSI.SOGGIORNI_RIAPRI]: [PERMESSI.PRENOTAZIONI_GESTISCI],
   [PERMESSI.PAGAMENTI_REGISTRA]: [PERMESSI.PRENOTAZIONI_VEDI, PERMESSI.IMPORTI_VEDI],
   [PERMESSI.ADEMPIMENTI_INVIA]: [PERMESSI.PRENOTAZIONI_VEDI],
+  [PERMESSI.CASSA_CHIUDI]: [PERMESSI.PRENOTAZIONI_VEDI, PERMESSI.IMPORTI_VEDI],
   [PERMESSI.PREZZI_MODIFICA]: [PERMESSI.PRENOTAZIONI_GESTISCI, PERMESSI.PRENOTAZIONI_VEDI, PERMESSI.IMPORTI_VEDI],
 };
 
@@ -112,7 +119,7 @@ export const RUOLI_PREDEFINITI: { nome: string; permessi: Permesso[] }[] = [
   { nome: "Direttore", permessi: TUTTI_I_PERMESSI.filter((p) => p !== PERMESSI.RUOLI_GESTISCI) },
   {
     nome: "Reception",
-    permessi: [PERMESSI.PRENOTAZIONI_VEDI, PERMESSI.PRENOTAZIONI_GESTISCI, PERMESSI.IMPORTI_VEDI, PERMESSI.PAGAMENTI_REGISTRA, PERMESSI.ADDEBITI_REGISTRA, PERMESSI.ADEMPIMENTI_INVIA, PERMESSI.SALE_VEDI, PERMESSI.SALE_GESTISCI],
+    permessi: [PERMESSI.PRENOTAZIONI_VEDI, PERMESSI.PRENOTAZIONI_GESTISCI, PERMESSI.IMPORTI_VEDI, PERMESSI.PAGAMENTI_REGISTRA, PERMESSI.ADDEBITI_REGISTRA, PERMESSI.CASSA_CHIUDI, PERMESSI.ADEMPIMENTI_INVIA, PERMESSI.SALE_VEDI, PERMESSI.SALE_GESTISCI],
   },
   {
     nome: "Eventi / Commerciale",

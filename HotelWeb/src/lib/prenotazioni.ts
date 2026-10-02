@@ -1,3 +1,4 @@
+import { oggiItaliano, verificaCassaAperta } from "@/lib/cassaAperta";
 import { prisma } from "@/lib/prisma";
 import { Prisma, type PrismaClient } from "@/generated/prisma/client";
 import { calcolaNotte, composizioneDi, nottiTraDate, regoleListino, ricalcolaGratuita, verificaComposizione, type Composizione } from "@/lib/pricing";
@@ -872,10 +873,12 @@ export async function annullaPrenotazione(
     const eccedenza = arrotonda2(incassato - penale);
     let penaleFinale = penale;
     if (eccedenza > 0 && dati.rimborsaEccedenza) {
+      await verificaCassaAperta(tx, hotelId, oggiItaliano());
       await tx.pagamento.create({
         data: {
+          hotelId,
           prenotazioneId: id,
-          data: new Date(new Date().toISOString().slice(0, 10)),
+          data: new Date(oggiItaliano()),
           importo: eccedenza,
           metodo: dati.metodoRimborso || "altro",
           tipo: "rimborso",
@@ -1004,11 +1007,13 @@ export async function registraPagamento(
   if (!(d.tipo in TIPI_PAGAMENTO)) throw new Error("Tipo di pagamento non valido.");
   return prisma.$transaction(async (tx) => {
     const p = await tx.prenotazione.findFirstOrThrow({ where: { id: prenotazioneId, hotelId }, include: { pagamenti: true } });
+    await verificaCassaAperta(tx, hotelId, d.data);
     if (d.tipo === "rimborso" && d.importo > pagatoNetto(p.pagamenti) + 0.001) {
       throw new Error(`Non si può rimborsare più di quanto incassato (€ ${pagatoNetto(p.pagamenti).toFixed(2)}).`);
     }
     await tx.pagamento.create({
       data: {
+        hotelId,
         prenotazioneId,
         data: new Date(d.data),
         importo: d.importo,
@@ -1027,10 +1032,11 @@ export async function registraPagamento(
 export async function stornaPagamento(hotelId: number, pagamentoId: number, motivo: string, utente: string) {
   if (!motivo.trim()) throw new Error("Indica il motivo dello storno.");
   return prisma.$transaction(async (tx) => {
-    const pag = await tx.pagamento.findFirstOrThrow({ where: { id: pagamentoId, prenotazione: { hotelId } } });
+    const pag = await tx.pagamento.findFirstOrThrow({ where: { id: pagamentoId, hotelId, prenotazioneId: { not: null } } });
     if (pag.stornatoIl) throw new Error("Pagamento già stornato.");
+    await verificaCassaAperta(tx, hotelId, oggiItaliano());
     await tx.pagamento.update({ where: { id: pagamentoId }, data: { stornatoIl: new Date(), stornatoDa: utente, motivoStorno: motivo.trim() } });
-    return caricaPrenotazioneCompleta(tx, hotelId, pag.prenotazioneId);
+    return caricaPrenotazioneCompleta(tx, hotelId, pag.prenotazioneId!);
   });
 }
 

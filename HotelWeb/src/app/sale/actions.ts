@@ -22,6 +22,9 @@ import {
   elencoPacchetti,
   rimuoviPersonaEvento,
   salvaPersonaEvento,
+  registraPagamentoSala,
+  stornaPagamentoSala,
+  type PagamentoSalaInput,
   type OccupazioneInput,
   type PersonaEventoInput,
   type Ripetizione,
@@ -46,7 +49,7 @@ export async function datiContesto() {
 
 export async function datiDettaglioSala(id: number) {
   const u = await richiediPermesso(PERMESSI.SALE_VEDI);
-  return { dettaglio: await dettaglioPrenotazioneSala(u.hotelId, id), puoGestire: puo(u, PERMESSI.SALE_GESTISCI) };
+  return { dettaglio: await dettaglioPrenotazioneSala(u.hotelId, id), puoGestire: puo(u, PERMESSI.SALE_GESTISCI), puoIncassare: puo(u, PERMESSI.PAGAMENTI_REGISTRA) };
 }
 
 export async function azioneAnteprima(o: OccupazioneInput, escludiOccupazioneId?: number) {
@@ -112,4 +115,22 @@ export async function azioneAggiungiServizio(
 }
 export async function azioneRimuoviServizio(id: number, servizioId: number) {
   return suDettaglio(id, (h) => rimuoviServizioSala(h, id, servizioId));
+}
+
+/** Pagamenti dell'evento: servono "Vedere sale" e "Registrare pagamenti". */
+export async function azionePagamentoSala(id: number, d: PagamentoSalaInput) {
+  return conEsito(async () => {
+    const u = await richiediPermesso(PERMESSI.PAGAMENTI_REGISTRA);
+    if (!puo(u, PERMESSI.SALE_VEDI)) throw new Error("Serve il permesso «Vedere sale».");
+    await registraPagamentoSala(u.hotelId, id, d, u.nome);
+    return dettaglioPrenotazioneSala(u.hotelId, id);
+  });
+}
+export async function azioneStornaPagamentoSala(pagamentoId: number, motivo: string) {
+  return conEsito(async () => {
+    const u = await richiediPermesso(PERMESSI.PAGAMENTI_REGISTRA);
+    if (!puo(u, PERMESSI.SALE_VEDI)) throw new Error("Serve il permesso «Vedere sale».");
+    const id = await stornaPagamentoSala(u.hotelId, pagamentoId, motivo, u.nome);
+    return dettaglioPrenotazioneSala(u.hotelId, id);
+  });
 }

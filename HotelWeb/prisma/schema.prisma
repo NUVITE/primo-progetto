@@ -82,6 +82,8 @@ model Hotel {
   politicheCancellazione PoliticaCancellazione[]
   pacchettiSala          PacchettoSala[]
   repartiAddebito        RepartoAddebito[]
+  pagamenti              Pagamento[]
+  chiusureCassa          ChiusuraCassa[]
 }
 
 /**
@@ -332,7 +334,7 @@ enum StatoSegmento {
 model SegmentoSoggiorno {
   id                   Int           @id @default(autoincrement())
   prenotazioneId       Int
-  prenotazione         Prenotazione  @relation(fields: [prenotazioneId], references: [id])
+  prenotazione         Prenotazione  @relation(fields: [prenotazioneId], references: [id], onDelete: Restrict)
   // Null finche' non si assegna una camera fisica specifica: una prenotazione "generica"
   // (es. "2 doppie dal 14 al 21") blocca la disponibilita' per tipo camera, non una camera precisa.
   cameraId             Int?
@@ -419,7 +421,7 @@ model ServizioCatalogo {
 model ServizioAggiunto {
   id                 Int               @id @default(autoincrement())
   prenotazioneId     Int
-  prenotazione       Prenotazione      @relation(fields: [prenotazioneId], references: [id])
+  prenotazione       Prenotazione      @relation(fields: [prenotazioneId], references: [id], onDelete: Restrict)
   servizioCatalogoId Int?
   servizioCatalogo   ServizioCatalogo? @relation(fields: [servizioCatalogoId], references: [id])
   // Nome da mostrare: se non c'e' un servizio a catalogo e' obbligatoria (prezzo libero).
@@ -635,7 +637,7 @@ model RegolaTassa {
 model PosizioneTassa {
   id                     Int          @id @default(autoincrement())
   prenotazioneId         Int
-  prenotazione           Prenotazione @relation(fields: [prenotazioneId], references: [id])
+  prenotazione           Prenotazione @relation(fields: [prenotazioneId], references: [id], onDelete: Restrict)
   ospiteId               Int
   ospite                 Ospite       @relation(fields: [ospiteId], references: [id])
   residente              Boolean      @default(false)
@@ -923,6 +925,7 @@ model PrenotazioneSala {
   occupazioni OccupazioneSala[]
   servizi     ServizioSala[]
   persone     PersonaEvento[]
+  pagamenti   Pagamento[]
 }
 
 /**
@@ -975,24 +978,31 @@ model ServizioSala {
  * il rimborso si sottrae. Un pagamento sbagliato non si cancella: si storna con motivo.
  */
 model Pagamento {
-  id             Int          @id @default(autoincrement())
-  prenotazioneId Int
-  prenotazione   Prenotazione @relation(fields: [prenotazioneId], references: [id])
-  data           DateTime     @db.Date
-  importo        Decimal      @db.Decimal(10, 2)
+  id                 Int               @id @default(autoincrement())
+  hotelId            Int
+  hotel              Hotel             @relation(fields: [hotelId], references: [id])
+  // Su una prenotazione di camere oppure su un evento in sala (uno dei due).
+  prenotazioneId     Int?
+  prenotazione       Prenotazione?     @relation(fields: [prenotazioneId], references: [id], onDelete: Restrict)
+  prenotazioneSalaId Int?
+  prenotazioneSala   PrenotazioneSala? @relation(fields: [prenotazioneSalaId], references: [id], onDelete: Restrict)
+  data               DateTime          @db.Date
+  importo            Decimal           @db.Decimal(10, 2)
   // "contanti" | "carta" | "bancomat" | "bonifico" | "assegno" | "altro"
-  metodo         String
-  tipo           String
-  nota           String?
-  registratoDa   String
-  createdAt      DateTime     @default(now())
-  stornatoIl     DateTime?
-  stornatoDa     String?
-  motivoStorno   String?
+  metodo             String
+  tipo               String
+  nota               String?
+  registratoDa       String
+  createdAt          DateTime          @default(now())
+  stornatoIl         DateTime?
+  stornatoDa         String?
+  motivoStorno       String?
   // Intestatario del conto che ha pagato: "ospite" (o null) | "cliente:<id>".
-  intestatario   String?
+  intestatario       String?
 
   @@index([prenotazioneId])
+  @@index([prenotazioneSalaId])
+  @@index([hotelId, data])
 }
 
 /**
@@ -1196,7 +1206,7 @@ model RepartoAddebito {
 model AddebitoConto {
   id             Int                @id @default(autoincrement())
   prenotazioneId Int
-  prenotazione   Prenotazione       @relation(fields: [prenotazioneId], references: [id])
+  prenotazione   Prenotazione       @relation(fields: [prenotazioneId], references: [id], onDelete: Restrict)
   segmentoId     Int?
   segmento       SegmentoSoggiorno? @relation(fields: [segmentoId], references: [id])
   repartoId      Int?
@@ -1241,7 +1251,7 @@ model IntestazioneRigaConto {
 model RigaFatturata {
   id             Int          @id @default(autoincrement())
   prenotazioneId Int
-  prenotazione   Prenotazione @relation(fields: [prenotazioneId], references: [id])
+  prenotazione   Prenotazione @relation(fields: [prenotazioneId], references: [id], onDelete: Restrict)
   chiave         String
   intestatario   String
   descrizione    String
@@ -1253,4 +1263,28 @@ model RigaFatturata {
   da             String
 
   @@index([prenotazioneId, chiave])
+}
+
+/**
+ * Chiusura di cassa di una giornata: fotografia degli incassi per metodo al momento della chiusura
+ * (se dopo cambia qualcosa con quella data si vede la differenza) e, se si usa, il conteggio dei
+ * contanti con il fondo cassa.
+ */
+model ChiusuraCassa {
+  id              Int      @id @default(autoincrement())
+  hotelId         Int
+  hotel           Hotel    @relation(fields: [hotelId], references: [id])
+  giorno          DateTime @db.Date
+  // { metodo: importo netto } e totale netto al momento della chiusura.
+  totali          Json
+  totale          Decimal  @db.Decimal(10, 2)
+  // Fondo cassa facoltativo: fondo all'apertura, contanti contati alla chiusura, fondo lasciato per domani.
+  fondoIniziale   Decimal? @db.Decimal(10, 2)
+  contantiContati Decimal? @db.Decimal(10, 2)
+  fondoLasciato   Decimal? @db.Decimal(10, 2)
+  nota            String?  @db.Text
+  chiusaDa        String
+  chiusaIl        DateTime @default(now())
+
+  @@unique([hotelId, giorno])
 }

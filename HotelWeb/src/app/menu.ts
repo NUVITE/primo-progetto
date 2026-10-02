@@ -22,6 +22,7 @@ export const MENU: GruppoMenu[] = [
       { href: "/prenotazioni", label: "Prenotazioni", permesso: PERMESSI.PRENOTAZIONI_VEDI },
       { href: "/addebiti", label: "Addebiti dei reparti", permesso: PERMESSI.ADDEBITI_REGISTRA },
       { href: "/conti", label: "Conti aperti e sospesi", permesso: PERMESSI.PAGAMENTI_REGISTRA },
+      { href: "/cassa", label: "Cassa e chiusura del giorno", permesso: PERMESSI.CASSA_CHIUDI },
       { href: "/schedine", label: "Schedine Polizia", permesso: PERMESSI.ADEMPIMENTI_INVIA },
       { href: "/istat", label: "ISTAT movimento turistico", permesso: PERMESSI.ADEMPIMENTI_INVIA },
       { href: "/rendiconto-tassa", label: "Rendiconto tassa di soggiorno", permesso: PERMESSI.ADEMPIMENTI_INVIA },
