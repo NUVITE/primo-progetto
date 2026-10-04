@@ -53,6 +53,8 @@ import { PERMESSI } from "@/lib/permessi";
 import { descriviPolitica, elencoPolitiche, type PoliticaCopiata } from "@/lib/politiche";
 import { prisma } from "@/lib/prisma";
 import { noteDellaPrenotazione } from "@/lib/noteAlimentari";
+import { impostaPastoPrincipale } from "@/lib/foglioPasti";
+import { pastiEffettivi, pastoScambiabile } from "@/lib/pastiRegole";
 import { sospendiConto, statoConto, togliSospeso } from "@/lib/contiSospesi";
 import { elencoReparti, registraAddebito, riepilogoIva, stornaAddebito, type AddebitoInput } from "@/lib/conto";
 import { dividiConto, impostaRegolaConto, REGOLE_CONTO, segnaFatturate, spostaRiga, type RegolaConto } from "@/lib/contoDiviso";
@@ -82,6 +84,10 @@ async function serializza(prenotazione: Awaited<ReturnType<typeof trovaPrenotazi
   const reparti = puoAddebitare ? await elencoReparti(utente.hotelId, true) : [];
   // Note alimentari (dati sanitari): solo con il permesso, altrimenti non lasciano il server.
   const noteAlimentari = puo(utente, PERMESSI.NOTE_ALIMENTARI) ? await noteDellaPrenotazione(utente.hotelId, prenotazione.id) : null;
+  // Ristorazione: in mezza pensione si sceglie pranzo o cena (solo con il modulo attivo).
+  const trattamentiPasti = utente.moduli.includes("ristorazione")
+    ? new Map((await prisma.trattamento.findMany({ where: { hotelId: utente.hotelId } })).map((t) => [t.nome, t]))
+    : null;
   return {
     importiVisibili,
     noteAlimentari,
@@ -212,6 +218,11 @@ async function serializza(prenotazione: Awaited<ReturnType<typeof trovaPrenotazi
         : [],
       cameraId: s.cameraId,
       cameraCodice: s.camera?.codice ?? null,
+      pasti: (() => {
+        const t = trattamentiPasti?.get(s.trattamento);
+        if (!t || s.usoDiurno || !pastoScambiabile(t)) return null;
+        return { principale: pastiEffettivi(t, s.pastoPrincipale).pranzo ? ("pranzo" as const) : ("cena" as const), tavolo: s.tavolo ?? "" };
+      })(),
       tipoCameraId: s.tipoCameraId,
       tipoCameraNome: s.tipoCamera.descrizione,
       ospiteId: s.ospiteId,
@@ -493,4 +504,12 @@ export async function azioneSpostaRiga(id: number, chiave: string, intestatario:
 /** Le righe da fatturare di un intestatario risultano passate al gestionale. */
 export async function azioneSegnaFatturate(id: number, intestatario: string) {
   return suPrenotazione(PERMESSI.PAGAMENTI_REGISTRA, (u) => (async () => { await segnaFatturate(u.hotelId, id, intestatario, u.nome); return trovaPrenotazione(u.hotelId, id); })());
+}
+
+/** Mezza pensione: pranzo o cena per questa camera (vale per il foglio del giorno della ristorazione). */
+export async function azionePastoPrincipale(prenotazioneId: number, segmentoId: number, valore: "pranzo" | "cena") {
+  return suPrenotazione(PERMESSI.PRENOTAZIONI_GESTISCI, async (u) => {
+    await impostaPastoPrincipale(u.hotelId, segmentoId, valore);
+    return trovaPrenotazione(u.hotelId, prenotazioneId);
+  });
 }

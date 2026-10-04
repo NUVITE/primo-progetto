@@ -82,7 +82,11 @@ export async function salvaStruttura(hotelId: number, d: DatiStruttura) {
 
 // ---------- Trattamenti ----------
 
-export const TRATTAMENTI_PREDEFINITI = ["B&B", "Mezza pensione", "Pensione completa"];
+export const TRATTAMENTI_PREDEFINITI = [
+  { nome: "B&B", colazione: true, pranzo: false, cena: false },
+  { nome: "Mezza pensione", colazione: true, pranzo: false, cena: true },
+  { nome: "Pensione completa", colazione: true, pranzo: true, cena: true },
+];
 
 export async function elencoTrattamenti(hotelId: number, soloAttivi = false) {
   return prisma.trattamento.findMany({
@@ -110,6 +114,11 @@ export async function impostaTrattamentoAttivo(hotelId: number, id: number, atti
     throw new Error("Deve restare almeno un trattamento attivo.");
   }
   await prisma.trattamento.update({ where: { id, hotelId }, data: { attivo } });
+}
+
+/** Pasti compresi nel trattamento: servono al foglio del giorno della ristorazione. */
+export async function impostaPastiTrattamento(hotelId: number, id: number, pasti: { colazione: boolean; pranzo: boolean; cena: boolean }) {
+  await prisma.trattamento.update({ where: { id, hotelId }, data: { colazione: !!pasti.colazione, pranzo: !!pasti.pranzo, cena: !!pasti.cena } });
 }
 
 export async function spostaTrattamento(hotelId: number, id: number, direzione: -1 | 1) {

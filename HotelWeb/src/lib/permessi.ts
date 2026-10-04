@@ -14,6 +14,7 @@ export const PERMESSI = {
   ADDEBITI_REGISTRA: "addebiti.registra",
   CASSA_CHIUDI: "cassa.chiudi",
   NOTE_ALIMENTARI: "ristorazione.note",
+  FOGLIO_PASTI: "ristorazione.foglio",
   ADEMPIMENTI_INVIA: "adempimenti.invia",
   SOGGIORNI_RIAPRI: "soggiorni.riapri",
   CAMERE_GESTISCI: "camere.gestisci",
@@ -80,6 +81,11 @@ export const CATALOGO_PERMESSI: { area: string; modulo?: Modulo; voci: { permess
         nome: "Note alimentari",
         descrizione: "Vedere e registrare allergie, intolleranze e regimi alimentari degli ospiti (dati sanitari: solo con il consenso)",
       },
+      {
+        permesso: PERMESSI.FOGLIO_PASTI,
+        nome: "Foglio del giorno",
+        descrizione: "Coperti previsti per colazione, pranzo e cena, tavoli e coperti in più o in meno",
+      },
     ],
   },
   {
@@ -103,7 +109,6 @@ const IMPLICAZIONI: Partial<Record<Permesso, Permesso[]>> = {
   [PERMESSI.PAGAMENTI_REGISTRA]: [PERMESSI.PRENOTAZIONI_VEDI, PERMESSI.IMPORTI_VEDI],
   [PERMESSI.ADEMPIMENTI_INVIA]: [PERMESSI.PRENOTAZIONI_VEDI],
   [PERMESSI.CASSA_CHIUDI]: [PERMESSI.PRENOTAZIONI_VEDI, PERMESSI.IMPORTI_VEDI],
-  [PERMESSI.NOTE_ALIMENTARI]: [PERMESSI.PRENOTAZIONI_VEDI],
   [PERMESSI.PREZZI_MODIFICA]: [PERMESSI.PRENOTAZIONI_GESTISCI, PERMESSI.PRENOTAZIONI_VEDI, PERMESSI.IMPORTI_VEDI],
 };
 
@@ -132,12 +137,14 @@ export const RUOLI_PREDEFINITI: { nome: string; permessi: Permesso[] }[] = [
   { nome: "Direttore", permessi: TUTTI_I_PERMESSI.filter((p) => p !== PERMESSI.RUOLI_GESTISCI) },
   {
     nome: "Reception",
-    permessi: [PERMESSI.PRENOTAZIONI_VEDI, PERMESSI.PRENOTAZIONI_GESTISCI, PERMESSI.IMPORTI_VEDI, PERMESSI.PAGAMENTI_REGISTRA, PERMESSI.ADDEBITI_REGISTRA, PERMESSI.CASSA_CHIUDI, PERMESSI.NOTE_ALIMENTARI, PERMESSI.ADEMPIMENTI_INVIA, PERMESSI.SALE_VEDI, PERMESSI.SALE_GESTISCI],
+    permessi: [PERMESSI.PRENOTAZIONI_VEDI, PERMESSI.PRENOTAZIONI_GESTISCI, PERMESSI.IMPORTI_VEDI, PERMESSI.PAGAMENTI_REGISTRA, PERMESSI.ADDEBITI_REGISTRA, PERMESSI.CASSA_CHIUDI, PERMESSI.NOTE_ALIMENTARI, PERMESSI.FOGLIO_PASTI, PERMESSI.ADEMPIMENTI_INVIA, PERMESSI.SALE_VEDI, PERMESSI.SALE_GESTISCI],
   },
   {
     nome: "Eventi / Commerciale",
     permessi: [PERMESSI.PRENOTAZIONI_VEDI, PERMESSI.IMPORTI_VEDI, PERMESSI.SALE_VEDI, PERMESSI.SALE_GESTISCI, PERMESSI.SALE_CONFIGURA],
   },
+  { nome: "Cucina", permessi: [PERMESSI.FOGLIO_PASTI, PERMESSI.NOTE_ALIMENTARI] },
+  { nome: "Sala", permessi: [PERMESSI.FOGLIO_PASTI, PERMESSI.NOTE_ALIMENTARI] },
   { nome: "Governante", permessi: [PERMESSI.PRENOTAZIONI_VEDI] },
   { nome: "Cameriera ai piani", permessi: [] },
   { nome: "Manutenzione", permessi: [] },

@@ -18,6 +18,7 @@ import { CampoComposizione } from "../CampoComposizione";
 import type { Composizione } from "@/lib/pricing";
 import {
   azioneAccorciaEstendi,
+  azionePastoPrincipale,
   azioneAggiungiSegmento,
   azioneAggiungiServizio,
   azioneAssegnaCamera,
@@ -336,6 +337,25 @@ export function PrenotazioneDettaglio({
               descrizione={
                 <>
                   {it(s.dataInizio)} → {it(s.dataFine)} · {s.notti} {s.notti === 1 ? "notte" : "notti"} · {s.trattamento}
+                  {s.pasti && (
+                    <>
+                      {" "}
+                      <select
+                        aria-label="Pasto principale"
+                        className="rounded border border-stone-300 bg-white px-1 text-xs"
+                        disabled={!puoGestire || salvando || s.annullata}
+                        value={s.pasti.principale}
+                        onChange={async (e) => {
+                          const r = await eseguendo(() => sbusta(azionePastoPrincipale(prenotazione.id, s.id, e.target.value as "pranzo" | "cena")));
+                          if (r) setPrenotazione(r);
+                        }}
+                      >
+                        <option value="cena">con la cena</option>
+                        <option value="pranzo">con il pranzo</option>
+                      </select>
+                      {s.pasti.tavolo && <> · tavolo {s.pasti.tavolo}</>}
+                    </>
+                  )}
                   {nomeListino(s.listinoId) && <> · {nomeListino(s.listinoId)}</>}
                 </>
               }

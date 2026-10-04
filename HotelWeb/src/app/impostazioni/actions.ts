@@ -17,6 +17,7 @@ import {
   eliminaSupplementoStagionale,
   salvaSupplementoStagionale,
   impostaTrattamentoAttivo,
+  impostaPastiTrattamento,
   modificaPeriodo,
   rinominaListino,
   rinominaTrattamento,
@@ -60,7 +61,7 @@ export async function azioneEliminaChiusura(id: number) {
 // --- Trattamenti ---
 
 async function trattamenti(hotelId: number) {
-  return (await elencoTrattamenti(hotelId)).map((t) => ({ id: t.id, nome: t.nome, attivo: t.attivo }));
+  return (await elencoTrattamenti(hotelId)).map((t) => ({ id: t.id, nome: t.nome, attivo: t.attivo, colazione: t.colazione, pranzo: t.pranzo, cena: t.cena }));
 }
 
 export async function datiTrattamenti() {
@@ -84,6 +85,9 @@ export async function azioneRinominaTrattamento(id: number, nome: string) {
 }
 export async function azioneTrattamentoAttivo(id: number, attivo: boolean) {
   return suTrattamenti((h) => impostaTrattamentoAttivo(h, id, attivo));
+}
+export async function azionePastiTrattamento(id: number, pasti: { colazione: boolean; pranzo: boolean; cena: boolean }) {
+  return suTrattamenti((h) => impostaPastiTrattamento(h, id, pasti));
 }
 export async function azioneSpostaTrattamento(id: number, direzione: -1 | 1) {
   return suTrattamenti((h) => spostaTrattamento(h, id, direzione));

@@ -107,7 +107,7 @@ export async function creaHotel(dati: DatiHotel, amministratore?: { nome: string
       if (r.nome === "Amministratore") ruoloAmministratoreId = ruolo.id;
     }
     await tx.listino.create({ data: { hotelId: hotel.id, codice: "BASE", descrizione: "Listino base", tipo: "base" } });
-    await tx.trattamento.createMany({ data: TRATTAMENTI_PREDEFINITI.map((nome, i) => ({ hotelId: hotel.id, nome, ordine: i + 1 })) });
+    await tx.trattamento.createMany({ data: TRATTAMENTI_PREDEFINITI.map((t, i) => ({ hotelId: hotel.id, ...t, ordine: i + 1 })) });
     await tx.fasciaOraria.createMany({ data: FASCE_PREDEFINITE.map((f, i) => ({ ...f, hotelId: hotel.id, ordine: i + 1 })) });
     await tx.repartoAddebito.createMany({ data: REPARTI_PREDEFINITI.map((r, i) => ({ ...r, hotelId: hotel.id, ordine: i + 1 })) });
 

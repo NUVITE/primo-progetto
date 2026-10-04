@@ -1,4 +1,4 @@
-import { ConciergeBell, Contact, Settings, ShieldCheck, type LucideIcon } from "lucide-react";
+import { ConciergeBell, Contact, Settings, ShieldCheck, Utensils, type LucideIcon } from "lucide-react";
 import type { Modulo } from "@/lib/moduli";
 import { PERMESSI, type Permesso } from "@/lib/permessi";
 
@@ -30,6 +30,12 @@ export const MENU: GruppoMenu[] = [
       { href: "/sale/prenotazioni", label: "Prenotazioni sale", permesso: PERMESSI.SALE_VEDI, modulo: "sale" },
       { href: "/tassa-soggiorno", label: "Regole tassa di soggiorno", permesso: PERMESSI.PRENOTAZIONI_VEDI },
     ],
+  },
+  {
+    id: "ristorazione",
+    label: "Ristorazione",
+    icona: Utensils,
+    voci: [{ href: "/ristorazione/foglio", label: "Foglio del giorno", permesso: PERMESSI.FOGLIO_PASTI, modulo: "ristorazione" }],
   },
   {
     id: "anagrafiche",

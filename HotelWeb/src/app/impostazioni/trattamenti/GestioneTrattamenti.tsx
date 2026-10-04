@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { sbusta } from "@/lib/esito";
-import { azioneCreaTrattamento, azioneRinominaTrattamento, azioneSpostaTrattamento, azioneTrattamentoAttivo, datiTrattamenti } from "../actions";
+import { azionePastiTrattamento, azioneCreaTrattamento, azioneRinominaTrattamento, azioneSpostaTrattamento, azioneTrattamentoAttivo, datiTrattamenti } from "../actions";
 import { Suggerimento } from "@/components/Suggerimento";
 
 type Trattamento = Awaited<ReturnType<typeof datiTrattamenti>>[number];
@@ -39,6 +39,10 @@ export function GestioneTrattamenti({ iniziale }: { iniziale: Trattamento[] }) {
             Il supplemento di prezzo di ogni trattamento si imposta nei <strong>Listini e tariffe</strong>. Rinominare o disattivare un trattamento
             non cambia le prenotazioni già fatte.
           </p>
+          <p>
+            Le spunte <strong>colazione, pranzo e cena</strong> dicono quali pasti comprende: servono al foglio del giorno della ristorazione per
+            contare i coperti (es. mezza pensione = colazione e cena).
+          </p>
         </Suggerimento>
       </div>
       {errore && <p className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm font-semibold text-red-800">{errore}</p>}
@@ -68,7 +72,22 @@ export function GestioneTrattamenti({ iniziale }: { iniziale: Trattamento[] }) {
                   </button>
                 </span>
               ) : (
-                <span className={`font-semibold ${t.attivo ? "" : "text-stone-400 line-through"}`}>{t.nome}</span>
+                <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-1">
+                  <span className={`font-semibold ${t.attivo ? "" : "text-stone-400 line-through"}`}>{t.nome}</span>
+                  <span className="flex flex-wrap gap-3 text-xs text-stone-700">
+                    {(["colazione", "pranzo", "cena"] as const).map((p) => (
+                      <label key={p} className="flex items-center gap-1">
+                        <input
+                          type="checkbox"
+                          disabled={busy}
+                          checked={t[p]}
+                          onChange={(e) => esegui(() => sbusta(azionePastiTrattamento(t.id, { colazione: t.colazione, pranzo: t.pranzo, cena: t.cena, [p]: e.target.checked })))}
+                        />
+                        {p}
+                      </label>
+                    ))}
+                  </span>
+                </span>
               )}
               {inRinomina?.id !== t.id && (
                 <span className="flex flex-wrap items-center gap-1">
