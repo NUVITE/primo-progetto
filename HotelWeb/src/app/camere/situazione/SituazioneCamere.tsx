@@ -1,5 +1,6 @@
 "use client";
 
+import { STATI_PULIZIA, type StatoPulizia } from "@/lib/pulizieRegole";
 import { sbusta, type ValoreDi } from "@/lib/esito";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -16,7 +17,15 @@ import type { Composizione } from "@/lib/pricing";
 type Stato = "libera" | "occupata" | "in_arrivo" | "in_partenza" | "fuori_servizio" | "occupata_generica" | "uso_diurno";
 type Candidato = { segmentoId: number; prenotazioneId: number; label: string };
 type Cella = { stato: Stato; label: string | null; segmentoId: number | null; prenotazioneId: number | null; genericiCandidati?: Candidato[] };
-type CameraRiga = { id: number; codice: string; piano: string | null; tipoCameraId: number; tipoCameraNome: string; celle: Record<string, Cella> };
+type CameraRiga = {
+  id: number;
+  codice: string;
+  piano: string | null;
+  tipoCameraId: number;
+  tipoCameraNome: string;
+  celle: Record<string, Cella>;
+  pulizia: { stato: StatoPulizia; nonDisturbare: boolean } | null;
+};
 type TipoRiepilogo = { id: number; descrizione: string; perGiorno: Record<string, { liberi: number; totale: number }> };
 type Listino = { id: number; descrizione: string; tipo: string };
 
@@ -600,6 +609,13 @@ export function SituazioneCamere({ puoGestire }: { puoGestire: boolean }) {
                               <div key={c.id} className="mb-1 grid gap-1" style={{ gridTemplateColumns: `var(--col-etichetta) repeat(${giorni.length}, minmax(36px, 1fr))` }}>
                                 <div className="sticky left-0 z-10 flex items-center gap-1.5 truncate bg-white pl-5 text-sm">
                                   <span className="font-bold">{c.codice}</span>
+                                  {c.pulizia && (
+                                    <span
+                                      className={`h-2 w-2 shrink-0 rounded-full ${STATI_PULIZIA[c.pulizia.stato].colore}`}
+                                      title={`${STATI_PULIZIA[c.pulizia.stato].testo}${c.pulizia.nonDisturbare ? " · non disturbare" : ""}`}
+                                      aria-label={STATI_PULIZIA[c.pulizia.stato].testo}
+                                    />
+                                  )}
                                 </div>
                                 {giorni.map((g) => {
                                   const cella = c.celle[g];

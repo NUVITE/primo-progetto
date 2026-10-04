@@ -6,6 +6,7 @@
  */
 import "dotenv/config";
 import { prisma } from "../src/lib/prisma";
+import { fotografaStatoCamere } from "./statoCamereCollaudo";
 import { checkoutCamera } from "../src/lib/checkin";
 import { contiAperti, registraSollecito, sospendiConto, statoConto } from "../src/lib/contiSospesi";
 import { annullaPrenotazione, calcolaTotaliPrenotazione, creaPrenotazione, registraPagamento, trovaPrenotazione } from "../src/lib/prenotazioni";
@@ -27,6 +28,8 @@ async function errore(fn: () => Promise<unknown>) {
 const NOME = "CollaudoSospesi";
 
 async function main() {
+  // Il check-out segna le camere "da pulire": alla fine tornano come erano.
+  const ripristinaCamere = await fotografaStatoCamere();
   const hotel = await prisma.hotel.findFirstOrThrow({ orderBy: { id: "asc" } });
   const utente = await prisma.utente.findFirstOrThrow({ orderBy: { id: "asc" } });
   const camera = await prisma.camera.findFirstOrThrow({ where: { hotelId: hotel.id, attivo: true }, orderBy: { codice: "asc" } });
@@ -84,6 +87,7 @@ async function main() {
     const pen = elenco.find((r) => r.id === q.id);
     verifica("Penale non incassata tra le penali da incassare", pen?.gruppo === "penali" && pen.daPagare === 80, pen);
   } finally {
+    await ripristinaCamere();
     for (const id of ids) {
       await prisma.pagamento.deleteMany({ where: { prenotazioneId: id } });
       await prisma.tassaNotte.deleteMany({ where: { notte: { segmento: { prenotazioneId: id } } } });

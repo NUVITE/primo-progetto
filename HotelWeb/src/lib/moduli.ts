@@ -26,7 +26,7 @@ export const CATALOGO_MODULI: { modulo: Modulo; nome: string; descrizione: strin
     descrizione: "Note alimentari degli ospiti (allergie, intolleranze), pasti del giorno, menu e room service",
     disponibile: true,
   },
-  { modulo: MODULI.PULIZIE, nome: "Pulizie e riassetto", descrizione: "Stato camere, riassetto, approvvigionamenti ai piani", disponibile: false },
+  { modulo: MODULI.PULIZIE, nome: "Pulizie e riassetto", descrizione: "Stato di pulizia delle camere, lavoro delle cameriere ai piani, rapporto della governante", disponibile: true },
   { modulo: MODULI.MANUTENZIONI, nome: "Manutenzioni", descrizione: "Segnalazioni guasti e richieste degli ospiti", disponibile: false },
   { modulo: MODULI.MAGAZZINO, nome: "Magazzino", descrizione: "Prodotti, movimenti di carico e scarico, giacenze", disponibile: false },
   { modulo: MODULI.FATTURAZIONE, nome: "Fatturazione", descrizione: "Fatture elettroniche (XML SDI) e documenti non fiscali", disponibile: false },

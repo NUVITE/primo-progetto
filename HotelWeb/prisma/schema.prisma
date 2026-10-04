@@ -86,6 +86,8 @@ model Hotel {
   chiusureCassa          ChiusuraCassa[]
   noteAlimentari         NotaAlimentare[]
   piatti                 Piatto[]
+  // Pulizie: con il controllo della governante una camera finita passa da "da controllare" prima di essere pronta.
+  controlloGovernante    Boolean                 @default(false)
   menu                   Menu[]
   ordiniRoomService      OrdineRoomService[]
 }
@@ -184,9 +186,17 @@ model Camera {
   capienzaAdulti  Int        @default(2)
   capienzaBambini Int        @default(0)
   attivo          Boolean    @default(true)
+  // Pulizie: "da_pulire" | "da_rifare" | "in_pulizia" | "da_controllare" | "pronta" (con chi e quando l'ha cambiato).
+  // Una camera occupata segnata "pronta" un giorno precedente torna "da rifare" da sola (calcolato, non salvato).
+  statoPulizia    String     @default("pronta")
+  statoPuliziaIl  DateTime?
+  statoPuliziaDa  String?
+  // Giorno in cui l'ospite ha chiesto di non essere disturbato (vale solo quel giorno).
+  nonDisturbare   DateTime?  @db.Date
 
   segmenti        SegmentoSoggiorno[]
   indisponibilita CameraIndisponibilita[]
+  controlli       ControlloCamera[]
 
   @@unique([hotelId, codice])
 }
@@ -1466,4 +1476,22 @@ model RigaOrdineRoomService {
   prezzoUnitario Decimal           @db.Decimal(10, 2)
   repartoId      Int?
   allergeni      Json
+}
+
+/**
+ * Rapporto della governante: com'è stata trovata la camera quel giorno ("occupata" | "libera").
+ * Se non coincide con quello che risulta alla reception è una discrepanza da chiarire
+ * (es. ospite partito senza check-out, camera usata senza registrazione).
+ */
+model ControlloCamera {
+  id       Int      @id @default(autoincrement())
+  cameraId Int
+  camera   Camera   @relation(fields: [cameraId], references: [id], onDelete: Cascade)
+  giorno   DateTime @db.Date
+  trovata  String
+  nota     String?
+  da       String
+  creatoIl DateTime @default(now())
+
+  @@unique([cameraId, giorno])
 }

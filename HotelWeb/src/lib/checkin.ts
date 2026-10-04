@@ -1,3 +1,4 @@
+import { segnaDaPulireSeLibera } from "@/lib/pulizie";
 import type { Prisma, PrismaClient } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { LISTE_ISTAT, sistemaIstatValido, type SistemaIstat } from "@/lib/istat";
@@ -396,6 +397,7 @@ export async function checkoutCamera(hotelId: number, utenteId: number, segmento
     const presenze = await tx.presenza.findMany({ where: { segmentoId } });
     await tx.presenza.updateMany({ where: { segmentoId, stato: { not: "partito" } }, data: { stato: "partito", partenzaIl: new Date() } });
     for (const ospiteId of new Set(presenze.map((p) => p.ospiteId))) await chiudiSeTuttiPartiti(tx, segmento.prenotazioneId, ospiteId, utenteId);
+    await segnaDaPulireSeLibera(tx, segmentoId);
   });
 }
 
@@ -415,5 +417,6 @@ export async function checkoutOccupante(hotelId: number, utenteId: number, prese
     });
     await ricalcolaTassaPosizione(tx, seg.prenotazioneId, presenza.ospiteId);
     await chiudiSeTuttiPartiti(tx, seg.prenotazioneId, presenza.ospiteId, utenteId);
+    await segnaDaPulireSeLibera(tx, seg.id);
   });
 }

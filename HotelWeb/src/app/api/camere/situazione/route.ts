@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getUtenteCorrente, puo } from "@/lib/auth";
 import { PERMESSI } from "@/lib/permessi";
+import { quadroCamere } from "@/lib/pulizie";
 
 function isoGiorno(d: Date) {
   return d.toISOString().slice(0, 10);
@@ -115,6 +116,10 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  // Stato di pulizia di oggi (modulo Pulizie): pallino accanto al numero della camera.
+  const statiPulizia = puo(utente, PERMESSI.CAMERE_STATO_VEDI)
+    ? new Map((await quadroCamere(HOTEL_ID)).camere.map((c) => [c.id, { stato: c.stato, nonDisturbare: c.nonDisturbare }]))
+    : null;
   const risultatoCamere = camere.map((c) => {
     const miei = segmentiPerCamera.get(c.id) ?? [];
     const manutenzioni = indisponibilitaPerCamera.get(c.id) ?? [];
@@ -177,7 +182,8 @@ export async function GET(request: NextRequest) {
       celle[giornoIso] = { stato: "libera", label: null, segmentoId: null, prenotazioneId: null };
     }
 
-    return { id: c.id, codice: c.codice, piano: c.piano, tipoCameraId: c.tipoCameraId, tipoCameraNome: c.tipoCamera.descrizione, celle };
+    const pulizia = statiPulizia?.get(c.id);
+    return { id: c.id, codice: c.codice, piano: c.piano, tipoCameraId: c.tipoCameraId, tipoCameraNome: c.tipoCamera.descrizione, celle, pulizia: pulizia ?? null };
   });
 
   // Riepilogo disponibilita' per tipo camera e per giorno: quante ne restano libere,

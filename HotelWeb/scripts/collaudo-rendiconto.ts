@@ -6,6 +6,7 @@
  */
 import "dotenv/config";
 import { prisma } from "../src/lib/prisma";
+import { fotografaStatoCamere } from "./statoCamereCollaudo";
 import { aggiungiOccupante, checkoutCamera } from "../src/lib/checkin";
 import { creaPrenotazione } from "../src/lib/prenotazioni";
 import { configRendiconto, periodiAnno, rendicontoTassa } from "../src/lib/rendicontoTassa";
@@ -20,6 +21,8 @@ const verifica = (nome: string, ok: boolean, dettaglio: unknown = "") => {
 const COGNOME = "CollaudoRendiconto";
 
 async function main() {
+  // Il check-out segna le camere "da pulire": alla fine tornano come erano.
+  const ripristinaCamere = await fotografaStatoCamere();
   const comune = await prisma.comune.findFirstOrThrow({ where: { codiceIstat: "058091" } });
   const hotel = await prisma.hotel.findFirstOrThrow({ where: { comuneId: comune.id } });
   const utente = await prisma.utente.findFirstOrThrow({ orderBy: { id: "asc" } });
@@ -116,6 +119,7 @@ async function main() {
     const bisceglie = periodiAnno(2031, { rendicontoPeriodo: "trimestrale", rendicontoGiorno: 20, versamentoGiorno: 31 });
     verifica("Bisceglie: comunicazione il 20, versamento a fine mese", bisceglie[0].scadenza === "2031-04-20" && bisceglie[0].versamento === "2031-04-30", bisceglie[0]);
   } finally {
+    await ripristinaCamere();
     for (const id of ids) {
       await prisma.tassaNotte.deleteMany({ where: { notte: { segmento: { prenotazioneId: id } } } });
       await prisma.notteSoggiorno.deleteMany({ where: { segmento: { prenotazioneId: id } } });

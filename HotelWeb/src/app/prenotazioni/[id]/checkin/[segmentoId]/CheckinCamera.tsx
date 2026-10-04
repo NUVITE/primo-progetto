@@ -9,6 +9,7 @@ import { OspiteSearch, type OspiteValue } from "../../../nuova/OspiteSearch";
 import { LuogoSearch } from "./LuogoSearch";
 import { ContoApertoCheckout } from "./ContoApertoCheckout";
 import { NoteAlimentari } from "./NoteAlimentari";
+import { STATI_PULIZIA, type StatoPulizia } from "@/lib/pulizieRegole";
 import type { NotaOspite } from "@/lib/noteAlimentari";
 import { ArrowLeft, QrCode, CheckCircle2, LogIn, LogOut, RefreshCw, Save, UserMinus, UserPlus, UserRoundCog } from "lucide-react";
 import { Avviso, CLASSE_CAMPO, classePulsante, Etichetta, IntestazionePagina, Pulsante, Sezione } from "@/components/ui";
@@ -59,12 +60,14 @@ export function CheckinCamera({
   puoIncassare = false,
   noteIniziali = null,
   puoRoomService = false,
+  statoPulizia = null,
 }: {
   iniziale: Dati;
   puoGestire: boolean;
   puoIncassare?: boolean;
   noteIniziali?: Record<number, NotaOspite> | null;
   puoRoomService?: boolean;
+  statoPulizia?: StatoPulizia | null;
 }) {
   const [dati, setDati] = useState(iniziale);
   // null = senza il permesso "Note alimentari" (o modulo Ristorazione spento): il riquadro non c'è.
@@ -161,6 +164,13 @@ export function CheckinCamera({
           Persone registrate: <strong>{s.composizione.reale}</strong>
           {s.composizione.senzaData > 0 && ` (${s.composizione.senzaData} senza data di nascita, contati come adulti)`}: diverse dalla prenotazione. Il
           prezzo resta quello concordato finché non lo ricalcoli.
+        </Avviso>
+      )}
+
+      {statoPulizia && statoPulizia !== "pronta" && !tuttiArrivati && (
+        <Avviso tipo="avviso">
+          La camera risulta <strong>{STATI_PULIZIA[statoPulizia].testo.toLowerCase()}</strong>: se gli ospiti arrivano adesso, avvisa i piani o
+          proponi di aspettare.
         </Avviso>
       )}
 
