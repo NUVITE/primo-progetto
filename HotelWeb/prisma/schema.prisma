@@ -87,6 +87,7 @@ model Hotel {
   noteAlimentari         NotaAlimentare[]
   piatti                 Piatto[]
   menu                   Menu[]
+  ordiniRoomService      OrdineRoomService[]
 }
 
 /**
@@ -336,45 +337,48 @@ enum StatoSegmento {
 }
 
 model SegmentoSoggiorno {
-  id                   Int               @id @default(autoincrement())
+  id                   Int                 @id @default(autoincrement())
   prenotazioneId       Int
-  prenotazione         Prenotazione      @relation(fields: [prenotazioneId], references: [id], onDelete: Restrict)
+  prenotazione         Prenotazione        @relation(fields: [prenotazioneId], references: [id], onDelete: Restrict)
   // Null finche' non si assegna una camera fisica specifica: una prenotazione "generica"
   // (es. "2 doppie dal 14 al 21") blocca la disponibilita' per tipo camera, non una camera precisa.
   cameraId             Int?
-  camera               Camera?           @relation(fields: [cameraId], references: [id])
+  camera               Camera?             @relation(fields: [cameraId], references: [id])
   // Sempre valorizzato (anche senza camera assegnata): serve per il prezzo e per il conteggio
   // di disponibilita' per tipo. Congelato al momento della creazione del segmento.
   tipoCameraId         Int
-  tipoCamera           TipoCamera        @relation(fields: [tipoCameraId], references: [id])
+  tipoCamera           TipoCamera          @relation(fields: [tipoCameraId], references: [id])
   // Intestatario della camera (riferimento per planning ed elenchi). Le PERSONE che occupano la
   // camera sono le Presenze: il prezzo è per camera (notti), la tassa per persona.
   ospiteId             Int
-  ospite               Ospite            @relation(fields: [ospiteId], references: [id])
+  ospite               Ospite              @relation(fields: [ospiteId], references: [id])
   // Trattamento semplificato a stringa libera per questa fetta (niente tabella dedicata ancora).
-  trattamento          String            @default("Mezza pensione")
+  trattamento          String              @default("Mezza pensione")
   listinoId            Int
-  listino              Listino           @relation(fields: [listinoId], references: [id])
-  dataInizio           DateTime          @db.Date
-  dataFine             DateTime          @db.Date
-  stato                StatoSegmento     @default(PREVISTO)
+  listino              Listino             @relation(fields: [listinoId], references: [id])
+  dataInizio           DateTime            @db.Date
+  dataFine             DateTime            @db.Date
+  stato                StatoSegmento       @default(PREVISTO)
   // Composizione prenotata, base del prezzo: adulti e età dei bambini all'arrivo (array di interi).
   // Al check-in si confronta con le persone reali; il prezzo cambia solo su "Ricalcola".
-  adulti               Int               @default(1)
+  adulti               Int                 @default(1)
   etaBambini           Json?
   // Prezzo per notte concordato a mano (permesso "Modificare i prezzi"): sostituisce il listino per
   // tutte le notti della camera e i ricalcoli non lo toccano. Chi e perché restano registrati.
   // Uso diurno (day use): camera usata di giorno senza pernottamento. dataInizio = dataFine = il
   // giorno; niente notti, tassa di soggiorno, schedina né ISTAT. Prezzo forfettario della fascia oraria.
-  usoDiurno            Boolean           @default(false)
+  usoDiurno            Boolean             @default(false)
   // Ristorazione: in mezza pensione "pranzo" al posto della cena (null = quello del trattamento) e tavolo in sala.
   pastoPrincipale      String?
   tavolo               String?
   variazioniPasti      VariazionePasto[]
+  // Room service: codice segreto del link nel QR del cartoncino, valido solo per questo soggiorno.
+  codiceRoomService    String?             @unique
+  ordiniRoomService    OrdineRoomService[]
   oraDal               String?
   oraAl                String?
-  prezzoUsoDiurno      Decimal?          @db.Decimal(10, 2)
-  prezzoConcordato     Decimal?          @db.Decimal(10, 2)
+  prezzoUsoDiurno      Decimal?            @db.Decimal(10, 2)
+  prezzoConcordato     Decimal?            @db.Decimal(10, 2)
   prezzoConcordatoNota String?
   prezzoConcordatoDa   String?
 
@@ -1372,7 +1376,8 @@ model Piatto {
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
 
-  voci VoceMenu[]
+  voci        VoceMenu[]
+  righeOrdine RigaOrdineRoomService[]
 
   @@unique([hotelId, nome])
 }
@@ -1415,4 +1420,50 @@ model VoceMenu {
   prezzo      Decimal? @db.Decimal(10, 2)
 
   @@unique([menuId, piattoId])
+}
+
+/**
+ * Ordine di room service: dal QR della camera (canale "qr") o preso al telefono dalla reception.
+ * stato: "ricevuto" -> "in_preparazione" -> "pronto" -> "consegnato" (o "annullato"). Alla consegna
+ * le righe con un prezzo diventano addebiti sul conto della camera (buono "RS-<id>").
+ */
+model OrdineRoomService {
+  id              Int               @id @default(autoincrement())
+  hotelId         Int
+  hotel           Hotel             @relation(fields: [hotelId], references: [id])
+  segmentoId      Int
+  segmento        SegmentoSoggiorno @relation(fields: [segmentoId], references: [id])
+  stato           String            @default("ricevuto")
+  canale          String            @default("qr")
+  // null = appena possibile
+  perQuando       DateTime?
+  nota            String?           @db.Text
+  totale          Decimal           @db.Decimal(10, 2)
+  creatoIl        DateTime          @default(now())
+  creatoDa        String?
+  aggiornatoIl    DateTime          @updatedAt
+  aggiornatoDa    String?
+  consegnatoIl    DateTime?
+  motivoAnnullato String?
+
+  righe RigaOrdineRoomService[]
+
+  @@index([hotelId, stato])
+  @@index([segmentoId])
+}
+
+/**
+ * Riga dell'ordine: copia di nome, prezzo e allergeni del piatto al momento dell'ordine.
+ */
+model RigaOrdineRoomService {
+  id             Int               @id @default(autoincrement())
+  ordineId       Int
+  ordine         OrdineRoomService @relation(fields: [ordineId], references: [id], onDelete: Cascade)
+  piattoId       Int?
+  piatto         Piatto?           @relation(fields: [piattoId], references: [id], onDelete: SetNull)
+  descrizione    String
+  quantita       Int
+  prezzoUnitario Decimal           @db.Decimal(10, 2)
+  repartoId      Int?
+  allergeni      Json
 }

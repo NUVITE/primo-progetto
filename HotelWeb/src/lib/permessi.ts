@@ -16,6 +16,7 @@ export const PERMESSI = {
   NOTE_ALIMENTARI: "ristorazione.note",
   FOGLIO_PASTI: "ristorazione.foglio",
   MENU_GESTISCI: "ristorazione.menu",
+  ROOM_SERVICE: "ristorazione.roomservice",
   ADEMPIMENTI_INVIA: "adempimenti.invia",
   SOGGIORNI_RIAPRI: "soggiorni.riapri",
   CAMERE_GESTISCI: "camere.gestisci",
@@ -92,6 +93,11 @@ export const CATALOGO_PERMESSI: { area: string; modulo?: Modulo; voci: { permess
         nome: "Gestire menu e piatti",
         descrizione: "Piatti con allergeni e prezzi, menu della colazione, del giorno, alla carta e del room service",
       },
+      {
+        permesso: PERMESSI.ROOM_SERVICE,
+        nome: "Room service",
+        descrizione: "Vedere e far avanzare gli ordini in camera, prenderli al telefono, stampare il cartoncino con il QR; alla consegna l'ordine va sul conto",
+      },
     ],
   },
   {
@@ -143,14 +149,15 @@ export const RUOLI_PREDEFINITI: { nome: string; permessi: Permesso[] }[] = [
   { nome: "Direttore", permessi: TUTTI_I_PERMESSI.filter((p) => p !== PERMESSI.RUOLI_GESTISCI) },
   {
     nome: "Reception",
-    permessi: [PERMESSI.PRENOTAZIONI_VEDI, PERMESSI.PRENOTAZIONI_GESTISCI, PERMESSI.IMPORTI_VEDI, PERMESSI.PAGAMENTI_REGISTRA, PERMESSI.ADDEBITI_REGISTRA, PERMESSI.CASSA_CHIUDI, PERMESSI.NOTE_ALIMENTARI, PERMESSI.FOGLIO_PASTI, PERMESSI.ADEMPIMENTI_INVIA, PERMESSI.SALE_VEDI, PERMESSI.SALE_GESTISCI],
+    permessi: [PERMESSI.PRENOTAZIONI_VEDI, PERMESSI.PRENOTAZIONI_GESTISCI, PERMESSI.IMPORTI_VEDI, PERMESSI.PAGAMENTI_REGISTRA, PERMESSI.ADDEBITI_REGISTRA, PERMESSI.CASSA_CHIUDI, PERMESSI.NOTE_ALIMENTARI, PERMESSI.FOGLIO_PASTI, PERMESSI.ROOM_SERVICE, PERMESSI.ADEMPIMENTI_INVIA, PERMESSI.SALE_VEDI, PERMESSI.SALE_GESTISCI],
   },
   {
     nome: "Eventi / Commerciale",
     permessi: [PERMESSI.PRENOTAZIONI_VEDI, PERMESSI.IMPORTI_VEDI, PERMESSI.SALE_VEDI, PERMESSI.SALE_GESTISCI, PERMESSI.SALE_CONFIGURA],
   },
-  { nome: "Cucina", permessi: [PERMESSI.FOGLIO_PASTI, PERMESSI.NOTE_ALIMENTARI, PERMESSI.MENU_GESTISCI] },
-  { nome: "Sala", permessi: [PERMESSI.FOGLIO_PASTI, PERMESSI.NOTE_ALIMENTARI] },
+  { nome: "Cucina", permessi: [PERMESSI.FOGLIO_PASTI, PERMESSI.NOTE_ALIMENTARI, PERMESSI.MENU_GESTISCI, PERMESSI.ROOM_SERVICE] },
+  { nome: "Sala", permessi: [PERMESSI.FOGLIO_PASTI, PERMESSI.NOTE_ALIMENTARI, PERMESSI.ROOM_SERVICE] },
+  { nome: "Room service", permessi: [PERMESSI.ROOM_SERVICE] },
   { nome: "Governante", permessi: [PERMESSI.PRENOTAZIONI_VEDI] },
   { nome: "Cameriera ai piani", permessi: [] },
   { nome: "Manutenzione", permessi: [] },

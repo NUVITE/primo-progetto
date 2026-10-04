@@ -10,8 +10,8 @@ import { LuogoSearch } from "./LuogoSearch";
 import { ContoApertoCheckout } from "./ContoApertoCheckout";
 import { NoteAlimentari } from "./NoteAlimentari";
 import type { NotaOspite } from "@/lib/noteAlimentari";
-import { ArrowLeft, CheckCircle2, LogIn, LogOut, RefreshCw, Save, UserMinus, UserPlus, UserRoundCog } from "lucide-react";
-import { Avviso, CLASSE_CAMPO, Etichetta, IntestazionePagina, Pulsante, Sezione } from "@/components/ui";
+import { ArrowLeft, QrCode, CheckCircle2, LogIn, LogOut, RefreshCw, Save, UserMinus, UserPlus, UserRoundCog } from "lucide-react";
+import { Avviso, CLASSE_CAMPO, classePulsante, Etichetta, IntestazionePagina, Pulsante, Sezione } from "@/components/ui";
 import { AiutoSezione } from "@/components/AiutoSezione";
 import { Suggerimento } from "@/components/Suggerimento";
 import {
@@ -58,11 +58,13 @@ export function CheckinCamera({
   puoGestire,
   puoIncassare = false,
   noteIniziali = null,
+  puoRoomService = false,
 }: {
   iniziale: Dati;
   puoGestire: boolean;
   puoIncassare?: boolean;
   noteIniziali?: Record<number, NotaOspite> | null;
+  puoRoomService?: boolean;
 }) {
   const [dati, setDati] = useState(iniziale);
   // null = senza il permesso "Note alimentari" (o modulo Ristorazione spento): il riquadro non c'è.
@@ -104,6 +106,13 @@ export function CheckinCamera({
           </Link>
         }
         titolo={`Check-in ${s.camera ? `camera ${s.camera}` : `${s.tipoCamera} (camera da assegnare)`}`}
+        azioni={
+          puoRoomService && !tuttiPartiti ? (
+            <Link href={`/ristorazione/cartoncino/${s.id}`} target="_blank" className={classePulsante("secondario", "piccolo")}>
+              <QrCode className="h-3.5 w-3.5" aria-hidden /> Cartoncino room service
+            </Link>
+          ) : undefined
+        }
         sottotitolo={
           <>
             {s.tipoCamera} · dal <strong className="text-stone-900">{it(s.dal)}</strong> al <strong className="text-stone-900">{it(s.al)}</strong>

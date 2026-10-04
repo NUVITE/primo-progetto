@@ -13,5 +13,5 @@ export default async function CheckinPage({ params }: { params: Promise<{ id: st
   // Note alimentari: solo con il permesso (dati sanitari, non lasciano il server senza).
   const puoNote = puo(utente, PERMESSI.NOTE_ALIMENTARI);
   const note = puoNote ? await noteDegliOspiti(utente.hotelId, [...new Set(dati.occupanti.map((o) => o.ospiteId))]) : null;
-  return <CheckinCamera iniziale={dati} puoGestire={puo(utente, PERMESSI.PRENOTAZIONI_GESTISCI)} puoIncassare={puo(utente, PERMESSI.PAGAMENTI_REGISTRA)} noteIniziali={note} />;
+  return <CheckinCamera iniziale={dati} puoGestire={puo(utente, PERMESSI.PRENOTAZIONI_GESTISCI)} puoIncassare={puo(utente, PERMESSI.PAGAMENTI_REGISTRA)} noteIniziali={note} puoRoomService={puo(utente, PERMESSI.ROOM_SERVICE)} />;
 }
