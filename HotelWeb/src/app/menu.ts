@@ -35,7 +35,11 @@ export const MENU: GruppoMenu[] = [
     id: "ristorazione",
     label: "Ristorazione",
     icona: Utensils,
-    voci: [{ href: "/ristorazione/foglio", label: "Foglio del giorno", permesso: PERMESSI.FOGLIO_PASTI, modulo: "ristorazione" }],
+    voci: [
+      { href: "/ristorazione/foglio", label: "Foglio del giorno", permesso: PERMESSI.FOGLIO_PASTI, modulo: "ristorazione" },
+      { href: "/ristorazione/menu", label: "Menu", permesso: PERMESSI.MENU_GESTISCI, modulo: "ristorazione" },
+      { href: "/ristorazione/piatti", label: "Piatti e allergeni", permesso: PERMESSI.MENU_GESTISCI, modulo: "ristorazione" },
+    ],
   },
   {
     id: "anagrafiche",

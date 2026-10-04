@@ -85,6 +85,8 @@ model Hotel {
   pagamenti              Pagamento[]
   chiusureCassa          ChiusuraCassa[]
   noteAlimentari         NotaAlimentare[]
+  piatti                 Piatto[]
+  menu                   Menu[]
 }
 
 /**
@@ -1203,6 +1205,7 @@ model RepartoAddebito {
   ordine      Int      @default(0)
 
   addebiti AddebitoConto[]
+  piatti   Piatto[]
 
   @@unique([hotelId, nome])
 }
@@ -1343,4 +1346,73 @@ model VariazionePasto {
   createdAt  DateTime          @default(now())
 
   @@unique([segmentoId, giorno, pasto])
+}
+
+/**
+ * Piatto o bevanda della ristorazione. Gli allergeni (Reg. UE 1169/2011, Allegato II) vanno sempre
+ * dichiarati: un elenco vuoto vale solo con senzaAllergeni = true (verificato da chi l'ha inserito).
+ * prezzo null = non in vendita a parte (compreso nel trattamento); reparto = IVA e addebito sul conto.
+ */
+model Piatto {
+  id             Int              @id @default(autoincrement())
+  hotelId        Int
+  hotel          Hotel            @relation(fields: [hotelId], references: [id])
+  nome           String
+  descrizione    String?          @db.Text
+  categoria      String
+  prezzo         Decimal?         @db.Decimal(10, 2)
+  repartoId      Int?
+  reparto        RepartoAddebito? @relation(fields: [repartoId], references: [id], onDelete: SetNull)
+  // ["glutine", "latte", ...]
+  allergeni      Json
+  senzaAllergeni Boolean          @default(false)
+  // Adatto a: ["vegetariano", "vegano", ...]
+  regimi         Json
+  attivo         Boolean          @default(true)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  voci VoceMenu[]
+
+  @@unique([hotelId, nome])
+}
+
+/**
+ * Menu: colazione, menu del giorno, carta, room service. pasti = servizi in cui vale (["cena"], ...;
+ * vuoto = nessun servizio fisso); giorno null = vale sempre, altrimenti solo quel giorno.
+ */
+model Menu {
+  id          Int       @id @default(autoincrement())
+  hotelId     Int
+  hotel       Hotel     @relation(fields: [hotelId], references: [id])
+  nome        String
+  pasti       Json
+  giorno      DateTime? @db.Date
+  dalle       String?
+  alle        String?
+  roomService Boolean   @default(false)
+  attivo      Boolean   @default(true)
+  note        String?   @db.Text
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  voci VoceMenu[]
+
+  @@index([hotelId, giorno])
+}
+
+/**
+ * Piatto dentro un menu: ordine, disponibilità del momento ed eventuale prezzo diverso da quello del piatto.
+ */
+model VoceMenu {
+  id          Int      @id @default(autoincrement())
+  menuId      Int
+  menu        Menu     @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  piattoId    Int
+  piatto      Piatto   @relation(fields: [piattoId], references: [id])
+  ordine      Int      @default(0)
+  disponibile Boolean  @default(true)
+  prezzo      Decimal? @db.Decimal(10, 2)
+
+  @@unique([menuId, piattoId])
 }

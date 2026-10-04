@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { noteDegliOspiti, type NotaOspite } from "@/lib/noteAlimentari";
+import { piattiDelServizio } from "@/lib/menu";
+import { piattiDaEvitare } from "@/lib/menuRegole";
 import { ELENCO_PASTI, PASTI, pastiEffettivi, pastoCompreso, pastoScambiabile, type Pasto, type PastiTrattamento } from "@/lib/pastiRegole";
 
 /**
@@ -30,7 +32,16 @@ export type RigaFoglio = {
   partenza: boolean;
   opzione: boolean;
   tavolo: string;
-  note: { nome: string; sintesi: string; allergie: boolean; voci: NotaOspite["voci"]; regimi: string[]; esigenze: string }[];
+  note: {
+    nome: string;
+    sintesi: string;
+    allergie: boolean;
+    voci: NotaOspite["voci"];
+    regimi: string[];
+    esigenze: string;
+    // Piatti dei menu di quel servizio che contengono i suoi allergeni.
+    daEvitare: ReturnType<typeof piattiDaEvitare>;
+  }[];
 };
 
 export async function foglioDelGiorno(hotelId: number, giorno: string, conNote: boolean) {
@@ -60,6 +71,9 @@ export async function foglioDelGiorno(hotelId: number, giorno: string, conNote: 
 
   const ospiti = [...new Set(segmenti.flatMap((s) => [s.ospiteId, ...s.presenze.map((p) => p.ospiteId)]))];
   const note = conNote ? await noteDegliOspiti(hotelId, ospiti) : {};
+  const menuDelServizio = Object.fromEntries(
+    await Promise.all(ELENCO_PASTI.map(async (p) => [p, conNote ? await piattiDelServizio(hotelId, giorno, p) : []] as const)),
+  ) as Record<Pasto, { nome: string; allergeni: string[] }[]>;
 
   const servizi = Object.fromEntries(ELENCO_PASTI.map((p) => [p, { coperti: 0, adulti: 0, bambini: 0, piccoli: 0, righe: [] as RigaFoglio[] }])) as Record<
     Pasto,
@@ -102,7 +116,7 @@ export async function foglioDelGiorno(hotelId: number, giorno: string, conNote: 
         tavolo: s.tavolo ?? "",
         note: personeNote
           .filter((o) => note[o.id])
-          .map((o) => ({ nome: `${o.nome} ${o.cognome}`.trim(), sintesi: note[o.id].sintesi, allergie: note[o.id].allergie, voci: note[o.id].voci, regimi: note[o.id].regimi, esigenze: note[o.id].esigenze })),
+          .map((o) => ({ nome: `${o.nome} ${o.cognome}`.trim(), sintesi: note[o.id].sintesi, allergie: note[o.id].allergie, voci: note[o.id].voci, regimi: note[o.id].regimi, esigenze: note[o.id].esigenze, daEvitare: piattiDaEvitare(note[o.id].voci, menuDelServizio[pasto]) })),
       };
       const sv = servizi[pasto];
       sv.righe.push(riga);

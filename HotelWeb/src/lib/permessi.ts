@@ -15,6 +15,7 @@ export const PERMESSI = {
   CASSA_CHIUDI: "cassa.chiudi",
   NOTE_ALIMENTARI: "ristorazione.note",
   FOGLIO_PASTI: "ristorazione.foglio",
+  MENU_GESTISCI: "ristorazione.menu",
   ADEMPIMENTI_INVIA: "adempimenti.invia",
   SOGGIORNI_RIAPRI: "soggiorni.riapri",
   CAMERE_GESTISCI: "camere.gestisci",
@@ -86,6 +87,11 @@ export const CATALOGO_PERMESSI: { area: string; modulo?: Modulo; voci: { permess
         nome: "Foglio del giorno",
         descrizione: "Coperti previsti per colazione, pranzo e cena, tavoli e coperti in più o in meno",
       },
+      {
+        permesso: PERMESSI.MENU_GESTISCI,
+        nome: "Gestire menu e piatti",
+        descrizione: "Piatti con allergeni e prezzi, menu della colazione, del giorno, alla carta e del room service",
+      },
     ],
   },
   {
@@ -143,7 +149,7 @@ export const RUOLI_PREDEFINITI: { nome: string; permessi: Permesso[] }[] = [
     nome: "Eventi / Commerciale",
     permessi: [PERMESSI.PRENOTAZIONI_VEDI, PERMESSI.IMPORTI_VEDI, PERMESSI.SALE_VEDI, PERMESSI.SALE_GESTISCI, PERMESSI.SALE_CONFIGURA],
   },
-  { nome: "Cucina", permessi: [PERMESSI.FOGLIO_PASTI, PERMESSI.NOTE_ALIMENTARI] },
+  { nome: "Cucina", permessi: [PERMESSI.FOGLIO_PASTI, PERMESSI.NOTE_ALIMENTARI, PERMESSI.MENU_GESTISCI] },
   { nome: "Sala", permessi: [PERMESSI.FOGLIO_PASTI, PERMESSI.NOTE_ALIMENTARI] },
   { nome: "Governante", permessi: [PERMESSI.PRENOTAZIONI_VEDI] },
   { nome: "Cameriera ai piani", permessi: [] },

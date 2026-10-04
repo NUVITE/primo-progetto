@@ -14,6 +14,7 @@ import { azioneCaricaFoglio, azioneTavolo, azioneVariazionePasto, datiFoglio } f
 type Dati = Awaited<ReturnType<typeof datiFoglio>>;
 type Riga = Dati["servizi"][Pasto]["righe"][number];
 
+const coperti = (n: number) => `${n} ${n === 1 ? "coperto" : "coperti"}`;
 const it = (g: string) => g.split("-").reverse().join("/");
 const sposta = (g: string, n: number) => new Date(Date.parse(`${g}T00:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
 const giornoSettimana = (g: string) => new Date(`${g}T12:00:00Z`).toLocaleDateString("it-IT", { weekday: "long", timeZone: "UTC" });
@@ -72,7 +73,7 @@ export function FoglioDelGiorno({ iniziale }: { iniziale: Dati }) {
     <div className="flex w-full min-w-0 flex-col gap-4 p-3 sm:p-6">
       <IntestazionePagina
         titolo={`Foglio del giorno · ${PASTI[pasto]}`}
-        sottotitolo={`${giornoSettimana(d.giorno)} ${it(d.giorno)} · ${s.coperti} coperti`}
+        sottotitolo={`${giornoSettimana(d.giorno)} ${it(d.giorno)} · ${coperti(s.coperti)}`}
         azioni={
           <Pulsante dimensione="piccolo" icona={Printer} onClick={() => window.print()}>
             Stampa
@@ -140,7 +141,7 @@ export function FoglioDelGiorno({ iniziale }: { iniziale: Dati }) {
         ))}
       </div>
 
-      <Sezione titolo={`${PASTI[pasto]}: ${s.coperti} coperti`}>
+      <Sezione titolo={`${PASTI[pasto]}: ${coperti(s.coperti)}`}>
         <p className="text-sm text-stone-700">{persone(s) || "Nessun coperto previsto."}</p>
         {vista === "cucina" ? <VistaCucina righe={s.righe} /> : null}
         {vista === "sala" && (
@@ -196,8 +197,13 @@ export function FoglioDelGiorno({ iniziale }: { iniziale: Dati }) {
                     </td>
                     <td data-label="Note" className="py-1.5 pr-2">
                       {r.note.map((n) => (
-                        <span key={n.nome} className={`block ${n.allergie ? "font-semibold text-red-800" : "text-stone-800"}`}>
-                          {n.nome}: {n.sintesi}
+                        <span key={n.nome} className="block">
+                          <span className={n.allergie ? "font-semibold text-red-800" : "text-stone-800"}>
+                            {n.nome}: {n.sintesi}
+                          </span>
+                          {n.daEvitare.length > 0 && (
+                            <span className="block text-xs text-red-800">Da evitare: {n.daEvitare.map((x) => `${x.piatto} (${x.motivi.join(", ")})`).join("; ")}</span>
+                          )}
                         </span>
                       ))}
                     </td>
@@ -313,6 +319,7 @@ function VistaCucina({ righe }: { righe: Riga[] }) {
   const allergeni = new Map<string, { nome: string; allergia: string[]; intolleranza: string[] }>();
   const regimi = new Map<string, number>();
   const altre: string[] = [];
+  const evitare = new Map<string, { allergia: boolean; chi: string[] }>();
   for (const r of righe) {
     if (r.coperti === 0) continue;
     for (const n of r.note) {
@@ -325,6 +332,12 @@ function VistaCucina({ righe }: { righe: Riga[] }) {
       }
       for (const g of n.regimi) regimi.set(g, (regimi.get(g) ?? 0) + 1);
       if (n.esigenze) altre.push(`${dove}: ${n.esigenze}`);
+      for (const x of n.daEvitare) {
+        const e = evitare.get(x.piatto) ?? { allergia: false, chi: [] as string[] };
+        e.allergia ||= x.allergia;
+        e.chi.push(dove);
+        evitare.set(x.piatto, e);
+      }
     }
   }
   const ordine = [...ALLERGENI.map((a) => a.codice as string)];
@@ -357,6 +370,19 @@ function VistaCucina({ righe }: { righe: Riga[] }) {
               ))}
             </div>
           )}
+        </div>
+      )}
+      {evitare.size > 0 && (
+        <div className="rounded-md border border-red-300 bg-white p-2 text-sm">
+          <p className="font-bold text-red-900">Piatti del menu da non servire a…</p>
+          <ul className="mt-1">
+            {[...evitare].map(([piatto, e]) => (
+              <li key={piatto}>
+                <strong>{piatto}</strong>: {e.chi.join(", ")}
+                {e.allergia && <Etichetta tono="rosso" className="ml-1">allergia</Etichetta>}
+              </li>
+            ))}
+          </ul>
         </div>
       )}
       <table className="w-full max-w-lg text-sm">
