@@ -19,6 +19,7 @@ export const PERMESSI = {
   ROOM_SERVICE: "ristorazione.roomservice",
   CAMERE_STATO_VEDI: "pulizie.vedi",
   PULIZIE_GESTISCI: "pulizie.gestisci",
+  PULIZIE_MIE: "pulizie.mie",
   ADEMPIMENTI_INVIA: "adempimenti.invia",
   SOGGIORNI_RIAPRI: "soggiorni.riapri",
   CAMERE_GESTISCI: "camere.gestisci",
@@ -110,7 +111,12 @@ export const CATALOGO_PERMESSI: { area: string; modulo?: Modulo; voci: { permess
       {
         permesso: PERMESSI.PULIZIE_GESTISCI,
         nome: "Gestire le pulizie",
-        descrizione: "Cambiare lo stato delle camere, controllarle come governante e compilare il rapporto con le discrepanze",
+        descrizione: "Cambiare lo stato delle camere, controllarle come governante, assegnarle alle cameriere e compilare il rapporto",
+      },
+      {
+        permesso: PERMESSI.PULIZIE_MIE,
+        nome: "Pulire le proprie camere",
+        descrizione: "La pagina «Le mie camere»: inizio e fine pulizia, non disturbare, consumi del frigobar sul conto",
       },
     ],
   },
@@ -136,6 +142,7 @@ const IMPLICAZIONI: Partial<Record<Permesso, Permesso[]>> = {
   [PERMESSI.ADEMPIMENTI_INVIA]: [PERMESSI.PRENOTAZIONI_VEDI],
   [PERMESSI.CASSA_CHIUDI]: [PERMESSI.PRENOTAZIONI_VEDI, PERMESSI.IMPORTI_VEDI],
   [PERMESSI.PULIZIE_GESTISCI]: [PERMESSI.CAMERE_STATO_VEDI],
+  [PERMESSI.PULIZIE_MIE]: [PERMESSI.CAMERE_STATO_VEDI],
   [PERMESSI.PREZZI_MODIFICA]: [PERMESSI.PRENOTAZIONI_GESTISCI, PERMESSI.PRENOTAZIONI_VEDI, PERMESSI.IMPORTI_VEDI],
 };
 
@@ -174,7 +181,7 @@ export const RUOLI_PREDEFINITI: { nome: string; permessi: Permesso[] }[] = [
   { nome: "Sala", permessi: [PERMESSI.FOGLIO_PASTI, PERMESSI.NOTE_ALIMENTARI, PERMESSI.ROOM_SERVICE] },
   { nome: "Room service", permessi: [PERMESSI.ROOM_SERVICE] },
   { nome: "Governante", permessi: [PERMESSI.PRENOTAZIONI_VEDI, PERMESSI.CAMERE_STATO_VEDI, PERMESSI.PULIZIE_GESTISCI] },
-  { nome: "Cameriera ai piani", permessi: [PERMESSI.CAMERE_STATO_VEDI] },
+  { nome: "Cameriera ai piani", permessi: [PERMESSI.CAMERE_STATO_VEDI, PERMESSI.PULIZIE_MIE] },
   { nome: "Manutenzione", permessi: [] },
 ];
 

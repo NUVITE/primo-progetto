@@ -35,7 +35,11 @@ export const MENU: GruppoMenu[] = [
     id: "piani",
     label: "Piani",
     icona: Sparkles,
-    voci: [{ href: "/pulizie", label: "Stato camere", permesso: PERMESSI.CAMERE_STATO_VEDI, modulo: "pulizie" }],
+    voci: [
+      { href: "/pulizie", label: "Stato camere", permesso: PERMESSI.CAMERE_STATO_VEDI, modulo: "pulizie" },
+      { href: "/pulizie/foglio", label: "Foglio dei piani", permesso: PERMESSI.PULIZIE_GESTISCI, modulo: "pulizie" },
+      { href: "/pulizie/mie", label: "Le mie camere", permesso: PERMESSI.PULIZIE_MIE, modulo: "pulizie" },
+    ],
   },
   {
     id: "ristorazione",

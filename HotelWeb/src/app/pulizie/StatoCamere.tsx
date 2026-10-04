@@ -8,7 +8,7 @@ import { OCCUPAZIONI, STATI_PULIZIA, ELENCO_STATI_PULIZIA, type StatoPulizia } f
 import { Avviso, Etichetta, Input, IntestazionePagina, Pulsante, Sezione, Spunta } from "@/components/ui";
 import { AiutoSezione, Esempio } from "@/components/AiutoSezione";
 import { Suggerimento } from "@/components/Suggerimento";
-import { azioneCaricaStatoCamere, azioneControllo, azioneControlloGovernante, azioneNonDisturbare, azioneStatoPulizia, datiStatoCamere } from "./actions";
+import { azioneBiancheria, azioneCaricaStatoCamere, azioneControllo, azioneControlloGovernante, azioneNonDisturbare, azioneStatoPulizia, datiStatoCamere } from "./actions";
 
 type Dati = Awaited<ReturnType<typeof datiStatoCamere>>;
 type Camera = Dati["camere"][number];
@@ -47,6 +47,11 @@ export function StatoCamere({ iniziale }: { iniziale: Dati }) {
   const [cambia, setCambia] = useState<number | null>(null);
   const [note, setNote] = useState<Record<number, string>>({});
   const [busy, setBusy] = useState(false);
+  const [biancheria, setBiancheria] = useState({
+    lenzuola: String(iniziale.biancheria.cambioLenzuolaOgni),
+    asciugamani: iniziale.biancheria.cambioAsciugamaniOgni === null ? "" : String(iniziale.biancheria.cambioAsciugamaniOgni),
+    couverture: iniziale.biancheria.couverture,
+  });
   const [msg, setMsg] = useState<{ tipo: "ok" | "errore"; testo: string } | null>(null);
 
   async function esegui(fn: () => Promise<Dati>, ok?: string) {
@@ -273,6 +278,43 @@ export function StatoCamere({ iniziale }: { iniziale: Dati }) {
               disabled={busy}
               onChange={(e) => esegui(() => sbusta(azioneControlloGovernante(e.target.checked)), "Impostazione salvata.")}
             />
+          </div>
+          <p className="mt-4 text-sm font-semibold text-stone-800">Biancheria delle camere fermate</p>
+          <AiutoSezione breve="In partenza si cambia sempre tutto. Nelle camere fermate: lenzuola ogni quante notti, asciugamani ogni quante notti oppure su richiesta dell'ospite.">
+            <Esempio>Lenzuola ogni 3 notti, asciugamani su richiesta: è la regola «ecologica» più diffusa.</Esempio>
+          </AiutoSezione>
+          <div className="mt-2 flex flex-wrap items-end gap-3 text-sm">
+            <label className="flex items-center gap-2">
+              Lenzuola ogni
+              <Input type="number" min={1} max={14} className="w-16" value={biancheria.lenzuola} onChange={(e) => setBiancheria({ ...biancheria, lenzuola: e.target.value })} />
+              notti
+            </label>
+            <label className="flex items-center gap-2">
+              Asciugamani ogni
+              <Input type="number" min={1} max={14} className="w-16" placeholder="—" value={biancheria.asciugamani} onChange={(e) => setBiancheria({ ...biancheria, asciugamani: e.target.value })} />
+              notti (vuoto = su richiesta)
+            </label>
+            <Spunta etichetta="Couverture serale" checked={biancheria.couverture} onChange={(e) => setBiancheria({ ...biancheria, couverture: e.target.checked })} />
+            <Pulsante
+              variante="primario"
+              dimensione="piccolo"
+              disabled={busy}
+              onClick={() =>
+                esegui(
+                  () =>
+                    sbusta(
+                      azioneBiancheria({
+                        cambioLenzuolaOgni: Number(biancheria.lenzuola),
+                        cambioAsciugamaniOgni: biancheria.asciugamani.trim() === "" ? null : Number(biancheria.asciugamani),
+                        couverture: biancheria.couverture,
+                      }),
+                    ),
+                  "Regole della biancheria salvate.",
+                )
+              }
+            >
+              Salva
+            </Pulsante>
           </div>
         </Sezione>
       )}

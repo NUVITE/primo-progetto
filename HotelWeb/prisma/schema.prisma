@@ -88,6 +88,13 @@ model Hotel {
   piatti                 Piatto[]
   // Pulizie: con il controllo della governante una camera finita passa da "da controllare" prima di essere pronta.
   controlloGovernante    Boolean                 @default(false)
+  // Biancheria nelle camere fermate: lenzuola ogni N notti; asciugamani ogni N notti (null = su richiesta).
+  cambioLenzuolaOgni     Int                     @default(3)
+  cambioAsciugamaniOgni  Int?
+  // Couverture serale (preparazione della camera per la notte), tipica degli hotel di categoria alta.
+  couverture             Boolean                 @default(false)
+  assegnazioniPulizia    AssegnazionePulizia[]
+  articoliReparto        ArticoloReparto[]
   menu                   Menu[]
   ordiniRoomService      OrdineRoomService[]
 }
@@ -107,8 +114,9 @@ model Utente {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  accessi     UtenteHotel[]
-  eventiTassa EventoTassa[]
+  accessi             UtenteHotel[]
+  eventiTassa         EventoTassa[]
+  assegnazioniPulizia AssegnazionePulizia[]
 }
 
 /**
@@ -197,6 +205,7 @@ model Camera {
   segmenti        SegmentoSoggiorno[]
   indisponibilita CameraIndisponibilita[]
   controlli       ControlloCamera[]
+  assegnazioni    AssegnazionePulizia[]
 
   @@unique([hotelId, codice])
 }
@@ -1220,6 +1229,7 @@ model RepartoAddebito {
 
   addebiti AddebitoConto[]
   piatti   Piatto[]
+  articoli ArticoloReparto[]
 
   @@unique([hotelId, nome])
 }
@@ -1494,4 +1504,43 @@ model ControlloCamera {
   creatoIl DateTime @default(now())
 
   @@unique([cameraId, giorno])
+}
+
+/**
+ * Camera assegnata a una cameriera per un giorno (foglio di lavoro dei piani). esito: null = da fare,
+ * "fatta", "dnd" (non disturbare), "rifiutato" (l'ospite non ha voluto il riassetto).
+ */
+model AssegnazionePulizia {
+  id           Int      @id @default(autoincrement())
+  hotelId      Int
+  hotel        Hotel    @relation(fields: [hotelId], references: [id])
+  giorno       DateTime @db.Date
+  cameraId     Int
+  camera       Camera   @relation(fields: [cameraId], references: [id], onDelete: Cascade)
+  utenteId     Int
+  utente       Utente   @relation(fields: [utenteId], references: [id], onDelete: Cascade)
+  ordine       Int      @default(0)
+  esito        String?
+  nota         String?
+  aggiornatoIl DateTime @updatedAt
+
+  @@unique([cameraId, giorno])
+  @@index([hotelId, giorno])
+}
+
+/**
+ * Articolo con prezzo fisso di un reparto (es. frigobar: acqua, birra, snack), da segnare con un tocco.
+ */
+model ArticoloReparto {
+  id        Int             @id @default(autoincrement())
+  hotelId   Int
+  hotel     Hotel           @relation(fields: [hotelId], references: [id])
+  repartoId Int
+  reparto   RepartoAddebito @relation(fields: [repartoId], references: [id], onDelete: Cascade)
+  nome      String
+  prezzo    Decimal         @db.Decimal(10, 2)
+  attivo    Boolean         @default(true)
+  ordine    Int             @default(0)
+
+  @@unique([repartoId, nome])
 }
