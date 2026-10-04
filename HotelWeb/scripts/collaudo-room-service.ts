@@ -57,10 +57,16 @@ async function main() {
     const voci = await prisma.voceMenu.findMany({ where: { menuId: { in: [sempre, ristretto] } } });
     const voce = (piattoId: number) => voci.find((v) => v.piattoId === piattoId)!.id;
 
-    const p = await creaPrenotazione(hotel.id, {
-      ospitePrenotante: { nome: "Ospite", cognome: NOME },
-      segmenti: [{ tipoCameraId: tipo.id, ospite: { nome: "Ospite", cognome: NOME }, trattamento, listinoId: listino.id, dataInizio: giorno(-1), dataFine: giorno(2), composizione: { adulti: 1, etaBambini: [] } }],
-    });
+    // Il soggiorno è intorno a oggi: si prova ogni tipo di camera finché uno ha posto.
+    let p: Awaited<ReturnType<typeof creaPrenotazione>> | null = null;
+    for (const t of [tipo, ...(await prisma.tipoCamera.findMany({ where: { hotelId: hotel.id, id: { not: tipo.id } } }))]) {
+      p = await creaPrenotazione(hotel.id, {
+        ospitePrenotante: { nome: "Ospite", cognome: NOME },
+        segmenti: [{ tipoCameraId: t.id, ospite: { nome: "Ospite", cognome: NOME }, trattamento, listinoId: listino.id, dataInizio: giorno(-1), dataFine: giorno(2), composizione: { adulti: 1, etaBambini: [] } }],
+      }).catch(() => null);
+      if (p) break;
+    }
+    if (!p) throw new Error("Nessun tipo di camera libero intorno a oggi: il collaudo non si può fare adesso.");
     prenotazioni.push(p.id);
     const seg = p.segmenti[0];
     await salvaNotaAlimentare(hotel.id, seg.ospiteId, { voci: [{ codice: "glutine", tipo: "allergia" }], regimi: [], esigenze: "", consenso: "soggiorno", consensoModo: "a_voce", consensoDato: true }, "collaudo");

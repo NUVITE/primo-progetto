@@ -48,14 +48,23 @@ async function main() {
   const nomeDi = (t: typeof HB) => tratt.find((x) => x.colazione === t.colazione && x.pranzo === t.pranzo && x.cena === t.cena)?.nome;
   if (!nomeDi(BB) || !nomeDi(HB) || !nomeDi(FB)) throw new Error("Al primo hotel mancano trattamenti B&B, mezza pensione o pensione completa con i pasti impostati.");
   const ids: number[] = [];
+  // Camera da assegnare, del primo tipo che ha posto (in produzione le camere per tipo sono poche).
+  const tipi = [camera.tipoCameraId, ...(await prisma.tipoCamera.findMany({ where: { hotelId: hotel.id, id: { not: camera.tipoCameraId } } })).map((t) => t.id)];
   const prenota = async (cognome: string, trattamento: string, dal: string, al: string, adulti: number, etaBambini: number[] = []) => {
-    // Camera da assegnare: nessuno scontro con le camere vere.
-    const p = await creaPrenotazione(hotel.id, {
-      ospitePrenotante: { nome: "Ospite", cognome },
-      segmenti: [{ tipoCameraId: camera.tipoCameraId, ospite: { nome: "Ospite", cognome }, trattamento, listinoId: listino.id, dataInizio: dal, dataFine: al, composizione: { adulti, etaBambini } }],
-    });
-    ids.push(p.id);
-    return p;
+    let ultimo: unknown = null;
+    for (const tipoCameraId of tipi) {
+      try {
+        const p = await creaPrenotazione(hotel.id, {
+          ospitePrenotante: { nome: "Ospite", cognome },
+          segmenti: [{ tipoCameraId, ospite: { nome: "Ospite", cognome }, trattamento, listinoId: listino.id, dataInizio: dal, dataFine: al, composizione: { adulti, etaBambini } }],
+        });
+        ids.push(p.id);
+        return p;
+      } catch (e) {
+        ultimo = e;
+      }
+    }
+    throw ultimo;
   };
 
   try {
