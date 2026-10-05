@@ -102,6 +102,11 @@ model Hotel {
   mesiConservazioneOggetti Int                     @default(6)
   richiesteOspiti          RichiestaOspite[]
   oggettiSmarriti          OggettoSmarrito[]
+  // Coordinate per i bonifici degli acconti (segnaposto {{iban}} nelle email).
+  iban                     String?
+  configurazioneEmail      ConfigurazioneEmail?
+  modelliEmail             ModelloEmail[]
+  emailInviate             EmailInviata[]
 }
 
 /**
@@ -267,6 +272,9 @@ model Ospite {
   prenotazioniPagante    Prenotazione[]      @relation("pagante")
   posizioniTassa         PosizioneTassa[]
   notaAlimentare         NotaAlimentare?
+  // Lingua delle email ("it", "en", ...); vuota = italiano se italiano o senza cittadinanza, altrimenti inglese.
+  lingua                 String?
+  emailRicevute          EmailInviata[]
 
   @@index([hotelId, cognome, nome])
 }
@@ -357,6 +365,7 @@ model Prenotazione {
   intestazioniRighe IntestazioneRigaConto[]
   righeFatturate    RigaFatturata[]
   oggettiSmarriti   OggettoSmarrito[]
+  emailInviate      EmailInviata[]
 }
 
 enum StatoSegmento {
@@ -1645,4 +1654,71 @@ model OggettoSmarrito {
   creatoIl       DateTime      @default(now())
 
   @@index([hotelId, stato])
+}
+
+/**
+ * Server di posta dell'hotel per le email agli ospiti: le email partono dalla sua casella.
+ * La password è cifrata come quelle di Polizia e ISTAT (CHIAVE_CREDENZIALI sul server).
+ */
+model ConfigurazioneEmail {
+  id               Int       @id @default(autoincrement())
+  hotelId          Int       @unique
+  hotel            Hotel     @relation(fields: [hotelId], references: [id])
+  host             String
+  porta            Int
+  // "ssl" (di solito porta 465) | "starttls" (587) | "nessuna"
+  sicurezza        String
+  utente           String
+  passwordCifrata  String    @db.Text
+  mittenteNome     String
+  mittenteEmail    String
+  rispondiA        String?
+  aggiornataIl     DateTime  @updatedAt
+  aggiornataDa     String
+  ultimaProvaIl    DateTime?
+  ultimaProvaEsito String?   @db.Text
+}
+
+/**
+ * Modello di email modificato dall'hotel (i testi di partenza sono nel programma).
+ */
+model ModelloEmail {
+  id           Int      @id @default(autoincrement())
+  hotelId      Int
+  hotel        Hotel    @relation(fields: [hotelId], references: [id])
+  // "conferma" | "acconto" | "promemoria" | "ringraziamento" | "libera"
+  chiave       String
+  lingua       String
+  oggetto      String
+  corpo        String   @db.Text
+  aggiornatoIl DateTime @updatedAt
+  aggiornatoDa String
+
+  @@unique([hotelId, chiave, lingua])
+}
+
+/**
+ * Email inviata (o tentata): storico delle comunicazioni di prenotazione e ospite.
+ */
+model EmailInviata {
+  id             Int           @id @default(autoincrement())
+  hotelId        Int
+  hotel          Hotel         @relation(fields: [hotelId], references: [id])
+  prenotazioneId Int?
+  prenotazione   Prenotazione? @relation(fields: [prenotazioneId], references: [id], onDelete: SetNull)
+  ospiteId       Int?
+  ospite         Ospite?       @relation(fields: [ospiteId], references: [id], onDelete: SetNull)
+  modello        String?
+  lingua         String
+  destinatario   String
+  oggetto        String
+  corpo          String        @db.Text
+  // "inviata" | "errore" | "simulata" (ambiente di prova: non parte nulla)
+  esito          String
+  errore         String?       @db.Text
+  inviataIl      DateTime      @default(now())
+  inviataDa      String
+
+  @@index([hotelId, inviataIl])
+  @@index([prenotazioneId])
 }

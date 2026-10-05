@@ -8,6 +8,7 @@ import { MODULI, type Modulo } from "@/lib/moduli";
 export const PERMESSI = {
   PRENOTAZIONI_VEDI: "prenotazioni.vedi",
   PRENOTAZIONI_GESTISCI: "prenotazioni.gestisci",
+  EMAIL_INVIA: "comunicazioni.invia",
   IMPORTI_VEDI: "importi.vedi",
   PAGAMENTI_REGISTRA: "pagamenti.registra",
   PREZZI_MODIFICA: "prezzi.modifica",
@@ -59,6 +60,7 @@ export const CATALOGO_PERMESSI: { area: string; modulo?: Modulo; voci: { permess
         nome: "Chiusura di cassa",
         descrizione: "Vedere gli incassi del giorno per metodo e operatore, contare i contanti e chiudere la giornata",
       },
+      { permesso: PERMESSI.EMAIL_INVIA, nome: "Inviare email agli ospiti", descrizione: "Conferme, richieste di acconto, promemoria e ringraziamenti dalla casella dell'hotel" },
       { permesso: PERMESSI.PREZZI_MODIFICA, nome: "Modificare i prezzi", descrizione: "Fissare a mano il prezzo per notte di una camera prenotata (resta traccia di chi e perché)" },
       { permesso: PERMESSI.SOGGIORNI_RIAPRI, nome: "Riaprire soggiorni chiusi", descrizione: "Rettificare un soggiorno dopo il check-out (tassa definitiva): resta traccia di chi e quando" },
     ],
@@ -160,6 +162,7 @@ const IMPLICAZIONI: Partial<Record<Permesso, Permesso[]>> = {
   [PERMESSI.SOGGIORNI_RIAPRI]: [PERMESSI.PRENOTAZIONI_GESTISCI],
   [PERMESSI.PAGAMENTI_REGISTRA]: [PERMESSI.PRENOTAZIONI_VEDI, PERMESSI.IMPORTI_VEDI],
   [PERMESSI.ADEMPIMENTI_INVIA]: [PERMESSI.PRENOTAZIONI_VEDI],
+  [PERMESSI.EMAIL_INVIA]: [PERMESSI.PRENOTAZIONI_VEDI],
   [PERMESSI.CASSA_CHIUDI]: [PERMESSI.PRENOTAZIONI_VEDI, PERMESSI.IMPORTI_VEDI],
   [PERMESSI.PULIZIE_GESTISCI]: [PERMESSI.CAMERE_STATO_VEDI],
   [PERMESSI.PULIZIE_MIE]: [PERMESSI.CAMERE_STATO_VEDI],
@@ -192,7 +195,7 @@ export const RUOLI_PREDEFINITI: { nome: string; permessi: Permesso[] }[] = [
   { nome: "Direttore", permessi: TUTTI_I_PERMESSI.filter((p) => p !== PERMESSI.RUOLI_GESTISCI) },
   {
     nome: "Reception",
-    permessi: [PERMESSI.PRENOTAZIONI_VEDI, PERMESSI.PRENOTAZIONI_GESTISCI, PERMESSI.IMPORTI_VEDI, PERMESSI.PAGAMENTI_REGISTRA, PERMESSI.ADDEBITI_REGISTRA, PERMESSI.CASSA_CHIUDI, PERMESSI.NOTE_ALIMENTARI, PERMESSI.FOGLIO_PASTI, PERMESSI.ROOM_SERVICE, PERMESSI.CAMERE_STATO_VEDI, PERMESSI.PULIZIE_GESTISCI, PERMESSI.GUASTI_SEGNALA, PERMESSI.OGGETTI_SMARRITI, PERMESSI.ADEMPIMENTI_INVIA, PERMESSI.SALE_VEDI, PERMESSI.SALE_GESTISCI],
+    permessi: [PERMESSI.PRENOTAZIONI_VEDI, PERMESSI.PRENOTAZIONI_GESTISCI, PERMESSI.EMAIL_INVIA, PERMESSI.IMPORTI_VEDI, PERMESSI.PAGAMENTI_REGISTRA, PERMESSI.ADDEBITI_REGISTRA, PERMESSI.CASSA_CHIUDI, PERMESSI.NOTE_ALIMENTARI, PERMESSI.FOGLIO_PASTI, PERMESSI.ROOM_SERVICE, PERMESSI.CAMERE_STATO_VEDI, PERMESSI.PULIZIE_GESTISCI, PERMESSI.GUASTI_SEGNALA, PERMESSI.OGGETTI_SMARRITI, PERMESSI.ADEMPIMENTI_INVIA, PERMESSI.SALE_VEDI, PERMESSI.SALE_GESTISCI],
   },
   {
     nome: "Eventi / Commerciale",

@@ -53,6 +53,8 @@ import { PERMESSI } from "@/lib/permessi";
 import { descriviPolitica, elencoPolitiche, type PoliticaCopiata } from "@/lib/politiche";
 import { prisma } from "@/lib/prisma";
 import { noteDellaPrenotazione } from "@/lib/noteAlimentari";
+import { anteprimaEmail, inviaEmailPrenotazione, storicoEmail, type InvioInput } from "@/lib/email";
+import type { ChiaveModello, Lingua } from "@/lib/emailRegole";
 import { impostaPastoPrincipale } from "@/lib/foglioPasti";
 import { pastiEffettivi, pastoScambiabile } from "@/lib/pastiRegole";
 import { sospendiConto, statoConto, togliSospeso } from "@/lib/contiSospesi";
@@ -88,8 +90,16 @@ async function serializza(prenotazione: Awaited<ReturnType<typeof trovaPrenotazi
   const trattamentiPasti = utente.moduli.includes("ristorazione")
     ? new Map((await prisma.trattamento.findMany({ where: { hotelId: utente.hotelId } })).map((t) => [t.nome, t]))
     : null;
+  // Email agli ospiti: storico e invio per chi ha il permesso.
+  const email = puo(utente, PERMESSI.EMAIL_INVIA)
+    ? {
+        configurata: !!(await prisma.configurazioneEmail.findUnique({ where: { hotelId: utente.hotelId }, select: { id: true } })),
+        storico: await storicoEmail(utente.hotelId, prenotazione.id),
+      }
+    : null;
   return {
     importiVisibili,
+    email,
     noteAlimentari,
     contoVoci: {
       righe,
@@ -511,5 +521,21 @@ export async function azionePastoPrincipale(prenotazioneId: number, segmentoId: 
   return suPrenotazione(PERMESSI.PRENOTAZIONI_GESTISCI, async (u) => {
     await impostaPastoPrincipale(u.hotelId, segmentoId, valore);
     return trovaPrenotazione(u.hotelId, prenotazioneId);
+  });
+}
+
+/** Anteprima di un modello di email compilato con i dati della prenotazione. */
+export async function azioneAnteprimaEmail(id: number, chiave: ChiaveModello, lingua: Lingua | null) {
+  return conEsito(async () => {
+    const u = await richiediPermesso(PERMESSI.EMAIL_INVIA);
+    return anteprimaEmail(u.hotelId, id, chiave, lingua, puo(u, PERMESSI.IMPORTI_VEDI));
+  });
+}
+
+export async function azioneInviaEmail(id: number, d: InvioInput) {
+  return conEsito(async () => {
+    const u = await richiediPermesso(PERMESSI.EMAIL_INVIA);
+    const esito = await inviaEmailPrenotazione(u.hotelId, id, d, u.nome);
+    return { esito, prenotazione: await serializza(await trovaPrenotazione(u.hotelId, id), u) };
   });
 }

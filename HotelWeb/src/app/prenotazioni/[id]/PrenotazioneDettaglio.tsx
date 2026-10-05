@@ -12,6 +12,7 @@ import { BarraStato, PannelloPagamenti } from "./StatoEPagamenti";
 import { ProvenienzaCondizioni } from "./ProvenienzaCondizioni";
 import { PrezzoConcordato } from "./PrezzoConcordato";
 import { ContoPrenotazione } from "./ContoPrenotazione";
+import { ComunicazioniPrenotazione } from "./ComunicazioniPrenotazione";
 import Link from "next/link";
 import { OspiteSearch, type OspiteValue } from "../nuova/OspiteSearch";
 import { CampoComposizione } from "../CampoComposizione";
@@ -645,6 +646,7 @@ export function PrenotazioneDettaglio({
             ))}
 
           <ContoPrenotazione prenotazione={prenotazione} salvando={salvando} esegui={eseguendo} aggiorna={setPrenotazione} />
+          <ComunicazioniPrenotazione prenotazione={prenotazione} aggiorna={setPrenotazione} />
 
           {/* Solo usi diurni: non c'è pernottamento, quindi nemmeno tassa di soggiorno. */}
           {!prenotazione.segmenti.every((s) => s.usoDiurno) && (

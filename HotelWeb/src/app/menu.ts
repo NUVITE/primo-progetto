@@ -74,6 +74,7 @@ export const MENU: GruppoMenu[] = [
       { href: "/impostazioni/listini", label: "Listini e tariffe", permesso: PERMESSI.LISTINI_GESTISCI },
       { href: "/impostazioni/politiche", label: "Politiche di cancellazione", permesso: PERMESSI.LISTINI_GESTISCI },
       { href: "/impostazioni/reparti", label: "Reparti e IVA", permesso: PERMESSI.HOTEL_CONFIGURA },
+      { href: "/impostazioni/email", label: "Email e modelli", permesso: PERMESSI.HOTEL_CONFIGURA },
       { href: "/impostazioni/trattamenti", label: "Trattamenti", permesso: PERMESSI.HOTEL_CONFIGURA },
       { href: "/impostazioni/adempimenti", label: "Adempimenti (Polizia, ISTAT)", permesso: PERMESSI.HOTEL_CONFIGURA },
       { href: "/impostazioni/sale", label: "Sale e fasce orarie", permesso: PERMESSI.SALE_CONFIGURA, modulo: "sale" },
