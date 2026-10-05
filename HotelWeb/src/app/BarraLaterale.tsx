@@ -63,7 +63,7 @@ export function Cornice({ dati, preferenze, children }: { dati: DatiBarra; prefe
           </button>
           <span className="truncate font-bold">{dati.hotelNome}</span>
         </header>
-        <div className="print:hidden"><AvvisiAdempimenti attivo={dati.permessi.includes(PERMESSI.ADEMPIMENTI_INVIA)} /></div>
+        <div className="print:hidden"><AvvisiAdempimenti attivo={dati.permessi.includes(PERMESSI.ADEMPIMENTI_INVIA) || dati.permessi.includes(PERMESSI.PRENOTAZIONI_GESTISCI)} /></div>
         <main className="flex min-w-0 flex-1 flex-col">{children}</main>
       </div>
 

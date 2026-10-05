@@ -204,16 +204,30 @@ export async function anteprimaEmail(hotelId: number, prenotazioneId: number, ch
 
 export type InvioInput = { destinatario: string; oggetto: string; corpo: string; lingua: Lingua; modello: ChiaveModello | null };
 
-/** Invia l'email (o la simula) e la registra nello storico; un errore del server resta nello storico. */
+/** Invia l'email dalla prenotazione (o la simula) e la registra nello storico. */
 export async function inviaEmailPrenotazione(hotelId: number, prenotazioneId: number, d: InvioInput, utente: string, trasportoProva?: Trasporto) {
+  const p = await trovaPrenotazione(hotelId, prenotazioneId);
+  const ospite = [p.ospitePrenotante, p.ospitePagante].find((o) => o?.email?.toLowerCase() === d.destinatario.trim().toLowerCase());
+  return inviaEmail(hotelId, { prenotazioneId, ospiteId: ospite?.id ?? null, richiestaId: null }, d, utente, trasportoProva);
+}
+
+/**
+ * Invia (o simula) un'email e la registra nello storico, collegata a prenotazione, ospite o
+ * richiesta di disponibilità; un errore del server resta nello storico con il messaggio.
+ */
+export async function inviaEmail(
+  hotelId: number,
+  legami: { prenotazioneId: number | null; ospiteId: number | null; richiestaId: number | null },
+  d: InvioInput,
+  utente: string,
+  trasportoProva?: Trasporto,
+) {
   const destinatario = d.destinatario.trim();
   if (!EMAIL_VALIDA.test(destinatario)) throw new Error("Indirizzo del destinatario non valido.");
   if (!d.oggetto.trim() || !d.corpo.trim()) throw new Error("Oggetto e testo sono obbligatori.");
   if (/\{\{\s*[a-z_]+\s*\}\}/.test(d.oggetto + d.corpo)) throw new Error("Nel testo ci sono ancora segnaposto da completare (tra {{ }}).");
-  const p = await trovaPrenotazione(hotelId, prenotazioneId);
   const t = await trasportoHotel(hotelId);
   const trasporto = trasportoProva ?? t.trasporto;
-  const ospite = [p.ospitePrenotante, p.ospitePagante].find((o) => o?.email?.toLowerCase() === destinatario.toLowerCase());
   let esito = t.simulato && !trasportoProva ? "simulata" : "inviata";
   let errore: string | null = null;
   try {
@@ -223,7 +237,7 @@ export async function inviaEmailPrenotazione(hotelId: number, prenotazioneId: nu
     errore = messaggioErrore(e);
   }
   await prisma.emailInviata.create({
-    data: { hotelId, prenotazioneId, ospiteId: ospite?.id ?? null, modello: d.modello, lingua: d.lingua, destinatario, oggetto: d.oggetto.trim(), corpo: d.corpo, esito, errore, inviataDa: utente },
+    data: { hotelId, ...legami, modello: d.modello, lingua: d.lingua, destinatario, oggetto: d.oggetto.trim(), corpo: d.corpo, esito, errore, inviataDa: utente },
   });
   if (esito === "errore") throw new Error(`Email non inviata: ${errore}`);
   return esito;

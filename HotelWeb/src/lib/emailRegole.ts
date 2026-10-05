@@ -11,6 +11,7 @@ export const MODELLI = {
   acconto: "Richiesta di acconto",
   promemoria: "Promemoria prima dell'arrivo",
   ringraziamento: "Ringraziamento dopo la partenza",
+  preventivo: "Preventivo",
   libera: "Email libera",
 } as const;
 export type ChiaveModello = keyof typeof MODELLI;
@@ -39,6 +40,8 @@ export const SEGNAPOSTO = {
   telefono_hotel: "Telefono dell'hotel",
   email_hotel: "Email dell'hotel",
   indirizzo_hotel: "Indirizzo dell'hotel",
+  link_preventivo: "Link al preventivo (solo per il preventivo)",
+  valido_fino: "Scadenza del preventivo",
 } as const;
 export type Segnaposto = keyof typeof SEGNAPOSTO;
 
@@ -161,6 +164,38 @@ thank you for staying with us. We hope to welcome you again soon!
 
 Kind regards,
 {{hotel}}`,
+    },
+  },
+  preventivo: {
+    it: {
+      oggetto: "Il suo preventivo - {{hotel}}",
+      corpo: `Gentile {{nome}} {{cognome}},
+
+grazie per averci contattato. Abbiamo preparato le nostre proposte per il soggiorno dal {{arrivo}} al {{partenza}} ({{notti}} notti, {{persone}} persone).
+
+Le trova qui, con prezzi e condizioni:
+{{link_preventivo}}
+
+Se una proposta le va bene può accettarla direttamente dalla pagina: le terremo la camera e le invieremo le indicazioni per l'acconto. Il preventivo è valido fino al {{valido_fino}}.
+
+Cordiali saluti,
+{{hotel}}
+{{telefono_hotel}}`,
+    },
+    en: {
+      oggetto: "Your quotation - {{hotel}}",
+      corpo: `Dear {{nome}} {{cognome}},
+
+thank you for contacting us. We have prepared our offers for your stay from {{arrivo}} to {{partenza}} ({{notti}} nights, {{persone}} guests).
+
+You can find them here, with prices and conditions:
+{{link_preventivo}}
+
+If you like one of them you can accept it directly on the page: we will hold the room and send you the deposit details. The quotation is valid until {{valido_fino}}.
+
+Kind regards,
+{{hotel}}
+{{telefono_hotel}}`,
     },
   },
   libera: {

@@ -80,7 +80,7 @@ export function ComunicazioniPrenotazione({ prenotazione: p, aggiorna }: { preno
           <div className="grid gap-2 sm:grid-cols-3">
             <Campo etichetta="Modello">
               <Select value={bozza.chiave} disabled={busy} onChange={(e) => prepara(e.target.value as ChiaveModello, bozza.lingua, bozza.destinatario)}>
-                {(Object.entries(MODELLI) as [ChiaveModello, string][]).map(([k, t]) => (
+                {(Object.entries(MODELLI) as [ChiaveModello, string][]).filter(([k]) => k !== "preventivo").map(([k, t]) => (
                   <option key={k} value={k}>
                     {t}
                   </option>

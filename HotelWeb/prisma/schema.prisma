@@ -87,19 +87,19 @@ model Hotel {
   noteAlimentari           NotaAlimentare[]
   piatti                   Piatto[]
   // Pulizie: con il controllo della governante una camera finita passa da "da controllare" prima di essere pronta.
-  controlloGovernante      Boolean                 @default(false)
+  controlloGovernante      Boolean                  @default(false)
   // Biancheria nelle camere fermate: lenzuola ogni N notti; asciugamani ogni N notti (null = su richiesta).
-  cambioLenzuolaOgni       Int                     @default(3)
+  cambioLenzuolaOgni       Int                      @default(3)
   cambioAsciugamaniOgni    Int?
   // Couverture serale (preparazione della camera per la notte), tipica degli hotel di categoria alta.
-  couverture               Boolean                 @default(false)
+  couverture               Boolean                  @default(false)
   assegnazioniPulizia      AssegnazionePulizia[]
   articoliReparto          ArticoloReparto[]
   menu                     Menu[]
   ordiniRoomService        OrdineRoomService[]
   segnalazioni             Segnalazione[]
   // Oggetti smarriti: dopo quanti mesi in deposito si segnalano da smaltire.
-  mesiConservazioneOggetti Int                     @default(6)
+  mesiConservazioneOggetti Int                      @default(6)
   richiesteOspiti          RichiestaOspite[]
   oggettiSmarriti          OggettoSmarrito[]
   // Coordinate per i bonifici degli acconti (segnaposto {{iban}} nelle email).
@@ -107,6 +107,8 @@ model Hotel {
   configurazioneEmail      ConfigurazioneEmail?
   modelliEmail             ModelloEmail[]
   emailInviate             EmailInviata[]
+  richiesteDisponibilita   RichiestaDisponibilita[]
+  preventivi               Preventivo[]
 }
 
 /**
@@ -190,6 +192,7 @@ model TipoCamera {
   periodiTariffari      PeriodoTariffario[]
   segmenti              SegmentoSoggiorno[]
   supplementiStagionali SupplementoStagionale[]
+  proposte              PropostaPreventivo[]
 
   @@unique([hotelId, codice])
 }
@@ -355,17 +358,18 @@ model Prenotazione {
   createdAt          DateTime          @default(now())
   updatedAt          DateTime          @updatedAt
 
-  segmenti          SegmentoSoggiorno[]
-  pagamenti         Pagamento[]
-  serviziAggiunti   ServizioAggiunto[]
-  posizioniTassa    PosizioneTassa[]
-  prenotazioniSala  PrenotazioneSala[]
-  personeEvento     PersonaEvento[]
-  addebiti          AddebitoConto[]
-  intestazioniRighe IntestazioneRigaConto[]
-  righeFatturate    RigaFatturata[]
-  oggettiSmarriti   OggettoSmarrito[]
-  emailInviate      EmailInviata[]
+  segmenti               SegmentoSoggiorno[]
+  pagamenti              Pagamento[]
+  serviziAggiunti        ServizioAggiunto[]
+  posizioniTassa         PosizioneTassa[]
+  prenotazioniSala       PrenotazioneSala[]
+  personeEvento          PersonaEvento[]
+  addebiti               AddebitoConto[]
+  intestazioniRighe      IntestazioneRigaConto[]
+  righeFatturate         RigaFatturata[]
+  oggettiSmarriti        OggettoSmarrito[]
+  emailInviate           EmailInviata[]
+  richiesteDisponibilita RichiestaDisponibilita[]
 }
 
 enum StatoSegmento {
@@ -545,6 +549,7 @@ model Listino {
   supplementiTrattamento SupplementoTrattamento[]
   riduzioni              RiduzioneListino[]
   supplementiStagionali  SupplementoStagionale[]
+  proposte               PropostaPreventivo[]
 
   @@unique([hotelId, codice])
 }
@@ -1701,24 +1706,111 @@ model ModelloEmail {
  * Email inviata (o tentata): storico delle comunicazioni di prenotazione e ospite.
  */
 model EmailInviata {
-  id             Int           @id @default(autoincrement())
+  id             Int                     @id @default(autoincrement())
   hotelId        Int
-  hotel          Hotel         @relation(fields: [hotelId], references: [id])
+  hotel          Hotel                   @relation(fields: [hotelId], references: [id])
   prenotazioneId Int?
-  prenotazione   Prenotazione? @relation(fields: [prenotazioneId], references: [id], onDelete: SetNull)
+  prenotazione   Prenotazione?           @relation(fields: [prenotazioneId], references: [id], onDelete: SetNull)
   ospiteId       Int?
-  ospite         Ospite?       @relation(fields: [ospiteId], references: [id], onDelete: SetNull)
+  ospite         Ospite?                 @relation(fields: [ospiteId], references: [id], onDelete: SetNull)
   modello        String?
   lingua         String
   destinatario   String
   oggetto        String
-  corpo          String        @db.Text
+  corpo          String                  @db.Text
   // "inviata" | "errore" | "simulata" (ambiente di prova: non parte nulla)
   esito          String
-  errore         String?       @db.Text
-  inviataIl      DateTime      @default(now())
+  errore         String?                 @db.Text
+  inviataIl      DateTime                @default(now())
   inviataDa      String
+  richiestaId    Int?
+  richiesta      RichiestaDisponibilita? @relation(fields: [richiestaId], references: [id], onDelete: SetNull)
 
   @@index([hotelId, inviataIl])
   @@index([prenotazioneId])
+}
+
+/**
+ * Richiesta di disponibilità ("avete posto?"): chi, quando, quante persone, da quale canale.
+ * stato: "nuova" | "preventivo" (inviato) | "accettata" | "rifiutata" | "scaduta". Quando l'ospite
+ * accetta un preventivo nasce la prenotazione in opzione (prenotazioneId).
+ */
+model RichiestaDisponibilita {
+  id             Int           @id @default(autoincrement())
+  hotelId        Int
+  hotel          Hotel         @relation(fields: [hotelId], references: [id])
+  // "telefono" | "email" | "sito" | "passaparola" | "altro"
+  canale         String
+  nome           String
+  cognome        String
+  email          String?
+  telefono       String?
+  lingua         String        @default("it")
+  dal            DateTime      @db.Date
+  al             DateTime      @db.Date
+  // Persone per camera.
+  adulti         Int
+  etaBambini     Json
+  camere         Int           @default(1)
+  trattamento    String?
+  budget         String?
+  note           String?       @db.Text
+  stato          String        @default("nuova")
+  motivoRinuncia String?
+  creataIl       DateTime      @default(now())
+  creataDa       String
+  prenotazioneId Int?
+  prenotazione   Prenotazione? @relation(fields: [prenotazioneId], references: [id], onDelete: SetNull)
+
+  preventivi   Preventivo[]
+  emailInviate EmailInviata[]
+
+  @@index([hotelId, stato])
+}
+
+/**
+ * Preventivo con 1-3 proposte, consultabile dall'ospite con il link (codice segreto). stato:
+ * "bozza" | "inviato" | "visto" | "accettato" | "rifiutato" | "scaduto". daVedere = l'ospite ha
+ * risposto online e la reception non l'ha ancora aperto.
+ */
+model Preventivo {
+  id                  Int                    @id @default(autoincrement())
+  hotelId             Int
+  hotel               Hotel                  @relation(fields: [hotelId], references: [id])
+  richiestaId         Int
+  richiesta           RichiestaDisponibilita @relation(fields: [richiestaId], references: [id], onDelete: Cascade)
+  codice              String                 @unique
+  validoFino          DateTime               @db.Date
+  accontoRichiesto    Decimal?               @db.Decimal(10, 2)
+  messaggio           String?                @db.Text
+  stato               String                 @default("bozza")
+  creatoIl            DateTime               @default(now())
+  creatoDa            String
+  inviatoIl           DateTime?
+  vistoIl             DateTime?
+  rispostaIl          DateTime?
+  propostaAccettataId Int?
+  motivoRifiuto       String?
+  daVedere            Boolean                @default(false)
+
+  proposte PropostaPreventivo[]
+}
+
+/**
+ * Proposta del preventivo: camere di un tipo con un trattamento e un listino; prezzo offerto modificabile.
+ */
+model PropostaPreventivo {
+  id              Int        @id @default(autoincrement())
+  preventivoId    Int
+  preventivo      Preventivo @relation(fields: [preventivoId], references: [id], onDelete: Cascade)
+  ordine          Int        @default(0)
+  tipoCameraId    Int
+  tipoCamera      TipoCamera @relation(fields: [tipoCameraId], references: [id])
+  listinoId       Int
+  listino         Listino    @relation(fields: [listinoId], references: [id])
+  trattamento     String
+  // Totale del soggiorno (tutte le camere, IVA inclusa, senza tassa di soggiorno).
+  prezzoCalcolato Decimal    @db.Decimal(10, 2)
+  prezzo          Decimal    @db.Decimal(10, 2)
+  nota            String?
 }

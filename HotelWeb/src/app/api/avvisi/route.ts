@@ -3,6 +3,7 @@ import { getUtenteCorrente, puo } from "@/lib/auth";
 import { PERMESSI } from "@/lib/permessi";
 import { avvisoSchedine } from "@/lib/alloggiati";
 import { avvisoIstat } from "@/lib/movimentoIstat";
+import { risposteDaVedere } from "@/lib/preventivi";
 
 /**
  * Avvisi degli adempimenti per la barra in cima all'app (schedine di Polizia e giorni ISTAT da
@@ -11,7 +12,9 @@ import { avvisoIstat } from "@/lib/movimentoIstat";
 export async function GET() {
   const utente = await getUtenteCorrente();
   if (!utente) return NextResponse.json({ error: "Non autenticato." }, { status: 401 });
-  if (!puo(utente, PERMESSI.ADEMPIMENTI_INVIA)) return NextResponse.json({ schedine: null, istat: null });
-  const [schedine, istat] = await Promise.all([avvisoSchedine(utente.hotelId), avvisoIstat(utente.hotelId).catch(() => null)]);
-  return NextResponse.json({ schedine, istat }, { headers: { "Cache-Control": "no-store" } });
+  const adempimenti = puo(utente, PERMESSI.ADEMPIMENTI_INVIA);
+  // Preventivi a cui l'ospite ha risposto online (accettati o rifiutati) e non ancora guardati.
+  const preventivi = puo(utente, PERMESSI.PRENOTAZIONI_GESTISCI) && puo(utente, PERMESSI.IMPORTI_VEDI) ? await risposteDaVedere(utente.hotelId) : 0;
+  const [schedine, istat] = adempimenti ? await Promise.all([avvisoSchedine(utente.hotelId), avvisoIstat(utente.hotelId).catch(() => null)]) : [null, null];
+  return NextResponse.json({ schedine, istat, preventivi }, { headers: { "Cache-Control": "no-store" } });
 }

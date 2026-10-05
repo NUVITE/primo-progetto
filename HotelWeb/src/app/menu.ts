@@ -20,6 +20,7 @@ export const MENU: GruppoMenu[] = [
     voci: [
       { href: "/", label: "Planning camere", permesso: PERMESSI.PRENOTAZIONI_VEDI },
       { href: "/prenotazioni", label: "Prenotazioni", permesso: PERMESSI.PRENOTAZIONI_VEDI },
+      { href: "/preventivi", label: "Richieste e preventivi", permesso: PERMESSI.PRENOTAZIONI_GESTISCI },
       { href: "/addebiti", label: "Addebiti dei reparti", permesso: PERMESSI.ADDEBITI_REGISTRA },
       { href: "/conti", label: "Conti aperti e sospesi", permesso: PERMESSI.PAGAMENTI_REGISTRA },
       { href: "/cassa", label: "Cassa e chiusura del giorno", permesso: PERMESSI.CASSA_CHIUDI },

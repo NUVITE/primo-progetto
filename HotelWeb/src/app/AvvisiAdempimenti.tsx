@@ -1,6 +1,6 @@
 "use client";
 
-import { BarChart3, ShieldAlert, type LucideIcon } from "lucide-react";
+import { BarChart3, MailCheck, ShieldAlert, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -9,6 +9,7 @@ import { useEffect, useState } from "react";
 type Avvisi = {
   schedine: { quante: number; scadute: number; primaScadenza: string } | null;
   istat: { sistema: string; giorni: number; scaduti: number; primaScadenza: string; dal: string } | null;
+  preventivi?: number;
 };
 
 /** "tra 5 ore" / "scaduta da 2 ore" rispetto a adesso. */
@@ -46,10 +47,17 @@ export function AvvisiAdempimenti({ attivo }: { attivo: boolean }) {
 
   const s = avvisi?.schedine;
   const i = avvisi?.istat;
-  if (!s && !i) return null;
+  const pv = avvisi?.preventivi ?? 0;
+  if (!s && !i && !pv) return null;
   const it = (g: string) => g.split("-").reverse().join("/");
   return (
     <>
+      {pv > 0 && (
+        <Barra scaduto={false} icona={MailCheck} link={pathname !== "/preventivi" ? { href: "/preventivi", testo: "Vai ai preventivi" } : null}>
+          <strong>{pv === 1 ? "Un ospite ha risposto online a un preventivo" : `${pv} ospiti hanno risposto online ai preventivi`}</strong> — aprilo per vedere se ha
+          accettato.
+        </Barra>
+      )}
       {s && (
         <Barra
           scaduto={s.scadute > 0}
