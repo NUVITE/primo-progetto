@@ -20,6 +20,8 @@ export const PERMESSI = {
   CAMERE_STATO_VEDI: "pulizie.vedi",
   PULIZIE_GESTISCI: "pulizie.gestisci",
   PULIZIE_MIE: "pulizie.mie",
+  GUASTI_SEGNALA: "manutenzioni.segnala",
+  MANUTENZIONI_GESTISCI: "manutenzioni.gestisci",
   ADEMPIMENTI_INVIA: "adempimenti.invia",
   SOGGIORNI_RIAPRI: "soggiorni.riapri",
   CAMERE_GESTISCI: "camere.gestisci",
@@ -121,6 +123,18 @@ export const CATALOGO_PERMESSI: { area: string; modulo?: Modulo; voci: { permess
     ],
   },
   {
+    area: "Manutenzioni",
+    modulo: MODULI.MANUTENZIONI,
+    voci: [
+      { permesso: PERMESSI.GUASTI_SEGNALA, nome: "Segnalare guasti", descrizione: "Segnalare un guasto in camera o in una zona comune e vedere le segnalazioni" },
+      {
+        permesso: PERMESSI.MANUTENZIONI_GESTISCI,
+        nome: "Gestire le manutenzioni",
+        descrizione: "Prendere in carico i guasti, assegnarli, segnarli risolti o annullarli",
+      },
+    ],
+  },
+  {
     area: "Utenti",
     voci: [
       { permesso: PERMESSI.UTENTI_GESTISCI, nome: "Gestire utenti", descrizione: "Aggiungere utenti all'hotel e assegnare i ruoli" },
@@ -143,6 +157,7 @@ const IMPLICAZIONI: Partial<Record<Permesso, Permesso[]>> = {
   [PERMESSI.CASSA_CHIUDI]: [PERMESSI.PRENOTAZIONI_VEDI, PERMESSI.IMPORTI_VEDI],
   [PERMESSI.PULIZIE_GESTISCI]: [PERMESSI.CAMERE_STATO_VEDI],
   [PERMESSI.PULIZIE_MIE]: [PERMESSI.CAMERE_STATO_VEDI],
+  [PERMESSI.MANUTENZIONI_GESTISCI]: [PERMESSI.GUASTI_SEGNALA],
   [PERMESSI.PREZZI_MODIFICA]: [PERMESSI.PRENOTAZIONI_GESTISCI, PERMESSI.PRENOTAZIONI_VEDI, PERMESSI.IMPORTI_VEDI],
 };
 
@@ -171,7 +186,7 @@ export const RUOLI_PREDEFINITI: { nome: string; permessi: Permesso[] }[] = [
   { nome: "Direttore", permessi: TUTTI_I_PERMESSI.filter((p) => p !== PERMESSI.RUOLI_GESTISCI) },
   {
     nome: "Reception",
-    permessi: [PERMESSI.PRENOTAZIONI_VEDI, PERMESSI.PRENOTAZIONI_GESTISCI, PERMESSI.IMPORTI_VEDI, PERMESSI.PAGAMENTI_REGISTRA, PERMESSI.ADDEBITI_REGISTRA, PERMESSI.CASSA_CHIUDI, PERMESSI.NOTE_ALIMENTARI, PERMESSI.FOGLIO_PASTI, PERMESSI.ROOM_SERVICE, PERMESSI.CAMERE_STATO_VEDI, PERMESSI.PULIZIE_GESTISCI, PERMESSI.ADEMPIMENTI_INVIA, PERMESSI.SALE_VEDI, PERMESSI.SALE_GESTISCI],
+    permessi: [PERMESSI.PRENOTAZIONI_VEDI, PERMESSI.PRENOTAZIONI_GESTISCI, PERMESSI.IMPORTI_VEDI, PERMESSI.PAGAMENTI_REGISTRA, PERMESSI.ADDEBITI_REGISTRA, PERMESSI.CASSA_CHIUDI, PERMESSI.NOTE_ALIMENTARI, PERMESSI.FOGLIO_PASTI, PERMESSI.ROOM_SERVICE, PERMESSI.CAMERE_STATO_VEDI, PERMESSI.PULIZIE_GESTISCI, PERMESSI.GUASTI_SEGNALA, PERMESSI.ADEMPIMENTI_INVIA, PERMESSI.SALE_VEDI, PERMESSI.SALE_GESTISCI],
   },
   {
     nome: "Eventi / Commerciale",
@@ -180,9 +195,9 @@ export const RUOLI_PREDEFINITI: { nome: string; permessi: Permesso[] }[] = [
   { nome: "Cucina", permessi: [PERMESSI.FOGLIO_PASTI, PERMESSI.NOTE_ALIMENTARI, PERMESSI.MENU_GESTISCI, PERMESSI.ROOM_SERVICE] },
   { nome: "Sala", permessi: [PERMESSI.FOGLIO_PASTI, PERMESSI.NOTE_ALIMENTARI, PERMESSI.ROOM_SERVICE] },
   { nome: "Room service", permessi: [PERMESSI.ROOM_SERVICE] },
-  { nome: "Governante", permessi: [PERMESSI.PRENOTAZIONI_VEDI, PERMESSI.CAMERE_STATO_VEDI, PERMESSI.PULIZIE_GESTISCI] },
-  { nome: "Cameriera ai piani", permessi: [PERMESSI.CAMERE_STATO_VEDI, PERMESSI.PULIZIE_MIE] },
-  { nome: "Manutenzione", permessi: [] },
+  { nome: "Governante", permessi: [PERMESSI.PRENOTAZIONI_VEDI, PERMESSI.CAMERE_STATO_VEDI, PERMESSI.PULIZIE_GESTISCI, PERMESSI.GUASTI_SEGNALA] },
+  { nome: "Cameriera ai piani", permessi: [PERMESSI.CAMERE_STATO_VEDI, PERMESSI.PULIZIE_MIE, PERMESSI.GUASTI_SEGNALA] },
+  { nome: "Manutenzione", permessi: [PERMESSI.GUASTI_SEGNALA, PERMESSI.MANUTENZIONI_GESTISCI] },
 ];
 
 /** Permessi che richiedono p (togliendo p vanno tolti anche loro, es. "vedere" regge "gestire"). */

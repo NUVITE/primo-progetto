@@ -27,7 +27,7 @@ export const CATALOGO_MODULI: { modulo: Modulo; nome: string; descrizione: strin
     disponibile: true,
   },
   { modulo: MODULI.PULIZIE, nome: "Pulizie e riassetto", descrizione: "Stato di pulizia delle camere, lavoro delle cameriere ai piani, rapporto della governante", disponibile: true },
-  { modulo: MODULI.MANUTENZIONI, nome: "Manutenzioni", descrizione: "Segnalazioni guasti e richieste degli ospiti", disponibile: false },
+  { modulo: MODULI.MANUTENZIONI, nome: "Manutenzioni", descrizione: "Segnalazioni dei guasti, lista del manutentore, camere fuori servizio, storico per camera", disponibile: true },
   { modulo: MODULI.MAGAZZINO, nome: "Magazzino", descrizione: "Prodotti, movimenti di carico e scarico, giacenze", disponibile: false },
   { modulo: MODULI.FATTURAZIONE, nome: "Fatturazione", descrizione: "Fatture elettroniche (XML SDI) e documenti non fiscali", disponibile: false },
   { modulo: MODULI.SCHEDINA_PS, nome: "Schedina PS", descrizione: "Invio ad Alloggiati Web della Polizia di Stato", disponibile: false },

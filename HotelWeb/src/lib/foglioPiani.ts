@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { registraAddebito } from "@/lib/conto";
-import { permessiAccesso, PERMESSI } from "@/lib/permessi";
+import { PERMESSI } from "@/lib/permessi";
+import { utentiConPermesso } from "@/lib/utentiConPermesso";
 import { impostaNonDisturbare, impostaStatoPulizia, quadroCamere } from "@/lib/pulizie";
 import { biancheria, proponiDivisione, PESO_LAVORO, type Lavoro } from "@/lib/pulizieRegole";
 
@@ -15,16 +16,7 @@ const iso = (d: Date) => d.toISOString().slice(0, 10);
 const giorniFra = (da: string, a: string) => Math.round((Date.parse(`${a}T00:00:00Z`) - Date.parse(`${da}T00:00:00Z`)) / 86400000);
 
 /** Utenti dell'hotel che possono pulire le camere (permesso «Pulire le proprie camere»). */
-export async function cameriere(hotelId: number) {
-  const [hotel, accessi] = await Promise.all([
-    prisma.hotel.findUniqueOrThrow({ where: { id: hotelId }, select: { modalitaUtenti: true } }),
-    prisma.utenteHotel.findMany({ where: { hotelId, utente: { attivo: true } }, include: { utente: true, ruolo: true, ruoliAggiuntivi: { include: { ruolo: true } } } }),
-  ]);
-  return accessi
-    .filter((a) => permessiAccesso(hotel.modalitaUtenti, [a.ruolo.permessi, ...a.ruoliAggiuntivi.map((r) => r.ruolo.permessi)]).includes(PERMESSI.PULIZIE_MIE))
-    .map((a) => ({ id: a.utenteId, nome: a.utente.nome }))
-    .sort((a, b) => a.nome.localeCompare(b.nome, "it"));
-}
+export const cameriere = (hotelId: number) => utentiConPermesso(hotelId, PERMESSI.PULIZIE_MIE);
 
 /** Le camere su cui c'è (o c'è stato) lavoro oggi, con biancheria, arrivi e assegnazione. */
 export async function lavoroDelGiorno(hotelId: number) {

@@ -1,5 +1,6 @@
 import type { Prisma, PrismaClient } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
+import { guastiApertiPerCamera } from "@/lib/manutenzioni";
 import { discrepanza, statoDopoPulizia, statoEffettivo, STATI_PULIZIA, type Occupazione, type StatoPulizia } from "@/lib/pulizieRegole";
 
 /**
@@ -49,12 +50,14 @@ async function occupazioniDiOggi(db: Db, hotelId: number, oggi: string) {
 export async function quadroCamere(hotelId: number) {
   const oggi = oggiItalia();
   const g = new Date(oggi);
-  const [hotel, camere, occupazioni, fuoriServizio, controlli] = await Promise.all([
+  const [hotel, camere, occupazioni, fuoriServizio, controlli, guasti] = await Promise.all([
     prisma.hotel.findUniqueOrThrow({ where: { id: hotelId }, select: { controlloGovernante: true } }),
     prisma.camera.findMany({ where: { hotelId, attivo: true }, include: { tipoCamera: true }, orderBy: [{ piano: "asc" }, { codice: "asc" }] }),
     occupazioniDiOggi(prisma, hotelId, oggi),
-    prisma.cameraIndisponibilita.findMany({ where: { camera: { hotelId }, dal: { lte: g }, al: { gte: g } } }),
+    // Fuori servizio come nel planning: dal giorno "dal" compreso al giorno "al" escluso.
+    prisma.cameraIndisponibilita.findMany({ where: { camera: { hotelId }, dal: { lte: g }, al: { gt: g } } }),
     prisma.controlloCamera.findMany({ where: { camera: { hotelId }, giorno: g } }),
+    guastiApertiPerCamera(hotelId),
   ]);
   const righe = camere
     .map((c) => {
@@ -75,6 +78,7 @@ export async function quadroCamere(hotelId: number) {
         ospite: occ.ospite,
         prenotazioneId: occ.prenotazioneId,
         fuoriServizio: fs ? fs.motivo : null,
+        guastiAperti: guasti.get(c.id) ?? 0,
         controllo: ctrl ? { trovata: ctrl.trovata as "occupata" | "libera", nota: ctrl.nota ?? "", da: ctrl.da } : null,
         discrepanza: ctrl ? discrepanza(occ.occupazione, ctrl.trovata as "occupata" | "libera") : null,
       };

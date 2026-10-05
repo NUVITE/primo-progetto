@@ -180,6 +180,11 @@ export function StatoCamere({ iniziale }: { iniziale: Dati }) {
                     </span>
                   </p>
                   {c.fuoriServizio && <p className="text-xs font-semibold text-stone-700">Fuori servizio: {c.fuoriServizio}</p>}
+                  {c.guastiAperti > 0 && (
+                    <Link href={`/manutenzioni?camera=${c.id}`} className="text-xs font-semibold text-red-800 underline">
+                      {c.guastiAperti === 1 ? "1 guasto aperto" : `${c.guastiAperti} guasti aperti`}
+                    </Link>
+                  )}
                   {c.statoDa && (
                     <p className="text-xs text-stone-500">
                       {ora(c.statoIl)} · {c.statoDa}

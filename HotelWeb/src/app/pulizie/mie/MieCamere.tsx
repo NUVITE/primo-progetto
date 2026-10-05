@@ -1,12 +1,12 @@
 "use client";
 
-import { BellOff, CheckCircle2, Minus, Play, Plus, RefreshCw, Refrigerator } from "lucide-react";
+import { BellOff, CheckCircle2, Minus, Play, Plus, RefreshCw, Refrigerator, Wrench } from "lucide-react";
 import { useState } from "react";
 import { sbusta } from "@/lib/esito";
 import { LAVORI, STATI_PULIZIA, testoArrivo, testoBiancheria } from "@/lib/pulizieRegole";
-import { Avviso, Etichetta, Input, Pulsante } from "@/components/ui";
+import { Avviso, Etichetta, Input, Pulsante, Spunta } from "@/components/ui";
 import { Suggerimento } from "@/components/Suggerimento";
-import { azioneCaricaMieCamere, azioneFrigobar, azioneMiaCamera, datiMieCamere } from "./actions";
+import { azioneCaricaMieCamere, azioneFrigobar, azioneGuastoCamera, azioneMiaCamera, datiMieCamere } from "./actions";
 
 type Dati = Awaited<ReturnType<typeof datiMieCamere>>;
 type Azione = "inizia" | "finita" | "dnd" | "rifiutato" | "riapri";
@@ -22,7 +22,7 @@ export function MieCamere({ iniziale }: { iniziale: Dati }) {
   const [d, setD] = useState(iniziale);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ tipo: "ok" | "errore"; testo: string } | null>(null);
-  const [aperta, setAperta] = useState<null | { cameraId: number; modo: "frigobar" | "nota"; azione?: Azione; quantita: Record<number, number>; nota: string }>(null);
+  const [aperta, setAperta] = useState<null | { cameraId: number; modo: "frigobar" | "nota" | "guasto"; azione?: Azione; quantita: Record<number, number>; nota: string; urgente?: boolean }>(null);
 
   async function esegui(fn: () => Promise<Dati>, ok: string) {
     setMsg(null);
@@ -113,10 +113,38 @@ export function MieCamere({ iniziale }: { iniziale: Dati }) {
                 )}
               </div>
             )}
-            {d.frigobar.length > 0 && !qui && (c.lavoro === "fermata" || c.occupazione === "partita" || c.occupazione === "in_partenza") && (
-              <Pulsante dimensione="piccolo" variante="leggero" icona={Refrigerator} className="mt-2" onClick={() => setAperta({ cameraId: c.cameraId, modo: "frigobar", quantita: {}, nota: "" })}>
-                Frigobar
-              </Pulsante>
+            {!qui && (
+              <div className="mt-2 flex flex-wrap gap-1">
+                {d.frigobar.length > 0 && (c.lavoro === "fermata" || c.occupazione === "partita" || c.occupazione === "in_partenza") && (
+                  <Pulsante dimensione="piccolo" variante="leggero" icona={Refrigerator} onClick={() => setAperta({ cameraId: c.cameraId, modo: "frigobar", quantita: {}, nota: "" })}>
+                    Frigobar
+                  </Pulsante>
+                )}
+                {d.puoSegnalare && (
+                  <Pulsante dimensione="piccolo" variante="leggero" icona={Wrench} onClick={() => setAperta({ cameraId: c.cameraId, modo: "guasto", quantita: {}, nota: "", urgente: false })}>
+                    Segnala un guasto
+                  </Pulsante>
+                )}
+              </div>
+            )}
+            {qui?.modo === "guasto" && (
+              <div className="mt-2 flex flex-col gap-2 rounded-lg bg-stone-50 p-2">
+                <Input placeholder="Cosa non va (es. la lampada del comodino non si accende)" value={qui.nota} onChange={(e) => setAperta({ ...qui, nota: e.target.value })} />
+                <Spunta etichetta="Urgente: la camera non si può usare" checked={!!qui.urgente} onChange={(e) => setAperta({ ...qui, urgente: e.target.checked })} />
+                <div className="flex gap-2">
+                  <Pulsante
+                    variante="primario"
+                    dimensione="piccolo"
+                    disabled={busy || qui.nota.trim().length < 3}
+                    onClick={() => esegui(() => sbusta(azioneGuastoCamera(c.cameraId, qui.nota, !!qui.urgente)), `Guasto della camera ${c.codice} segnalato.`)}
+                  >
+                    Invia
+                  </Pulsante>
+                  <Pulsante dimensione="piccolo" onClick={() => setAperta(null)}>
+                    Annulla
+                  </Pulsante>
+                </div>
+              </div>
             )}
 
             {qui?.modo === "nota" && qui.azione && (

@@ -97,6 +97,7 @@ model Hotel {
   articoliReparto        ArticoloReparto[]
   menu                   Menu[]
   ordiniRoomService      OrdineRoomService[]
+  segnalazioni           Segnalazione[]
 }
 
 /**
@@ -114,9 +115,10 @@ model Utente {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  accessi             UtenteHotel[]
-  eventiTassa         EventoTassa[]
-  assegnazioniPulizia AssegnazionePulizia[]
+  accessi               UtenteHotel[]
+  eventiTassa           EventoTassa[]
+  assegnazioniPulizia   AssegnazionePulizia[]
+  segnalazioniAssegnate Segnalazione[]        @relation("assegnata")
 }
 
 /**
@@ -206,6 +208,7 @@ model Camera {
   indisponibilita CameraIndisponibilita[]
   controlli       ControlloCamera[]
   assegnazioni    AssegnazionePulizia[]
+  segnalazioni    Segnalazione[]
 
   @@unique([hotelId, codice])
 }
@@ -221,7 +224,8 @@ model CameraIndisponibilita {
   al       DateTime @db.Date
   motivo   String
 
-  createdAt DateTime @default(now())
+  createdAt    DateTime       @default(now())
+  segnalazioni Segnalazione[]
 }
 
 model Ospite {
@@ -1543,4 +1547,39 @@ model ArticoloReparto {
   ordine    Int             @default(0)
 
   @@unique([repartoId, nome])
+}
+
+/**
+ * Segnalazione di un guasto (manutenzioni): in una camera o in una zona comune. stato: "aperta" ->
+ * "in_lavorazione" -> "risolta" (o "annullata"). priorita: "normale" | "urgente". Un guasto urgente
+ * in camera può mettere la camera fuori servizio (lo decide la reception): alla risoluzione la camera
+ * torna disponibile e da pulire.
+ */
+model Segnalazione {
+  id              Int                    @id @default(autoincrement())
+  hotelId         Int
+  hotel           Hotel                  @relation(fields: [hotelId], references: [id])
+  cameraId        Int?
+  camera          Camera?                @relation(fields: [cameraId], references: [id], onDelete: SetNull)
+  // Zona comune quando non è una camera (es. "Ascensore", "Sala colazioni").
+  zona            String?
+  descrizione     String                 @db.Text
+  priorita        String                 @default("normale")
+  stato           String                 @default("aperta")
+  // "personale" | "ospite"
+  origine         String                 @default("personale")
+  segnalataDa     String
+  creataIl        DateTime               @default(now())
+  assegnataAId    Int?
+  assegnataA      Utente?                @relation("assegnata", fields: [assegnataAId], references: [id], onDelete: SetNull)
+  presaIl         DateTime?
+  chiusaIl        DateTime?
+  chiusaDa        String?
+  // Cosa è stato fatto (risolta) o perché è stata annullata.
+  esito           String?                @db.Text
+  fuoriServizioId Int?
+  fuoriServizio   CameraIndisponibilita? @relation(fields: [fuoriServizioId], references: [id], onDelete: SetNull)
+
+  @@index([hotelId, stato])
+  @@index([cameraId])
 }
