@@ -65,39 +65,43 @@ model Hotel {
   createdAt              DateTime  @default(now())
   updatedAt              DateTime  @updatedAt
 
-  camere                 Camera[]
-  tipiCamera             TipoCamera[]
-  ospiti                 Ospite[]
-  gruppi                 Gruppo[]
-  prenotazioni           Prenotazione[]
-  listini                Listino[]
-  accessi                UtenteHotel[]
-  ruoli                  Ruolo[]
-  serviziCatalogo        ServizioCatalogo[]
-  trattamenti            Trattamento[]
-  clienti                Cliente[]
-  sale                   Sala[]
-  fasceOrarie            FasciaOraria[]
-  prenotazioniSala       PrenotazioneSala[]
-  politicheCancellazione PoliticaCancellazione[]
-  pacchettiSala          PacchettoSala[]
-  repartiAddebito        RepartoAddebito[]
-  pagamenti              Pagamento[]
-  chiusureCassa          ChiusuraCassa[]
-  noteAlimentari         NotaAlimentare[]
-  piatti                 Piatto[]
+  camere                   Camera[]
+  tipiCamera               TipoCamera[]
+  ospiti                   Ospite[]
+  gruppi                   Gruppo[]
+  prenotazioni             Prenotazione[]
+  listini                  Listino[]
+  accessi                  UtenteHotel[]
+  ruoli                    Ruolo[]
+  serviziCatalogo          ServizioCatalogo[]
+  trattamenti              Trattamento[]
+  clienti                  Cliente[]
+  sale                     Sala[]
+  fasceOrarie              FasciaOraria[]
+  prenotazioniSala         PrenotazioneSala[]
+  politicheCancellazione   PoliticaCancellazione[]
+  pacchettiSala            PacchettoSala[]
+  repartiAddebito          RepartoAddebito[]
+  pagamenti                Pagamento[]
+  chiusureCassa            ChiusuraCassa[]
+  noteAlimentari           NotaAlimentare[]
+  piatti                   Piatto[]
   // Pulizie: con il controllo della governante una camera finita passa da "da controllare" prima di essere pronta.
-  controlloGovernante    Boolean                 @default(false)
+  controlloGovernante      Boolean                 @default(false)
   // Biancheria nelle camere fermate: lenzuola ogni N notti; asciugamani ogni N notti (null = su richiesta).
-  cambioLenzuolaOgni     Int                     @default(3)
-  cambioAsciugamaniOgni  Int?
+  cambioLenzuolaOgni       Int                     @default(3)
+  cambioAsciugamaniOgni    Int?
   // Couverture serale (preparazione della camera per la notte), tipica degli hotel di categoria alta.
-  couverture             Boolean                 @default(false)
-  assegnazioniPulizia    AssegnazionePulizia[]
-  articoliReparto        ArticoloReparto[]
-  menu                   Menu[]
-  ordiniRoomService      OrdineRoomService[]
-  segnalazioni           Segnalazione[]
+  couverture               Boolean                 @default(false)
+  assegnazioniPulizia      AssegnazionePulizia[]
+  articoliReparto          ArticoloReparto[]
+  menu                     Menu[]
+  ordiniRoomService        OrdineRoomService[]
+  segnalazioni             Segnalazione[]
+  // Oggetti smarriti: dopo quanti mesi in deposito si segnalano da smaltire.
+  mesiConservazioneOggetti Int                     @default(6)
+  richiesteOspiti          RichiestaOspite[]
+  oggettiSmarriti          OggettoSmarrito[]
 }
 
 /**
@@ -209,6 +213,8 @@ model Camera {
   controlli       ControlloCamera[]
   assegnazioni    AssegnazionePulizia[]
   segnalazioni    Segnalazione[]
+  richieste       RichiestaOspite[]
+  oggettiSmarriti OggettoSmarrito[]
 
   @@unique([hotelId, codice])
 }
@@ -350,6 +356,7 @@ model Prenotazione {
   addebiti          AddebitoConto[]
   intestazioniRighe IntestazioneRigaConto[]
   righeFatturate    RigaFatturata[]
+  oggettiSmarriti   OggettoSmarrito[]
 }
 
 enum StatoSegmento {
@@ -418,6 +425,7 @@ model SegmentoSoggiorno {
   // Servizi aggiuntivi assegnati specificamente a questo ospite/camera (non a tutto il gruppo).
   serviziAggiunti ServizioAggiuntoSegmento[]
   addebiti        AddebitoConto[]
+  richiesteOspiti RichiestaOspite[]
 }
 
 /**
@@ -1582,4 +1590,59 @@ model Segnalazione {
 
   @@index([hotelId, stato])
   @@index([cameraId])
+}
+
+/**
+ * Richiesta di un ospite (asciugamani, cuscino, culla, sveglia…): dal QR della camera o presa dal
+ * personale. stato: "aperta" | "fatta" | "annullata".
+ */
+model RichiestaOspite {
+  id         Int                @id @default(autoincrement())
+  hotelId    Int
+  hotel      Hotel              @relation(fields: [hotelId], references: [id])
+  cameraId   Int?
+  camera     Camera?            @relation(fields: [cameraId], references: [id], onDelete: SetNull)
+  segmentoId Int?
+  segmento   SegmentoSoggiorno? @relation(fields: [segmentoId], references: [id], onDelete: SetNull)
+  tipo       String
+  dettaglio  String?
+  // Per la sveglia (o una consegna a un'ora): giorno e ora.
+  perQuando  DateTime?
+  origine    String             @default("personale")
+  stato      String             @default("aperta")
+  creataIl   DateTime           @default(now())
+  creataDa   String?
+  chiusaIl   DateTime?
+  chiusaDa   String?
+  nota       String?
+
+  @@index([hotelId, stato])
+}
+
+/**
+ * Oggetto dimenticato o trovato: dove e quando, chi l'ha trovato, dove è conservato; poi restituito
+ * (a chi e quando, collegato alla prenotazione) o smaltito dopo il periodo deciso dall'hotel.
+ * stato: "in_deposito" | "restituito" | "smaltito".
+ */
+model OggettoSmarrito {
+  id             Int           @id @default(autoincrement())
+  hotelId        Int
+  hotel          Hotel         @relation(fields: [hotelId], references: [id])
+  trovatoIl      DateTime      @db.Date
+  cameraId       Int?
+  camera         Camera?       @relation(fields: [cameraId], references: [id], onDelete: SetNull)
+  zona           String?
+  descrizione    String
+  trovatoDa      String
+  conservatoIn   String?
+  prenotazioneId Int?
+  prenotazione   Prenotazione? @relation(fields: [prenotazioneId], references: [id], onDelete: SetNull)
+  stato          String        @default("in_deposito")
+  restituitoA    String?
+  chiusoIl       DateTime?
+  chiusoDa       String?
+  nota           String?
+  creatoIl       DateTime      @default(now())
+
+  @@index([hotelId, stato])
 }

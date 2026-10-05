@@ -6,7 +6,9 @@ import { sbusta } from "@/lib/esito";
 import { ALLERGENI } from "@/lib/allergeni";
 import { CATEGORIE_PIATTO, ORDINE_CATEGORIE, numeroAllergene } from "@/lib/menuRegole";
 import type { paginaOspite } from "@/lib/roomService";
-import { azioneOrdina, azioneRicarica } from "./actions";
+import { azioneGuasto, azioneOrdina, azioneRicarica, azioneRichiesta } from "./actions";
+import { STATI_RICHIESTA, TIPI_RICHIESTA, type TipoRichiesta } from "@/lib/richiesteRegole";
+import { STATI_SEGNALAZIONE, type StatoSegnalazione } from "@/lib/manutenzioniRegole";
 
 type Dati = NonNullable<Awaited<ReturnType<typeof paginaOspite>>>;
 type Attivo = Extract<Dati, { attivo: true }>;
@@ -24,12 +26,13 @@ export function OrdinaRoomService({ codice, iniziale }: { codice: string; inizia
   const [busy, setBusy] = useState(false);
   const [errore, setErrore] = useState<string | null>(null);
   const [inviato, setInviato] = useState(false);
+  const [avviso, setAvviso] = useState<string | null>(null);
 
   if (!d.attivo) {
     return (
       <main className="mx-auto flex min-h-screen w-full max-w-md flex-col items-center justify-center gap-2 p-6 text-center">
         <p className="text-sm uppercase tracking-widest text-stone-500">{d.hotel}</p>
-        <h1 className="text-xl font-bold text-stone-900">Room service non disponibile</h1>
+        <h1 className="text-xl font-bold text-stone-900">Servizi in camera non disponibili</h1>
         <p className="text-stone-700">Questo link vale solo durante il soggiorno. Per qualsiasi richiesta chiama la reception.</p>
       </main>
     );
@@ -59,7 +62,7 @@ export function OrdinaRoomService({ codice, iniziale }: { codice: string; inizia
     <main className="mx-auto w-full max-w-md p-4 pb-40 text-stone-900">
       <header className="mb-4 text-center">
         <p className="text-xs uppercase tracking-widest text-stone-500">{a.hotel}</p>
-        <h1 className="text-2xl font-bold">Room service</h1>
+        <h1 className="text-2xl font-bold">{a.servizi.roomService ? "Room service" : "Servizi in camera"}</h1>
         {a.camera && <p className="text-sm text-stone-600">Camera {a.camera} · si paga con il conto della camera</p>}
       </header>
 
@@ -94,7 +97,24 @@ export function OrdinaRoomService({ codice, iniziale }: { codice: string; inizia
         </section>
       )}
 
-      {a.menu.length === 0 && <p className="text-center text-stone-700">Oggi il room service non è disponibile. Chiama la reception.</p>}
+      {avviso && <p className="mb-4 rounded-lg border border-emerald-300 bg-emerald-50 p-3 text-emerald-900">{avviso}</p>}
+      {errore && scelte.length === 0 && <p className="mb-4 rounded-lg bg-red-50 p-3 text-sm font-semibold text-red-800">{errore}</p>}
+      {(a.servizi.richieste || a.servizi.guasti) && (
+        <AltreRichieste
+          dati={a}
+          busy={busy}
+          codice={codice}
+          invia={async (fn, ok) => {
+            const riuscito = await prova(fn);
+            if (riuscito) {
+              setInviato(false);
+              setAvviso(ok);
+            }
+            return riuscito;
+          }}
+        />
+      )}
+      {a.servizi.roomService && a.menu.length === 0 && <p className="text-center text-stone-700">Oggi il room service non è disponibile. Chiama la reception.</p>}
       {a.menu.map((m) => (
         <section key={m.id} className="mb-5">
           <h2 className="text-lg font-bold">{m.nome}</h2>
@@ -204,5 +224,124 @@ export function OrdinaRoomService({ codice, iniziale }: { codice: string; inizia
         </div>
       )}
     </main>
+  );
+}
+
+/** Richieste (asciugamani, cuscino, sveglia…) e «Qualcosa non funziona?», se i moduli sono attivi. */
+function AltreRichieste({
+  dati: a,
+  busy,
+  invia,
+  codice,
+}: {
+  dati: Attivo;
+  busy: boolean;
+  invia: (fn: () => Promise<Dati>, ok: string) => Promise<boolean>;
+  codice: string;
+}) {
+  const [tipo, setTipo] = useState<TipoRichiesta | null>(null);
+  const [dettaglio, setDettaglio] = useState("");
+  const [ora, setOra] = useState("");
+  const [guasto, setGuasto] = useState("");
+  return (
+    <div className="mb-5 flex flex-col gap-4">
+      {a.servizi.richieste && (
+        <section className="rounded-lg border border-stone-200 bg-white p-3">
+          <h2 className="font-semibold">Ti serve qualcosa?</h2>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            {(Object.entries(TIPI_RICHIESTA) as [TipoRichiesta, string][]).map(([k, t]) => (
+              <button
+                key={k}
+                type="button"
+                className={`rounded-lg border px-2 py-2 text-sm font-semibold ${tipo === k ? "border-teal-700 bg-teal-50 text-teal-900" : "border-stone-300"}`}
+                onClick={() => setTipo(tipo === k ? null : k)}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+          {tipo && (
+            <div className="mt-2 flex flex-col gap-2">
+              {tipo === "sveglia" && (
+                <label className="flex items-center gap-2 text-sm">
+                  Svegliami alle
+                  <input type="datetime-local" aria-label="Ora della sveglia" className="rounded border border-stone-300 px-1" min={`${a.oggi}T00:00`} value={ora} onChange={(e) => setOra(e.target.value)} />
+                </label>
+              )}
+              <input
+                className="rounded-md border border-stone-300 px-2 py-1.5 text-sm"
+                placeholder={tipo === "altro" ? "Scrivi cosa ti serve" : "Dettagli (facoltativo)"}
+                maxLength={300}
+                value={dettaglio}
+                onChange={(e) => setDettaglio(e.target.value)}
+              />
+              <button
+                type="button"
+                disabled={busy || (tipo === "sveglia" && !ora) || (tipo === "altro" && !dettaglio.trim())}
+                className="rounded-lg bg-teal-700 py-2 font-bold text-white disabled:opacity-50"
+                onClick={async () => {
+                  const ok = await invia(() => sbusta(azioneRichiesta(codice, { tipo, dettaglio, perQuando: tipo === "sveglia" ? ora : null })), "Richiesta inviata: ce ne occupiamo noi.");
+                  if (ok) {
+                    setTipo(null);
+                    setDettaglio("");
+                    setOra("");
+                  }
+                }}
+              >
+                Invia la richiesta
+              </button>
+            </div>
+          )}
+          {a.richieste.length > 0 && (
+            <ul className="mt-3 divide-y divide-stone-100 text-sm">
+              {a.richieste.map((r) => (
+                <li key={r.id} className="flex justify-between gap-2 py-1.5">
+                  <span>
+                    {TIPI_RICHIESTA[r.tipo as TipoRichiesta] ?? r.tipo}
+                    {r.perQuando && ` alle ${r.perQuando}`}
+                    {r.dettaglio && <span className="text-stone-600"> · {r.dettaglio}</span>}
+                  </span>
+                  <strong>{STATI_RICHIESTA[r.stato as keyof typeof STATI_RICHIESTA] ?? r.stato}</strong>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
+      {a.servizi.guasti && (
+        <section className="rounded-lg border border-stone-200 bg-white p-3">
+          <h2 className="font-semibold">Qualcosa non funziona?</h2>
+          <textarea
+            className="mt-2 w-full rounded-md border border-stone-300 px-2 py-1.5 text-sm"
+            rows={2}
+            maxLength={500}
+            placeholder="es. il condizionatore non si accende"
+            value={guasto}
+            onChange={(e) => setGuasto(e.target.value)}
+          />
+          <button
+            type="button"
+            disabled={busy || guasto.trim().length < 3}
+            className="mt-1 w-full rounded-lg border border-teal-700 py-2 font-bold text-teal-800 disabled:opacity-50"
+            onClick={async () => {
+              if (await invia(() => sbusta(azioneGuasto(codice, guasto)), "Segnalazione inviata: arriviamo appena possibile.")) setGuasto("");
+            }}
+          >
+            Segnala
+          </button>
+          {a.guasti.length > 0 && (
+            <ul className="mt-2 divide-y divide-stone-100 text-sm">
+              {a.guasti.map((g) => (
+                <li key={g.id} className="flex justify-between gap-2 py-1.5">
+                  <span className="min-w-0 truncate">{g.descrizione}</span>
+                  <strong>{STATI_SEGNALAZIONE[g.stato as StatoSegnalazione] ?? g.stato}</strong>
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className="mt-1 text-xs text-stone-500">Per un&apos;emergenza chiama subito la reception.</p>
+        </section>
+      )}
+    </div>
   );
 }

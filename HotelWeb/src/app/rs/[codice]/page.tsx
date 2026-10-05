@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { paginaOspite } from "@/lib/roomService";
 import { OrdinaRoomService } from "./OrdinaRoomService";
 
-export const metadata: Metadata = { title: "Room service", robots: { index: false, follow: false } };
+export const metadata: Metadata = { title: "Servizi in camera", robots: { index: false, follow: false } };
 
 export default async function RoomServicePage({ params }: { params: Promise<{ codice: string }> }) {
   const { codice } = await params;

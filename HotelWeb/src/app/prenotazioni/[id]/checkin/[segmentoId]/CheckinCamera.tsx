@@ -112,7 +112,7 @@ export function CheckinCamera({
         azioni={
           puoRoomService && !tuttiPartiti ? (
             <Link href={`/ristorazione/cartoncino/${s.id}`} target="_blank" className={classePulsante("secondario", "piccolo")}>
-              <QrCode className="h-3.5 w-3.5" aria-hidden /> Cartoncino room service
+              <QrCode className="h-3.5 w-3.5" aria-hidden /> Cartoncino servizi in camera
             </Link>
           ) : undefined
         }

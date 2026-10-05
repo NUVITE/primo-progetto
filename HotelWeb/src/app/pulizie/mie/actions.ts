@@ -5,10 +5,11 @@ import { conEsito } from "@/lib/esito";
 import { PERMESSI } from "@/lib/permessi";
 import { azioneSullaCamera, mieCamere, segnaFrigobar, type AzioneCamera } from "@/lib/foglioPiani";
 import { creaSegnalazione } from "@/lib/manutenzioni";
+import { registraOggetto } from "@/lib/richieste";
 
 const permesso = () => richiediPermesso(PERMESSI.PULIZIE_MIE);
 
-const carica = async (u: Awaited<ReturnType<typeof permesso>>) => ({ ...(await mieCamere(u.hotelId, u.id)), puoSegnalare: puo(u, PERMESSI.GUASTI_SEGNALA) });
+const carica = async (u: Awaited<ReturnType<typeof permesso>>) => ({ ...(await mieCamere(u.hotelId, u.id)), puoSegnalare: puo(u, PERMESSI.GUASTI_SEGNALA), puoOggetti: puo(u, PERMESSI.OGGETTI_SMARRITI) });
 
 export async function datiMieCamere() {
   return carica(await permesso());
@@ -43,5 +44,15 @@ export async function azioneCaricaMieCamere() {
   return conEsito(async () => {
     const u = await permesso();
     return carica(u);
+  });
+}
+
+/** Oggetto dimenticato trovato pulendo la camera: va nel registro degli oggetti smarriti. */
+export async function azioneOggettoCamera(cameraId: number, descrizione: string) {
+  return conEsito(async () => {
+    const u = await richiediPermesso(PERMESSI.OGGETTI_SMARRITI);
+    const oggi = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome" }).format(new Date());
+    await registraOggetto(u.hotelId, { trovatoIl: oggi, cameraId, zona: "", descrizione, conservatoIn: "consegnato alla governante" }, u.nome);
+    return carica(await permesso());
   });
 }

@@ -1,12 +1,12 @@
 "use client";
 
-import { BellOff, CheckCircle2, Minus, Play, Plus, RefreshCw, Refrigerator, Wrench } from "lucide-react";
+import { BellOff, CheckCircle2, Minus, Package, Play, Plus, RefreshCw, Refrigerator, Wrench } from "lucide-react";
 import { useState } from "react";
 import { sbusta } from "@/lib/esito";
 import { LAVORI, STATI_PULIZIA, testoArrivo, testoBiancheria } from "@/lib/pulizieRegole";
 import { Avviso, Etichetta, Input, Pulsante, Spunta } from "@/components/ui";
 import { Suggerimento } from "@/components/Suggerimento";
-import { azioneCaricaMieCamere, azioneFrigobar, azioneGuastoCamera, azioneMiaCamera, datiMieCamere } from "./actions";
+import { azioneCaricaMieCamere, azioneFrigobar, azioneGuastoCamera, azioneMiaCamera, azioneOggettoCamera, datiMieCamere } from "./actions";
 
 type Dati = Awaited<ReturnType<typeof datiMieCamere>>;
 type Azione = "inizia" | "finita" | "dnd" | "rifiutato" | "riapri";
@@ -22,7 +22,7 @@ export function MieCamere({ iniziale }: { iniziale: Dati }) {
   const [d, setD] = useState(iniziale);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ tipo: "ok" | "errore"; testo: string } | null>(null);
-  const [aperta, setAperta] = useState<null | { cameraId: number; modo: "frigobar" | "nota" | "guasto"; azione?: Azione; quantita: Record<number, number>; nota: string; urgente?: boolean }>(null);
+  const [aperta, setAperta] = useState<null | { cameraId: number; modo: "frigobar" | "nota" | "guasto" | "oggetto"; azione?: Azione; quantita: Record<number, number>; nota: string; urgente?: boolean }>(null);
 
   async function esegui(fn: () => Promise<Dati>, ok: string) {
     setMsg(null);
@@ -120,11 +120,35 @@ export function MieCamere({ iniziale }: { iniziale: Dati }) {
                     Frigobar
                   </Pulsante>
                 )}
+                {d.puoOggetti && (
+                  <Pulsante dimensione="piccolo" variante="leggero" icona={Package} onClick={() => setAperta({ cameraId: c.cameraId, modo: "oggetto", quantita: {}, nota: "" })}>
+                    Oggetto dimenticato
+                  </Pulsante>
+                )}
                 {d.puoSegnalare && (
                   <Pulsante dimensione="piccolo" variante="leggero" icona={Wrench} onClick={() => setAperta({ cameraId: c.cameraId, modo: "guasto", quantita: {}, nota: "", urgente: false })}>
                     Segnala un guasto
                   </Pulsante>
                 )}
+              </div>
+            )}
+            {qui?.modo === "oggetto" && (
+              <div className="mt-2 flex flex-col gap-2 rounded-lg bg-stone-50 p-2">
+                <Input placeholder="Cosa hai trovato (es. caricabatterie bianco sul comodino)" value={qui.nota} onChange={(e) => setAperta({ ...qui, nota: e.target.value })} />
+                <p className="text-xs text-stone-600">Consegnalo alla governante: va nel registro degli oggetti smarriti.</p>
+                <div className="flex gap-2">
+                  <Pulsante
+                    variante="primario"
+                    dimensione="piccolo"
+                    disabled={busy || qui.nota.trim().length < 3}
+                    onClick={() => esegui(() => sbusta(azioneOggettoCamera(c.cameraId, qui.nota)), `Oggetto della camera ${c.codice} registrato.`)}
+                  >
+                    Registra
+                  </Pulsante>
+                  <Pulsante dimensione="piccolo" onClick={() => setAperta(null)}>
+                    Annulla
+                  </Pulsante>
+                </div>
               </div>
             )}
             {qui?.modo === "guasto" && (

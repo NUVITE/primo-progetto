@@ -20,6 +20,7 @@ export const PERMESSI = {
   CAMERE_STATO_VEDI: "pulizie.vedi",
   PULIZIE_GESTISCI: "pulizie.gestisci",
   PULIZIE_MIE: "pulizie.mie",
+  OGGETTI_SMARRITI: "pulizie.oggetti",
   GUASTI_SEGNALA: "manutenzioni.segnala",
   MANUTENZIONI_GESTISCI: "manutenzioni.gestisci",
   ADEMPIMENTI_INVIA: "adempimenti.invia",
@@ -120,6 +121,11 @@ export const CATALOGO_PERMESSI: { area: string; modulo?: Modulo; voci: { permess
         nome: "Pulire le proprie camere",
         descrizione: "La pagina «Le mie camere»: inizio e fine pulizia, non disturbare, consumi del frigobar sul conto",
       },
+      {
+        permesso: PERMESSI.OGGETTI_SMARRITI,
+        nome: "Oggetti smarriti",
+        descrizione: "Registrare gli oggetti trovati, restituirli agli ospiti o smaltirli dopo il periodo di conservazione",
+      },
     ],
   },
   {
@@ -186,7 +192,7 @@ export const RUOLI_PREDEFINITI: { nome: string; permessi: Permesso[] }[] = [
   { nome: "Direttore", permessi: TUTTI_I_PERMESSI.filter((p) => p !== PERMESSI.RUOLI_GESTISCI) },
   {
     nome: "Reception",
-    permessi: [PERMESSI.PRENOTAZIONI_VEDI, PERMESSI.PRENOTAZIONI_GESTISCI, PERMESSI.IMPORTI_VEDI, PERMESSI.PAGAMENTI_REGISTRA, PERMESSI.ADDEBITI_REGISTRA, PERMESSI.CASSA_CHIUDI, PERMESSI.NOTE_ALIMENTARI, PERMESSI.FOGLIO_PASTI, PERMESSI.ROOM_SERVICE, PERMESSI.CAMERE_STATO_VEDI, PERMESSI.PULIZIE_GESTISCI, PERMESSI.GUASTI_SEGNALA, PERMESSI.ADEMPIMENTI_INVIA, PERMESSI.SALE_VEDI, PERMESSI.SALE_GESTISCI],
+    permessi: [PERMESSI.PRENOTAZIONI_VEDI, PERMESSI.PRENOTAZIONI_GESTISCI, PERMESSI.IMPORTI_VEDI, PERMESSI.PAGAMENTI_REGISTRA, PERMESSI.ADDEBITI_REGISTRA, PERMESSI.CASSA_CHIUDI, PERMESSI.NOTE_ALIMENTARI, PERMESSI.FOGLIO_PASTI, PERMESSI.ROOM_SERVICE, PERMESSI.CAMERE_STATO_VEDI, PERMESSI.PULIZIE_GESTISCI, PERMESSI.GUASTI_SEGNALA, PERMESSI.OGGETTI_SMARRITI, PERMESSI.ADEMPIMENTI_INVIA, PERMESSI.SALE_VEDI, PERMESSI.SALE_GESTISCI],
   },
   {
     nome: "Eventi / Commerciale",
@@ -195,8 +201,8 @@ export const RUOLI_PREDEFINITI: { nome: string; permessi: Permesso[] }[] = [
   { nome: "Cucina", permessi: [PERMESSI.FOGLIO_PASTI, PERMESSI.NOTE_ALIMENTARI, PERMESSI.MENU_GESTISCI, PERMESSI.ROOM_SERVICE] },
   { nome: "Sala", permessi: [PERMESSI.FOGLIO_PASTI, PERMESSI.NOTE_ALIMENTARI, PERMESSI.ROOM_SERVICE] },
   { nome: "Room service", permessi: [PERMESSI.ROOM_SERVICE] },
-  { nome: "Governante", permessi: [PERMESSI.PRENOTAZIONI_VEDI, PERMESSI.CAMERE_STATO_VEDI, PERMESSI.PULIZIE_GESTISCI, PERMESSI.GUASTI_SEGNALA] },
-  { nome: "Cameriera ai piani", permessi: [PERMESSI.CAMERE_STATO_VEDI, PERMESSI.PULIZIE_MIE, PERMESSI.GUASTI_SEGNALA] },
+  { nome: "Governante", permessi: [PERMESSI.PRENOTAZIONI_VEDI, PERMESSI.CAMERE_STATO_VEDI, PERMESSI.PULIZIE_GESTISCI, PERMESSI.GUASTI_SEGNALA, PERMESSI.OGGETTI_SMARRITI] },
+  { nome: "Cameriera ai piani", permessi: [PERMESSI.CAMERE_STATO_VEDI, PERMESSI.PULIZIE_MIE, PERMESSI.GUASTI_SEGNALA, PERMESSI.OGGETTI_SMARRITI] },
   { nome: "Manutenzione", permessi: [PERMESSI.GUASTI_SEGNALA, PERMESSI.MANUTENZIONI_GESTISCI] },
 ];
 

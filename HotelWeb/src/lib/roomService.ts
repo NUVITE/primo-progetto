@@ -84,23 +84,51 @@ async function menuRoomService(hotelId: number, giorno: string) {
 
 // ---------------- Pagina dell'ospite ----------------
 
+const CODICE = /^[A-Za-z0-9_-]{20,40}$/;
+const moduliDi = (s: SegmentoCompleto) => (Array.isArray(s.prenotazione.hotel.moduli) ? (s.prenotazione.hotel.moduli as string[]) : []);
+
+/** Servizi del QR attivi per l'hotel: room service (Ristorazione), richieste (Pulizie), guasti (Manutenzioni). */
+function serviziQr(s: SegmentoCompleto) {
+  const m = moduliDi(s);
+  return { roomService: m.includes("ristorazione"), richieste: m.includes("pulizie"), guasti: m.includes("manutenzioni") };
+}
+
+/**
+ * Soggiorno del codice del QR, solo se gli ospiti sono in casa e il servizio è attivo per l'hotel.
+ * Per le richieste e i guasti mandati dall'ospite.
+ */
+export async function soggiornoDelQr(codice: string, servizio: "roomService" | "richieste" | "guasti") {
+  const s = CODICE.test(codice) ? await prisma.segmentoSoggiorno.findUnique({ where: { codiceRoomService: codice }, include: includeSegmento }) : null;
+  if (!s) throw new Error("Link non valido.");
+  if (!serviziQr(s)[servizio]) throw new Error("Questo servizio non è attivo.");
+  if (!inCasa(s)) throw new Error("Il link vale solo durante il soggiorno, dopo l'arrivo.");
+  return s;
+}
+
 /** Quello che vede l'ospite aprendo il link del QR (null = codice inesistente). */
 export async function paginaOspite(codice: string) {
-  if (!/^[A-Za-z0-9_-]{20,40}$/.test(codice)) return null;
+  if (!CODICE.test(codice)) return null;
   const s = await prisma.segmentoSoggiorno.findUnique({ where: { codiceRoomService: codice }, include: includeSegmento });
   if (!s) return null;
   const hotel = s.prenotazione.hotel;
   const base = { hotel: hotel.nome, camera: s.camera?.codice ?? null };
-  if (!inCasa(s)) return { ...base, attivo: false as const };
-  const moduli = Array.isArray(hotel.moduli) ? (hotel.moduli as string[]) : [];
-  if (!moduli.includes("ristorazione")) return { ...base, attivo: false as const };
-  const ordini = await prisma.ordineRoomService.findMany({ where: { segmentoId: s.id, creatoIl: { gte: new Date(Date.now() - 36 * 3600000) } }, include: { righe: true }, orderBy: { creatoIl: "desc" } });
+  const servizi = serviziQr(s);
+  if (!inCasa(s) || !(servizi.roomService || servizi.richieste || servizi.guasti)) return { ...base, attivo: false as const };
+  const da = new Date(Date.now() - 36 * 3600000);
+  const [ordini, richieste, guasti] = await Promise.all([
+    servizi.roomService ? prisma.ordineRoomService.findMany({ where: { segmentoId: s.id, creatoIl: { gte: da } }, include: { righe: true }, orderBy: { creatoIl: "desc" } }) : [],
+    servizi.richieste ? prisma.richiestaOspite.findMany({ where: { segmentoId: s.id, creataIl: { gte: da } }, orderBy: { creataIl: "desc" } }) : [],
+    servizi.guasti && s.cameraId
+      ? prisma.segnalazione.findMany({ where: { cameraId: s.cameraId, origine: "ospite", creataIl: { gte: s.dataInizio } }, orderBy: { creataIl: "desc" } })
+      : [],
+  ]);
   return {
     ...base,
     attivo: true as const,
+    servizi,
     partenza: s.dataFine.toISOString().slice(0, 10),
     oggi: oggi(),
-    menu: await menuRoomService(hotel.id, oggi()),
+    menu: servizi.roomService ? await menuRoomService(hotel.id, oggi()) : [],
     ordini: ordini.map((o) => ({
       id: o.id,
       stato: o.stato as StatoOrdine,
@@ -109,6 +137,8 @@ export async function paginaOspite(codice: string) {
       totale: Number(o.totale),
       righe: o.righe.map((r) => `${r.quantita} × ${r.descrizione}`),
     })),
+    richieste: richieste.map((r) => ({ id: r.id, tipo: r.tipo, dettaglio: r.dettaglio ?? "", stato: r.stato, ora: oraDi(r.creataIl), perQuando: r.perQuando ? oraDi(r.perQuando) : null })),
+    guasti: guasti.map((g) => ({ id: g.id, descrizione: g.descrizione, stato: g.stato, ora: oraDi(g.creataIl) })),
   };
 }
 
@@ -174,10 +204,9 @@ async function creaOrdineSu(s: SegmentoCompleto, d: OrdineInput, canale: "qr" | 
 
 /** Ordine dal QR: il codice identifica il soggiorno. */
 export async function ordinaDaQr(codice: string, d: OrdineInput) {
-  const s = /^[A-Za-z0-9_-]{20,40}$/.test(codice) ? await prisma.segmentoSoggiorno.findUnique({ where: { codiceRoomService: codice }, include: includeSegmento }) : null;
+  const s = CODICE.test(codice) ? await prisma.segmentoSoggiorno.findUnique({ where: { codiceRoomService: codice }, include: includeSegmento }) : null;
   if (!s) throw new Error("Link non valido.");
-  const moduli = Array.isArray(s.prenotazione.hotel.moduli) ? (s.prenotazione.hotel.moduli as string[]) : [];
-  if (!moduli.includes("ristorazione")) throw new Error("Il room service non è attivo.");
+  if (!serviziQr(s).roomService) throw new Error("Il room service non è attivo.");
   return creaOrdineSu(s, d, "qr", null);
 }
 

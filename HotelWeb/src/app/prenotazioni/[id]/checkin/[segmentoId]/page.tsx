@@ -18,5 +18,5 @@ export default async function CheckinPage({ params }: { params: Promise<{ id: st
   const seg = puo(utente, PERMESSI.CAMERE_STATO_VEDI) ? await prisma.segmentoSoggiorno.findUnique({ where: { id: Number(segmentoId) }, select: { cameraId: true } }) : null;
   const pulizia = seg?.cameraId ? await statoCamera(utente.hotelId, seg.cameraId) : null;
   const note = puoNote ? await noteDegliOspiti(utente.hotelId, [...new Set(dati.occupanti.map((o) => o.ospiteId))]) : null;
-  return <CheckinCamera iniziale={dati} puoGestire={puo(utente, PERMESSI.PRENOTAZIONI_GESTISCI)} puoIncassare={puo(utente, PERMESSI.PAGAMENTI_REGISTRA)} noteIniziali={note} puoRoomService={puo(utente, PERMESSI.ROOM_SERVICE)} statoPulizia={pulizia} />;
+  return <CheckinCamera iniziale={dati} puoGestire={puo(utente, PERMESSI.PRENOTAZIONI_GESTISCI)} puoIncassare={puo(utente, PERMESSI.PAGAMENTI_REGISTRA)} noteIniziali={note} puoRoomService={[PERMESSI.ROOM_SERVICE, PERMESSI.CAMERE_STATO_VEDI, PERMESSI.GUASTI_SEGNALA].some((p) => puo(utente, p))} statoPulizia={pulizia} />;
 }
