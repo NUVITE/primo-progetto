@@ -7,6 +7,7 @@ import { statoCamera } from "@/lib/pulizie";
 import { prisma } from "@/lib/prisma";
 import { CheckinCamera } from "./CheckinCamera";
 import { custodiaDellaPrenotazione } from "@/lib/custodia";
+import { cauzioneDaRestituire } from "@/lib/cauzioni";
 
 export default async function CheckinPage({ params }: { params: Promise<{ id: string; segmentoId: string }> }) {
   const utente = await richiediPermesso(PERMESSI.PRENOTAZIONI_VEDI);
@@ -23,6 +24,8 @@ export default async function CheckinPage({ params }: { params: Promise<{ id: st
   // Custodia (portineria): valori ancora in cassaforte da restituire prima della partenza; chiavi della camera.
   const portineria = puo(utente, PERMESSI.PORTINERIA);
   const valoriAperti = portineria ? (await custodiaDellaPrenotazione(utente.hotelId, Number(id))).valoriAperti : 0;
+  // Cauzione incassata e non ancora restituita: da ricordare al check-out.
+  const cauzione = puo(utente, PERMESSI.PAGAMENTI_REGISTRA) ? await cauzioneDaRestituire(utente.hotelId, Number(id)) : null;
   const note = puoNote ? await noteDegliOspiti(utente.hotelId, [...new Set(dati.occupanti.map((o) => o.ospiteId))]) : null;
-  return <CheckinCamera iniziale={dati} puoGestire={puo(utente, PERMESSI.PRENOTAZIONI_GESTISCI)} puoIncassare={puo(utente, PERMESSI.PAGAMENTI_REGISTRA)} noteIniziali={note} puoRoomService={[PERMESSI.ROOM_SERVICE, PERMESSI.CAMERE_STATO_VEDI, PERMESSI.GUASTI_SEGNALA].some((p) => puo(utente, p))} statoPulizia={pulizia} daConsegnare={daConsegnare} valoriAperti={valoriAperti} chiavi={portineria} />;
+  return <CheckinCamera iniziale={dati} puoGestire={puo(utente, PERMESSI.PRENOTAZIONI_GESTISCI)} puoIncassare={puo(utente, PERMESSI.PAGAMENTI_REGISTRA)} noteIniziali={note} puoRoomService={[PERMESSI.ROOM_SERVICE, PERMESSI.CAMERE_STATO_VEDI, PERMESSI.GUASTI_SEGNALA].some((p) => puo(utente, p))} statoPulizia={pulizia} daConsegnare={daConsegnare} valoriAperti={valoriAperti} chiavi={portineria} cauzione={cauzione} />;
 }

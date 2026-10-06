@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight, Lock, LockOpen, Printer } from "lucide-react
 import Link from "next/link";
 import { useState } from "react";
 import { sbusta } from "@/lib/esito";
+import { METODI_CAUZIONE, type MetodoCauzione } from "@/lib/cauzioniRegole";
 import { Avviso, Campo, Etichetta, Input, IntestazionePagina, Pulsante, Sezione, Textarea } from "@/components/ui";
 import { AiutoSezione, Esempio } from "@/components/AiutoSezione";
 import { Suggerimento } from "@/components/Suggerimento";
@@ -48,7 +49,8 @@ export function Cassa({ iniziale }: { iniziale: Dati }) {
     return esegui(() => sbusta(azioneCaricaGiorno(giorno)));
   };
 
-  const attesiProposti = chiudi && numero(chiudi.fondoIniziale) !== null ? numero(chiudi.fondoIniziale)! + d.contanti : null;
+  // Contanti attesi nel cassetto: incassi in contanti più il saldo delle cauzioni in contanti del giorno.
+  const attesiProposti = chiudi && numero(chiudi.fondoIniziale) !== null ? numero(chiudi.fondoIniziale)! + d.contanti + d.contantiCauzioni : null;
   const differenzaProposta = attesiProposti !== null && chiudi && numero(chiudi.contantiContati) !== null ? numero(chiudi.contantiContati)! - attesiProposti : null;
   const c = d.chiusura;
 
@@ -190,6 +192,29 @@ export function Cassa({ iniziale }: { iniziale: Dati }) {
           </table>
         </div>
       </Sezione>
+
+      {d.cauzioni.length > 0 && (
+        <Sezione titolo={`Cauzioni (${d.cauzioni.length})`} descrizione="Depositi degli ospiti: non sono incassi, ma il contante entra ed esce dal cassetto.">
+          <ul className="flex flex-col divide-y divide-stone-100 text-sm">
+            {d.cauzioni.map((m) => (
+              <li key={m.chiave} className="flex flex-wrap items-center justify-between gap-2 py-1.5">
+                <span>
+                  <Link href={`/prenotazioni/${m.prenotazioneId}`} className="text-teal-800 hover:underline">
+                    {m.descrizione}
+                  </Link>{" "}
+                  <span className="text-stone-600">
+                    · {m.tipo === "incasso" ? "cauzione incassata" : m.tipo === "restituzione" ? "cauzione restituita" : "trattenuta passata al conto"} · {METODI_CAUZIONE[m.metodo as MetodoCauzione] ?? m.metodo} · {m.operatore}
+                  </span>
+                </span>
+                <span className={`font-mono ${m.importo < 0 ? "text-red-700" : ""}`}>{eur(m.importo)}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-sm">
+            Saldo delle cauzioni in contanti: <strong className="font-mono">{eur(d.contantiCauzioni)}</strong> (conta nei contanti attesi alla chiusura).
+          </p>
+        </Sezione>
+      )}
 
       <Sezione titolo="Chiusura della giornata">
         <AiutoSezione breve="Si contano i contanti in cassa e si chiude: il fondo cassa è facoltativo, chi non lo usa chiude e basta.">

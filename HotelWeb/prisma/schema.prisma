@@ -121,6 +121,7 @@ model Hotel {
   custodieValori           CustodiaValori[]
   consegneTurno            ConsegnaTurno[]
   reclami                  Reclamo[]
+  cauzioni                 Cauzione[]
   configurazioneEmail      ConfigurazioneEmail?
   modelliEmail             ModelloEmail[]
   emailInviate             EmailInviata[]
@@ -208,6 +209,8 @@ model TipoCamera {
   // Pulizia finale: addebitata una volta per soggiorno a ogni nuova prenotazione di questo tipo
   // (servizio "Pulizia finale" della camera, modificabile o eliminabile nella prenotazione). Null = nessuna.
   puliziaFinale      Decimal? @db.Decimal(10, 2)
+  // Cauzione proposta per una camera di questo tipo (deposito restituito alla partenza). Null = nessuna.
+  cauzione           Decimal? @db.Decimal(10, 2)
 
   camere                Camera[]
   periodiTariffari      PeriodoTariffario[]
@@ -550,6 +553,37 @@ model Reclamo {
   @@index([hotelId, creatoIl])
 }
 
+/**
+ * Cauzione (deposito cauzionale) di una prenotazione: NON è un incasso, non entra nel conto né nel
+ * giornale; nella cassa del giorno ha la sua voce e conta nei contanti del cassetto. Alla restituzione
+ * l'eventuale trattenuta per danni diventa un addebito "Risarcimento danni" (fuori campo IVA) sul conto,
+ * pagato con un pagamento di pari importo preso dalla cauzione.
+ */
+model Cauzione {
+  id                 Int            @id @default(autoincrement())
+  hotelId            Int
+  hotel              Hotel          @relation(fields: [hotelId], references: [id])
+  prenotazioneId     Int            @unique
+  prenotazione       Prenotazione   @relation(fields: [prenotazioneId], references: [id], onDelete: Restrict)
+  importo            Decimal        @db.Decimal(10, 2)
+  metodo             String
+  incassataIl        DateTime       @db.Date
+  incassataDa        String
+  restituitaIl       DateTime?      @db.Date
+  restituitaDa       String?
+  metodoRestituzione String?
+  importoRestituito  Decimal?       @db.Decimal(10, 2)
+  trattenuta         Decimal?       @db.Decimal(10, 2)
+  motivoTrattenuta   String?
+  addebitoId         Int?           @unique
+  addebito           AddebitoConto? @relation("trattenutaCauzione", fields: [addebitoId], references: [id], onDelete: SetNull)
+  pagamentoId        Int?           @unique
+  pagamento          Pagamento?     @relation("pagamentoTrattenuta", fields: [pagamentoId], references: [id], onDelete: SetNull)
+  createdAt          DateTime       @default(now())
+
+  @@index([hotelId, incassataIl])
+}
+
 model Gruppo {
   id      Int     @id @default(autoincrement())
   hotelId Int
@@ -647,6 +681,7 @@ model Prenotazione {
   depositiBagagli        DepositoBagagli[]
   custodieValori         CustodiaValori[]
   reclami                Reclamo[]
+  cauzione               Cauzione?
 }
 
 enum StatoSegmento {
@@ -1341,6 +1376,7 @@ model Pagamento {
   motivoStorno       String?
   // Intestatario del conto che ha pagato: "ospite" (o null) | "cliente:<id>".
   intestatario       String?
+  cauzioneTrattenuta Cauzione?         @relation("pagamentoTrattenuta")
 
   @@index([prenotazioneId])
   @@index([prenotazioneSalaId])
@@ -1571,6 +1607,7 @@ model AddebitoConto {
   motivoStorno       String?
   servizioPortineria ServizioPortineria?
   reclamo            Reclamo?
+  cauzioneTrattenuta Cauzione?           @relation("trattenutaCauzione")
 
   @@index([prenotazioneId])
   @@index([data])

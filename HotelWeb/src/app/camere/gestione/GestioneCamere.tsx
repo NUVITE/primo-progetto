@@ -6,6 +6,7 @@ import {
   azioneOpzioniTipoCamera,
   azionePrezzoUsoDiurno,
   azionePuliziaFinale,
+  azioneCauzioneTipo,
   azioneCambiaTipoCamera,
   azioneCreaCamera,
   azioneCreaIndisponibilita,
@@ -75,7 +76,7 @@ export function GestioneCamere({ iniziale }: { iniziale: Dati }) {
           <h2 className="mb-3 text-sm font-bold text-stone-900">Tipi camera</h2>
           <table className="mb-4 w-full text-sm">
             <thead className="text-left text-xs uppercase text-stone-500">
-              <tr><th className="pb-1">Codice</th><th className="pb-1">Descrizione</th><th className="pb-1" title="Letti aggiunti possibili oltre la capienza">Letti agg.</th><th className="pb-1">Animali</th><th className="pb-1" title="Prezzo all'ora proposto per l'uso diurno (day use)">Day use €/ora</th><th className="pb-1" title="Aggiunta da sola, una volta per soggiorno, a ogni nuova prenotazione di questo tipo">Pulizia finale €</th></tr>
+              <tr><th className="pb-1">Codice</th><th className="pb-1">Descrizione</th><th className="pb-1" title="Letti aggiunti possibili oltre la capienza">Letti agg.</th><th className="pb-1">Animali</th><th className="pb-1" title="Prezzo all'ora proposto per l'uso diurno (day use)">Day use €/ora</th><th className="pb-1" title="Aggiunta da sola, una volta per soggiorno, a ogni nuova prenotazione di questo tipo">Pulizia finale €</th><th className="pb-1" title="Deposito proposto per una camera di questo tipo, da restituire alla partenza">Cauzione €</th></tr>
             </thead>
             <tbody>
               {dati.tipiCamera.map((t) => (
@@ -132,6 +133,22 @@ export function GestioneCamere({ iniziale }: { iniziale: Dati }) {
                       onBlur={(e) => {
                         const v = e.target.value.trim() === "" ? null : Number(e.target.value);
                         if (v !== t.puliziaFinale) eseguendo(() => sbusta(azionePuliziaFinale(t.id, v)));
+                      }}
+                    />
+                  </td>
+                  <td className="py-1.5">
+                    <input
+                      type="number"
+                      min={0}
+                      step="10"
+                      disabled={busy}
+                      placeholder="—"
+                      aria-label={`Cauzione ${t.descrizione}`}
+                      className="w-20 rounded-md border border-stone-300 px-1.5 py-0.5 text-sm"
+                      defaultValue={t.cauzione ?? ""}
+                      onBlur={(e) => {
+                        const v = e.target.value.trim() === "" ? null : Number(e.target.value);
+                        if (v !== t.cauzione) eseguendo(() => sbusta(azioneCauzioneTipo(t.id, v)));
                       }}
                     />
                   </td>

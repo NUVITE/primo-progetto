@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { cauzioniDelGiorno } from "@/lib/cauzioni";
 import { METODI_PAGAMENTO, TIPI_PAGAMENTO } from "@/lib/prenotazioni";
 
 /**
@@ -95,8 +96,13 @@ function somma(movimenti: MovimentoCassa[], per: (m: MovimentoCassa) => string) 
 }
 
 /** Tutto quello che serve alla pagina Cassa per un giorno. */
+// Chiave della fotografia di chiusura per i contanti delle cauzioni (non sono un metodo di incasso).
+const CHIAVE_CAUZIONI = "cauzioni_contanti";
+
 export async function cassaDelGiorno(hotelId: number, giorno: string) {
   const movimenti = await movimentiCassa(hotelId, giorno);
+  // Cauzioni: non sono incassi, ma il contante entra ed esce dal cassetto.
+  const cauzioni = await cauzioniDelGiorno(hotelId, giorno);
   const perMetodo = somma(movimenti, (m) => m.metodo);
   const totale = arrotonda([...perMetodo.values()].reduce((t, v) => t + v, 0));
   const [chiusura, precedente, addebiti] = await Promise.all([
@@ -119,6 +125,7 @@ export async function cassaDelGiorno(hotelId: number, giorno: string) {
   // Differenze fra la fotografia della chiusura e la situazione di adesso (non dovrebbero esserci).
   const differenze = totaliChiusura
     ? [...new Set([...Object.keys(totaliChiusura), ...perMetodo.keys()])]
+        .filter((k) => k !== CHIAVE_CAUZIONI)
         .map((k) => ({ metodo: METODI_PAGAMENTO[k as keyof typeof METODI_PAGAMENTO] ?? k, chiusura: totaliChiusura[k] ?? 0, adesso: perMetodo.get(k) ?? 0 }))
         .filter((d) => Math.abs(d.chiusura - d.adesso) > 0.005)
     : [];
@@ -135,6 +142,8 @@ export async function cassaDelGiorno(hotelId: number, giorno: string) {
     perOperatore: [...somma(movimenti, (m) => m.operatore)].map(([operatore, importo]) => ({ operatore, importo })),
     totale,
     contanti,
+    cauzioni: cauzioni.movimenti,
+    contantiCauzioni: cauzioni.contanti,
     reparti: [...reparti].map(([nome, v]) => ({ nome, ...v })),
     fondoProposto: n(precedente?.fondoLasciato),
     chiusura: chiusura
@@ -146,7 +155,10 @@ export async function cassaDelGiorno(hotelId: number, giorno: string) {
           contantiContati: n(chiusura.contantiContati),
           fondoLasciato: n(chiusura.fondoLasciato),
           // Contanti attesi = fondo all'apertura + contanti netti del giorno.
-          attesi: chiusura.fondoIniziale === null ? null : arrotonda(Number(chiusura.fondoIniziale) + (totaliChiusura?.contanti ?? 0)),
+          attesi:
+            chiusura.fondoIniziale === null
+              ? null
+              : arrotonda(Number(chiusura.fondoIniziale) + (totaliChiusura?.contanti ?? 0) + (totaliChiusura?.[CHIAVE_CAUZIONI] ?? 0)),
           nota: chiusura.nota ?? "",
         }
       : null,
@@ -164,7 +176,7 @@ export async function chiudiGiornata(hotelId: number, giorno: string, d: DatiChi
   if (d.contantiContati !== null && d.fondoIniziale === null) throw new Error("Per confrontare i contanti contati serve il fondo all'apertura (anche 0).");
   const c = await cassaDelGiorno(hotelId, giorno);
   if (c.chiusura) throw new Error("Questa giornata è già chiusa.");
-  const attesi = d.fondoIniziale === null ? null : arrotonda(d.fondoIniziale + c.contanti);
+  const attesi = d.fondoIniziale === null ? null : arrotonda(d.fondoIniziale + c.contanti + c.contantiCauzioni);
   if (attesi !== null && d.contantiContati !== null && Math.abs(attesi - d.contantiContati) > 0.005 && !d.nota.trim()) {
     throw new Error(`I contanti contati (€ ${d.contantiContati.toFixed(2)}) non tornano con quelli attesi (€ ${attesi.toFixed(2)}): scrivi una nota.`);
   }
@@ -172,7 +184,7 @@ export async function chiudiGiornata(hotelId: number, giorno: string, d: DatiChi
     data: {
       hotelId,
       giorno: new Date(giorno),
-      totali: Object.fromEntries(c.perMetodo.map((m) => [m.metodo, m.importo])),
+      totali: { ...Object.fromEntries(c.perMetodo.map((m) => [m.metodo, m.importo])), ...(c.contantiCauzioni ? { [CHIAVE_CAUZIONI]: c.contantiCauzioni } : {}) },
       totale: c.totale,
       fondoIniziale: d.fondoIniziale,
       contantiContati: d.contantiContati,
@@ -193,7 +205,7 @@ export async function riapriGiornata(hotelId: number, giorno: string) {
 export async function ultimeChiusure(hotelId: number) {
   const r = await prisma.chiusuraCassa.findMany({ where: { hotelId }, orderBy: { giorno: "desc" }, take: 14 });
   return r.map((c) => {
-    const contanti = (c.totali as Record<string, number>).contanti ?? 0;
+    const contanti = ((c.totali as Record<string, number>).contanti ?? 0) + ((c.totali as Record<string, number>)[CHIAVE_CAUZIONI] ?? 0);
     const attesi = c.fondoIniziale === null ? null : arrotonda(Number(c.fondoIniziale) + contanti);
     return {
       giorno: c.giorno.toISOString().slice(0, 10),

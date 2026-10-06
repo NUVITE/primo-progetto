@@ -65,6 +65,7 @@ export function CheckinCamera({
   daConsegnare = 0,
   valoriAperti = 0,
   chiavi = false,
+  cauzione = null,
 }: {
   iniziale: Dati;
   puoGestire: boolean;
@@ -75,6 +76,7 @@ export function CheckinCamera({
   daConsegnare?: number;
   valoriAperti?: number;
   chiavi?: boolean;
+  cauzione?: number | null;
 }) {
   const [dati, setDati] = useState(iniziale);
   // null = senza il permesso "Note alimentari" (o modulo Ristorazione spento): il riquadro non c'è.
@@ -199,6 +201,12 @@ export function CheckinCamera({
             Custodia
           </Link>
           ).
+        </Avviso>
+      )}
+
+      {cauzione !== null && (
+        <Avviso tipo="avviso">
+          Cauzione di {cauzione.toLocaleString("it-IT", { style: "currency", currency: "EUR" })} da restituire prima della partenza (dalla prenotazione, riquadro Cauzione).
         </Avviso>
       )}
 

@@ -57,6 +57,8 @@ import { ospitiDaConoscere } from "@/lib/ospiti";
 import { indirizzoPubblico } from "@/lib/indirizzoPubblico";
 import { linkQuestionario } from "@/lib/questionari";
 import { messaggiDaConsegnare } from "@/lib/messaggi";
+import { datiCauzione, incassaCauzione, restituisciCauzione } from "@/lib/cauzioni";
+import type { MetodoCauzione } from "@/lib/cauzioniRegole";
 import { impostaVoucher } from "@/lib/agenzie";
 import type { VoucherCopre } from "@/lib/agenzieRegole";
 import { anteprimaEmail, inviaEmailPrenotazione, storicoEmail, type InvioInput } from "@/lib/email";
@@ -107,12 +109,15 @@ async function serializza(prenotazione: Awaited<ReturnType<typeof trovaPrenotazi
   const daConoscere = puo(utente, PERMESSI.PRENOTAZIONI_GESTISCI) ? await ospitiDaConoscere(utente.hotelId, prenotazione.id) : null;
   // Portineria: messaggi, lettere e pacchi ancora da consegnare (solo con il permesso e il modulo).
   const messaggi = puo(utente, PERMESSI.PORTINERIA) ? await messaggiDaConsegnare(utente.hotelId, prenotazione.id) : null;
+  // Cauzione (deposito): per chi registra i pagamenti.
+  const cauzione = puo(utente, PERMESSI.PAGAMENTI_REGISTRA) ? await datiCauzione(utente.hotelId, prenotazione.id) : null;
   return {
     importiVisibili,
     email,
     noteAlimentari,
     daConoscere,
     messaggi,
+    cauzione,
     contoVoci: {
       righe,
       riepilogoIva: riepilogo,
@@ -557,6 +562,21 @@ export async function azioneInviaEmail(id: number, d: InvioInput) {
     const u = await richiediPermesso(PERMESSI.EMAIL_INVIA);
     const esito = await inviaEmailPrenotazione(u.hotelId, id, d, u.nome);
     return { esito, prenotazione: await serializza(await trovaPrenotazione(u.hotelId, id), u) };
+  });
+}
+
+/** Cauzione: incasso (non è un pagamento del conto) e restituzione, con l'eventuale trattenuta per danni. */
+export async function azioneIncassaCauzione(id: number, importo: number, metodo: string) {
+  return suPrenotazione(PERMESSI.PAGAMENTI_REGISTRA, async (u) => {
+    await incassaCauzione(u.hotelId, id, importo, metodo, u.nome);
+    return trovaPrenotazione(u.hotelId, id);
+  });
+}
+
+export async function azioneRestituisciCauzione(id: number, trattenuta: number, motivo: string, metodo: MetodoCauzione) {
+  return suPrenotazione(PERMESSI.PAGAMENTI_REGISTRA, async (u) => {
+    await restituisciCauzione(u.hotelId, id, trattenuta, motivo, metodo, u.nome);
+    return trovaPrenotazione(u.hotelId, id);
   });
 }
 

@@ -10,6 +10,7 @@ import { AiutoSezione, Esempio } from "@/components/AiutoSezione";
 import { Suggerimento } from "@/components/Suggerimento";
 import { statoPrenotazione } from "../stato";
 import { BarraStato, PannelloPagamenti } from "./StatoEPagamenti";
+import { CauzionePrenotazione } from "./CauzionePrenotazione";
 import { ProvenienzaCondizioni } from "./ProvenienzaCondizioni";
 import { PrezzoConcordato } from "./PrezzoConcordato";
 import { ContoPrenotazione } from "./ContoPrenotazione";
@@ -969,6 +970,9 @@ export function PrenotazioneDettaglio({
           </Sezione>
           <PannelloPagamenti prenotazione={prenotazione} puoGestire={puoGestire} puoIncassare={puoIncassare && importi} salvando={salvando} esegui={eseguendo} aggiorna={setPrenotazione} />
           </>
+          )}
+          {prenotazione.cauzione && (prenotazione.cauzione.proposta > 0 || prenotazione.cauzione.cauzione) && (
+            <CauzionePrenotazione prenotazione={prenotazione} salvando={salvando} esegui={eseguendo} aggiorna={setPrenotazione} />
           )}
           <ProvenienzaCondizioni prenotazione={prenotazione} puoGestire={puoGestireRuolo} salvando={salvando} esegui={eseguendo} aggiorna={setPrenotazione} />
         </div>

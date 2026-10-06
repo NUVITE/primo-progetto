@@ -34,6 +34,13 @@ export async function impostaPuliziaFinale(hotelId: number, id: number, prezzo: 
   return prisma.tipoCamera.update({ where: { id }, data: { puliziaFinale: prezzo || null } });
 }
 
+/** Cauzione proposta per una camera di questo tipo; null = nessuna. */
+export async function impostaCauzioneTipo(hotelId: number, id: number, importo: number | null) {
+  if (importo !== null && !(importo >= 0 && importo <= 100000)) throw new Error("Importo della cauzione non valido.");
+  await prisma.tipoCamera.findFirstOrThrow({ where: { id, hotelId } });
+  return prisma.tipoCamera.update({ where: { id }, data: { cauzione: importo || null } });
+}
+
 export async function impostaOpzioniTipoCamera(hotelId: number, id: number, lettiAggiuntiMax: number, animaliAmmessi: boolean) {
   if (!(Number.isInteger(lettiAggiuntiMax) && lettiAggiuntiMax >= 0 && lettiAggiuntiMax <= 5)) throw new Error("Letti aggiunti: da 0 a 5.");
   await prisma.tipoCamera.findFirstOrThrow({ where: { id, hotelId } });
