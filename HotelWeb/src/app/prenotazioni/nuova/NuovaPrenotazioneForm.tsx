@@ -69,8 +69,13 @@ export function NuovaPrenotazioneForm() {
 
   const [trattamenti, setTrattamenti] = useState<string[]>([]);
   // Struttura: funzioni spente (es. gruppi) e nome delle unità (camera o appartamento).
-  const [struttura, setStruttura] = useState<{ spente: string[]; unita: { singolare: string; plurale: string } }>({ spente: [], unita: { singolare: "camera", plurale: "camere" } });
+  const [struttura, setStruttura] = useState<{ spente: string[]; unita: { singolare: string; plurale: string; femminile: boolean } }>({
+    spente: [],
+    unita: { singolare: "camera", plurale: "camere", femminile: true },
+  });
   const u = (testo: string) => conUnita(testo, struttura.unita);
+  // Concordanze: "la camera / le camere" ma "l'appartamento / gli appartamenti".
+  const f = struttura.unita.femminile;
   const [salvando, setSalvando] = useState(false);
   const [errore, setErrore] = useState<string | null>(null);
   const [esito, setEsito] = useState<ValoreDi<typeof salvaPrenotazione> | null>(null);
@@ -233,7 +238,7 @@ export function NuovaPrenotazioneForm() {
           </li>
           <li>Il prezzo si calcola mentre compili; controlla il riepilogo e premi <strong>Conferma prenotazione</strong>.</li>
         </ol>
-        <p>{u("Per bloccare più {camere} senza sceglierle subito, trascina le date sul Planning {camere} (prenotazione veloce).")}</p>
+        <p>{u(`Per bloccare più {camere} senza ${f ? "sceglierle" : "sceglierli"} subito, trascina le date sul Planning {camere} (prenotazione veloce).`)}</p>
       </Suggerimento>
 
       <div className="flex flex-col gap-4 xl:flex-row xl:items-start">
@@ -313,7 +318,7 @@ export function NuovaPrenotazioneForm() {
                 </div>
 
                 <div className="mt-3">
-                  <OspiteSearch value={seg.ospite} onChange={(v) => aggiornaSegmento(idx, { ospite: v })} etichetta={u("Intestatario della {camera}")} />
+                  <OspiteSearch value={seg.ospite} onChange={(v) => aggiornaSegmento(idx, { ospite: v })} etichetta={u(f ? "Intestatario della {camera}" : "Intestatario dell'{camera}")} />
                 </div>
 
                 {seg.anteprima && (

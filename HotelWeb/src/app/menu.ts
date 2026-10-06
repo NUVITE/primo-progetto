@@ -55,7 +55,7 @@ export const MENU: GruppoMenu[] = [
     voci: [
       { href: "/pulizie", label: "Stato {camere}", permesso: PERMESSI.CAMERE_STATO_VEDI, modulo: "pulizie" },
       { href: "/pulizie/foglio", label: "Foglio dei piani", permesso: PERMESSI.PULIZIE_GESTISCI, modulo: "pulizie" },
-      { href: "/pulizie/mie", label: "Le mie {camere}", permesso: PERMESSI.PULIZIE_MIE, modulo: "pulizie" },
+      { href: "/pulizie/mie", label: "{Le mie} {camere}", permesso: PERMESSI.PULIZIE_MIE, modulo: "pulizie" },
       { href: "/manutenzioni", label: "Manutenzioni", permesso: PERMESSI.GUASTI_SEGNALA, modulo: "manutenzioni" },
       { href: "/richieste", label: "Richieste degli ospiti", permesso: PERMESSI.CAMERE_STATO_VEDI, modulo: "pulizie" },
       { href: "/oggetti-smarriti", label: "Oggetti smarriti", permesso: PERMESSI.OGGETTI_SMARRITI, modulo: "pulizie" },
@@ -88,6 +88,7 @@ export const MENU: GruppoMenu[] = [
     label: "Impostazioni",
     icona: Settings,
     voci: [
+      { href: "/impostazioni/avvio", label: "Primo avvio", permesso: PERMESSI.HOTEL_CONFIGURA },
       { href: "/impostazioni/struttura", label: "Struttura", permesso: PERMESSI.HOTEL_CONFIGURA },
       { href: "/camere/gestione", label: "{Camere}", permesso: PERMESSI.CAMERE_GESTISCI },
       { href: "/impostazioni/listini", label: "Listini e tariffe", permesso: PERMESSI.LISTINI_GESTISCI },
@@ -119,7 +120,7 @@ export function menuVisibile(
   superAdmin: boolean,
   moduli: Modulo[],
   spente: readonly string[] = [],
-  unita: { singolare: string; plurale: string } = { singolare: "camera", plurale: "camere" },
+  unita: { singolare: string; plurale: string; femminile?: boolean } = { singolare: "camera", plurale: "camere", femminile: true },
 ): GruppoMenu[] {
   return MENU.filter((g) => !g.soloSuperAdmin || superAdmin)
     .map((g) => ({

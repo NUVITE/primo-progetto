@@ -8,9 +8,10 @@
  * classificazione, che resta quella autorizzata dal comune.
  */
 
-type Unita = { singolare: string; plurale: string };
-const CAMERA: Unita = { singolare: "camera", plurale: "camere" };
-const APPARTAMENTO: Unita = { singolare: "appartamento", plurale: "appartamenti" };
+// femminile: per concordare aggettivi e articoli ("camera attiva", "appartamento attivo").
+type Unita = { singolare: string; plurale: string; femminile: boolean };
+const CAMERA: Unita = { singolare: "camera", plurale: "camere", femminile: true };
+const APPARTAMENTO: Unita = { singolare: "appartamento", plurale: "appartamenti", femminile: false };
 
 export const TIPOLOGIE = {
   albergo: { nome: "Albergo / hotel", gruppo: "alberghiera", unita: CAMERA },

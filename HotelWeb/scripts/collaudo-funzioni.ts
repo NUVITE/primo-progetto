@@ -41,6 +41,8 @@ async function main() {
     casa.filter((v) => /ppartament/.test(v.label)).map((v) => v.label),
   );
   verifica("Nessuna etichetta resta con i segnaposto", casa.every((v) => !v.label.includes("{")));
+  const conPulizie = (t: string) => menuVisibile(TUTTI_I_PERMESSI, false, ["pulizie"], [], unitaDi(t)).flatMap((g) => g.voci).map((v) => v.label);
+  verifica("Concordanza: Le mie camere / I miei appartamenti", conPulizie("albergo").includes("Le mie camere") && conPulizie("casa_vacanze").includes("I miei appartamenti"), conPulizie("casa_vacanze").filter((l) => /miei|mie/.test(l)));
 
   const hotel = await prisma.hotel.findFirstOrThrow({ orderBy: { id: "asc" } });
   try {

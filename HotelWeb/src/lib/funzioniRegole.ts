@@ -25,10 +25,13 @@ export const maiuscola = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 /**
  * Testi con i segnaposto delle unità: {camera}, {camere}, {Camera}, {Camere} diventano "camera" o
- * "appartamento" secondo la tipologia della struttura.
+ * "appartamento" secondo la tipologia della struttura; {Le mie} concorda ("Le mie camere", "I miei
+ * appartamenti").
  */
-export function conUnita(testo: string, unita: { singolare: string; plurale: string }) {
+export function conUnita(testo: string, unita: { singolare: string; plurale: string; femminile?: boolean }) {
+  const femminile = unita.femminile ?? true;
   return testo
+    .replaceAll("{Le mie}", femminile ? "Le mie" : "I miei")
     .replaceAll("{camera}", unita.singolare)
     .replaceAll("{camere}", unita.plurale)
     .replaceAll("{Camera}", maiuscola(unita.singolare))
