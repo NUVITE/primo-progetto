@@ -53,6 +53,12 @@ import { PERMESSI } from "@/lib/permessi";
 import { descriviPolitica, elencoPolitiche, type PoliticaCopiata } from "@/lib/politiche";
 import { prisma } from "@/lib/prisma";
 import { noteDellaPrenotazione } from "@/lib/noteAlimentari";
+import { ospitiDaConoscere } from "@/lib/ospiti";
+import { indirizzoPubblico } from "@/lib/indirizzoPubblico";
+import { linkQuestionario } from "@/lib/questionari";
+import { messaggiDaConsegnare } from "@/lib/messaggi";
+import { impostaVoucher } from "@/lib/agenzie";
+import type { VoucherCopre } from "@/lib/agenzieRegole";
 import { anteprimaEmail, inviaEmailPrenotazione, storicoEmail, type InvioInput } from "@/lib/email";
 import type { ChiaveModello, Lingua } from "@/lib/emailRegole";
 import { impostaPastoPrincipale } from "@/lib/foglioPasti";
@@ -97,10 +103,16 @@ async function serializza(prenotazione: Awaited<ReturnType<typeof trovaPrenotazi
         storico: await storicoEmail(utente.hotelId, prenotazione.id),
       }
     : null;
+  // Ospiti di riguardo, con preferenze o già stati da noi (scheda ospite): per chi gestisce le prenotazioni.
+  const daConoscere = puo(utente, PERMESSI.PRENOTAZIONI_GESTISCI) ? await ospitiDaConoscere(utente.hotelId, prenotazione.id) : null;
+  // Portineria: messaggi, lettere e pacchi ancora da consegnare (solo con il permesso e il modulo).
+  const messaggi = puo(utente, PERMESSI.PORTINERIA) ? await messaggiDaConsegnare(utente.hotelId, prenotazione.id) : null;
   return {
     importiVisibili,
     email,
     noteAlimentari,
+    daConoscere,
+    messaggi,
     contoVoci: {
       righe,
       riepilogoIva: riepilogo,
@@ -132,6 +144,7 @@ async function serializza(prenotazione: Awaited<ReturnType<typeof trovaPrenotazi
     id: prenotazione.id,
     stato: prenotazione.stato,
     ospitePrenotante: `${prenotazione.ospitePrenotante.nome} ${prenotazione.ospitePrenotante.cognome}`,
+    ospitePrenotanteId: prenotazione.ospitePrenotante.id,
     gruppoNome: prenotazione.gruppo?.nome ?? null,
     // Conto da chiudere dopo la partenza (o penale da incassare) ed eventuale sospeso.
     conto: (() => {
@@ -145,6 +158,9 @@ async function serializza(prenotazione: Awaited<ReturnType<typeof trovaPrenotazi
       mezzoTesto: prenotazione.mezzo ? (MEZZI[prenotazione.mezzo as keyof typeof MEZZI] ?? prenotazione.mezzo) : "",
       intermediarioId: prenotazione.intermediarioId,
       intermediario: prenotazione.intermediario?.denominazione ?? null,
+      intermediarioAgenzia: !!prenotazione.intermediario && ["agenzia", "portale"].includes(prenotazione.intermediario.tipo),
+      voucher: prenotazione.voucher ?? "",
+      voucherCopre: prenotazione.voucherCopre ?? "",
       clientePaganteId: prenotazione.clientePaganteId,
       clientePagante: prenotazione.clientePagante?.denominazione ?? null,
       garanzia: prenotazione.garanzia,
@@ -528,7 +544,10 @@ export async function azionePastoPrincipale(prenotazioneId: number, segmentoId: 
 export async function azioneAnteprimaEmail(id: number, chiave: ChiaveModello, lingua: Lingua | null) {
   return conEsito(async () => {
     const u = await richiediPermesso(PERMESSI.EMAIL_INVIA);
-    return anteprimaEmail(u.hotelId, id, chiave, lingua, puo(u, PERMESSI.IMPORTI_VEDI));
+    // Ringraziamento: il link al questionario di gradimento (creato alla prima anteprima).
+    const base = await indirizzoPubblico();
+    const extra = chiave === "ringraziamento" ? async (l: Lingua) => ({ link_questionario: await linkQuestionario(u.hotelId, id, l, base) }) : undefined;
+    return anteprimaEmail(u.hotelId, id, chiave, lingua, puo(u, PERMESSI.IMPORTI_VEDI), extra);
   });
 }
 
@@ -537,5 +556,13 @@ export async function azioneInviaEmail(id: number, d: InvioInput) {
     const u = await richiediPermesso(PERMESSI.EMAIL_INVIA);
     const esito = await inviaEmailPrenotazione(u.hotelId, id, d, u.nome);
     return { esito, prenotazione: await serializza(await trovaPrenotazione(u.hotelId, id), u) };
+  });
+}
+
+/** Voucher dell'agenzia: numero e cosa copre; il conto si divide fra agenzia e ospite. Numero vuoto = tolto. */
+export async function azioneVoucher(id: number, numero: string, copre: VoucherCopre | null) {
+  return suPrenotazione(PERMESSI.PRENOTAZIONI_GESTISCI, async (u) => {
+    await impostaVoucher(u.hotelId, id, numero, copre);
+    return trovaPrenotazione(u.hotelId, id);
   });
 }

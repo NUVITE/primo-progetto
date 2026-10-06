@@ -26,7 +26,7 @@ type CameraRiga = {
   celle: Record<string, Cella>;
   pulizia: { stato: StatoPulizia; nonDisturbare: boolean } | null;
 };
-type TipoRiepilogo = { id: number; descrizione: string; perGiorno: Record<string, { liberi: number; totale: number }> };
+type TipoRiepilogo = { id: number; descrizione: string; perGiorno: Record<string, { liberi: number; totale: number; allotment?: number }> };
 type Listino = { id: number; descrizione: string; tipo: string };
 
 type ViewMode = "giorno" | "settimana" | "quindicina" | "mese";
@@ -591,9 +591,10 @@ export function SituazioneCamere({ puoGestire }: { puoGestire: boolean }) {
                                 color: stile?.text ?? "#6B6759",
                                 border: evidenziato ? "2px solid #0F6B66" : `1px solid ${stile?.border ?? "#D8D4CB"}`,
                               }}
-                              title={`${t.descrizione}: ${info?.liberi ?? 0} libere su ${info?.totale ?? 0}`}
+                              title={`${t.descrizione}: ${info?.liberi ?? 0} libere su ${info?.totale ?? 0}${info?.allotment ? ` (più ${info.allotment} in allotment alle agenzie)` : ""}`}
                             >
                               {info ? info.liberi : "—"}
+                              {info?.allotment ? <sup className="ml-0.5 text-[0.6rem] font-normal">+{info.allotment}A</sup> : null}
                             </div>
                           );
                         })}

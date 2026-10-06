@@ -9,6 +9,8 @@ export const PERMESSI = {
   PRENOTAZIONI_VEDI: "prenotazioni.vedi",
   PRENOTAZIONI_GESTISCI: "prenotazioni.gestisci",
   EMAIL_INVIA: "comunicazioni.invia",
+  OSPITI_UNISCI: "ospiti.unisci",
+  QUESTIONARI_VEDI: "questionari.vedi",
   IMPORTI_VEDI: "importi.vedi",
   PAGAMENTI_REGISTRA: "pagamenti.registra",
   PREZZI_MODIFICA: "prezzi.modifica",
@@ -24,6 +26,8 @@ export const PERMESSI = {
   OGGETTI_SMARRITI: "pulizie.oggetti",
   GUASTI_SEGNALA: "manutenzioni.segnala",
   MANUTENZIONI_GESTISCI: "manutenzioni.gestisci",
+  PORTINERIA: "portineria.gestisci",
+  RECLAMI: "reclami.gestisci",
   ADEMPIMENTI_INVIA: "adempimenti.invia",
   SOGGIORNI_RIAPRI: "soggiorni.riapri",
   CAMERE_GESTISCI: "camere.gestisci",
@@ -62,6 +66,16 @@ export const CATALOGO_PERMESSI: { area: string; modulo?: Modulo; voci: { permess
       },
       { permesso: PERMESSI.EMAIL_INVIA, nome: "Inviare email agli ospiti", descrizione: "Conferme, richieste di acconto, promemoria e ringraziamenti dalla casella dell'hotel" },
       { permesso: PERMESSI.PREZZI_MODIFICA, nome: "Modificare i prezzi", descrizione: "Fissare a mano il prezzo per notte di una camera prenotata (resta traccia di chi e perché)" },
+      {
+        permesso: PERMESSI.QUESTIONARI_VEDI,
+        nome: "Vedere i questionari",
+        descrizione: "Risultati dei questionari di gradimento, commenti degli ospiti e partenze da ringraziare",
+      },
+      {
+        permesso: PERMESSI.OSPITI_UNISCI,
+        nome: "Unire ospiti doppi",
+        descrizione: "Unire due schede dello stesso ospite: prenotazioni, soggiorni ed email passano alla scheda che resta (resta traccia)",
+      },
       { permesso: PERMESSI.SOGGIORNI_RIAPRI, nome: "Riaprire soggiorni chiusi", descrizione: "Rettificare un soggiorno dopo il check-out (tassa definitiva): resta traccia di chi e quando" },
     ],
   },
@@ -143,6 +157,22 @@ export const CATALOGO_PERMESSI: { area: string; modulo?: Modulo; voci: { permess
     ],
   },
   {
+    area: "Portineria",
+    modulo: MODULI.PORTINERIA,
+    voci: [
+      {
+        permesso: PERMESSI.PORTINERIA,
+        nome: "Portineria",
+        descrizione: "Messaggi e posta, agenda e sveglie, bagagli, valori e chiavi, consegne fra turni",
+      },
+      {
+        permesso: PERMESSI.RECLAMI,
+        nome: "Reclami",
+        descrizione: "Registrare i reclami degli ospiti, cosa si è fatto e il gesto di cortesia; vedere il riepilogo per categoria",
+      },
+    ],
+  },
+  {
     area: "Utenti",
     voci: [
       { permesso: PERMESSI.UTENTI_GESTISCI, nome: "Gestire utenti", descrizione: "Aggiungere utenti all'hotel e assegnare i ruoli" },
@@ -160,6 +190,8 @@ const IMPLICAZIONI: Partial<Record<Permesso, Permesso[]>> = {
   [PERMESSI.SALE_GESTISCI]: [PERMESSI.SALE_VEDI],
   [PERMESSI.SALE_CONFIGURA]: [PERMESSI.SALE_VEDI],
   [PERMESSI.SOGGIORNI_RIAPRI]: [PERMESSI.PRENOTAZIONI_GESTISCI],
+  [PERMESSI.OSPITI_UNISCI]: [PERMESSI.PRENOTAZIONI_GESTISCI],
+  [PERMESSI.QUESTIONARI_VEDI]: [PERMESSI.PRENOTAZIONI_VEDI],
   [PERMESSI.PAGAMENTI_REGISTRA]: [PERMESSI.PRENOTAZIONI_VEDI, PERMESSI.IMPORTI_VEDI],
   [PERMESSI.ADEMPIMENTI_INVIA]: [PERMESSI.PRENOTAZIONI_VEDI],
   [PERMESSI.EMAIL_INVIA]: [PERMESSI.PRENOTAZIONI_VEDI],
@@ -167,6 +199,8 @@ const IMPLICAZIONI: Partial<Record<Permesso, Permesso[]>> = {
   [PERMESSI.PULIZIE_GESTISCI]: [PERMESSI.CAMERE_STATO_VEDI],
   [PERMESSI.PULIZIE_MIE]: [PERMESSI.CAMERE_STATO_VEDI],
   [PERMESSI.MANUTENZIONI_GESTISCI]: [PERMESSI.GUASTI_SEGNALA],
+  [PERMESSI.PORTINERIA]: [PERMESSI.PRENOTAZIONI_VEDI],
+  [PERMESSI.RECLAMI]: [PERMESSI.PRENOTAZIONI_VEDI],
   [PERMESSI.PREZZI_MODIFICA]: [PERMESSI.PRENOTAZIONI_GESTISCI, PERMESSI.PRENOTAZIONI_VEDI, PERMESSI.IMPORTI_VEDI],
 };
 
@@ -195,7 +229,7 @@ export const RUOLI_PREDEFINITI: { nome: string; permessi: Permesso[] }[] = [
   { nome: "Direttore", permessi: TUTTI_I_PERMESSI.filter((p) => p !== PERMESSI.RUOLI_GESTISCI) },
   {
     nome: "Reception",
-    permessi: [PERMESSI.PRENOTAZIONI_VEDI, PERMESSI.PRENOTAZIONI_GESTISCI, PERMESSI.EMAIL_INVIA, PERMESSI.IMPORTI_VEDI, PERMESSI.PAGAMENTI_REGISTRA, PERMESSI.ADDEBITI_REGISTRA, PERMESSI.CASSA_CHIUDI, PERMESSI.NOTE_ALIMENTARI, PERMESSI.FOGLIO_PASTI, PERMESSI.ROOM_SERVICE, PERMESSI.CAMERE_STATO_VEDI, PERMESSI.PULIZIE_GESTISCI, PERMESSI.GUASTI_SEGNALA, PERMESSI.OGGETTI_SMARRITI, PERMESSI.ADEMPIMENTI_INVIA, PERMESSI.SALE_VEDI, PERMESSI.SALE_GESTISCI],
+    permessi: [PERMESSI.PRENOTAZIONI_VEDI, PERMESSI.PRENOTAZIONI_GESTISCI, PERMESSI.EMAIL_INVIA, PERMESSI.QUESTIONARI_VEDI, PERMESSI.PORTINERIA, PERMESSI.RECLAMI, PERMESSI.IMPORTI_VEDI, PERMESSI.PAGAMENTI_REGISTRA, PERMESSI.ADDEBITI_REGISTRA, PERMESSI.CASSA_CHIUDI, PERMESSI.NOTE_ALIMENTARI, PERMESSI.FOGLIO_PASTI, PERMESSI.ROOM_SERVICE, PERMESSI.CAMERE_STATO_VEDI, PERMESSI.PULIZIE_GESTISCI, PERMESSI.GUASTI_SEGNALA, PERMESSI.OGGETTI_SMARRITI, PERMESSI.ADEMPIMENTI_INVIA, PERMESSI.SALE_VEDI, PERMESSI.SALE_GESTISCI],
   },
   {
     nome: "Eventi / Commerciale",
@@ -207,6 +241,11 @@ export const RUOLI_PREDEFINITI: { nome: string; permessi: Permesso[] }[] = [
   { nome: "Governante", permessi: [PERMESSI.PRENOTAZIONI_VEDI, PERMESSI.CAMERE_STATO_VEDI, PERMESSI.PULIZIE_GESTISCI, PERMESSI.GUASTI_SEGNALA, PERMESSI.OGGETTI_SMARRITI] },
   { nome: "Cameriera ai piani", permessi: [PERMESSI.CAMERE_STATO_VEDI, PERMESSI.PULIZIE_MIE, PERMESSI.GUASTI_SEGNALA, PERMESSI.OGGETTI_SMARRITI] },
   { nome: "Manutenzione", permessi: [PERMESSI.GUASTI_SEGNALA, PERMESSI.MANUTENZIONI_GESTISCI] },
+  { nome: "Portiere", permessi: [PERMESSI.PRENOTAZIONI_VEDI, PERMESSI.PORTINERIA, PERMESSI.RECLAMI, PERMESSI.ADDEBITI_REGISTRA, PERMESSI.GUASTI_SEGNALA, PERMESSI.OGGETTI_SMARRITI] },
+  {
+    nome: "Portiere di notte",
+    permessi: [PERMESSI.PRENOTAZIONI_VEDI, PERMESSI.PORTINERIA, PERMESSI.RECLAMI, PERMESSI.ADDEBITI_REGISTRA, PERMESSI.PAGAMENTI_REGISTRA, PERMESSI.IMPORTI_VEDI, PERMESSI.GUASTI_SEGNALA, PERMESSI.OGGETTI_SMARRITI],
+  },
 ];
 
 /** Permessi che richiedono p (togliendo p vanno tolti anche loro, es. "vedere" regge "gestire"). */

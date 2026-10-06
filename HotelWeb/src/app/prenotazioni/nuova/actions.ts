@@ -1,5 +1,6 @@
 "use server";
 
+import { avvisoAllotment } from "@/lib/agenzie";
 import { conEsito } from "@/lib/esito";
 import { prisma } from "@/lib/prisma";
 import { calcolaTotaliPrenotazione, creaPrenotazione, type CreaPrenotazioneInput, CANALI, MEZZI, GARANZIE } from "@/lib/prenotazioni";
@@ -188,6 +189,11 @@ export async function anteprimaGenerica(input: {
     // Gratuità dei gruppi: stima sul totale persone (il calcolo vero per notte avviene al salvataggio).
     const avvisi: string[] = [];
     if (listino.minPersone && personeTotali < listino.minPersone) avvisi.push(`Il listino ${listino.descrizione} vale da ${listino.minPersone} persone (ora ${personeTotali}).`);
+    // Camere riservate alle agenzie (allotment): si possono prenotare, ma con un avviso.
+    for (const richiesta of input.richieste.filter((r) => r.quantita > 0)) {
+      const a = await avvisoAllotment(hotelId, richiesta.tipoCameraId, dataInizio, dataFine, richiesta.quantita, null);
+      if (a) avvisi.push(`${tipiRichiesti.find((t) => t.id === richiesta.tipoCameraId)?.descrizione ?? ""}: ${a}`);
+    }
     const gratuiti = listino.gratuitaOgni ? Math.floor(personeTotali / (listino.gratuitaOgni + 1)) : 0;
     if (gratuiti) avvisi.push(`${gratuiti} ${gratuiti === 1 ? "persona gratuita" : "persone gratuite"} (1 ogni ${listino.gratuitaOgni} paganti): lo sconto si applica al salvataggio.`);
 

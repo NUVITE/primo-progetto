@@ -191,14 +191,23 @@ export async function valoriPrenotazione(hotelId: number, prenotazioneId: number
 }
 
 /** Anteprima di un modello compilato con i dati della prenotazione. */
-export async function anteprimaEmail(hotelId: number, prenotazioneId: number, chiave: ChiaveModello, linguaScelta: Lingua | null, importiVisibili = true) {
+export async function anteprimaEmail(
+  hotelId: number,
+  prenotazioneId: number,
+  chiave: ChiaveModello,
+  linguaScelta: Lingua | null,
+  importiVisibili = true,
+  // Valori in più che dipendono dalla lingua (es. il link al questionario del ringraziamento).
+  extra?: (lingua: Lingua) => Promise<Partial<Record<Segnaposto, string>>>,
+) {
   // Senza lingua scelta: quella proposta per l'ospite (inglese per chi non è italiano).
   let v = await valoriPrenotazione(hotelId, prenotazioneId, linguaScelta ?? "it", importiVisibili);
   const lingua = linguaScelta ?? v.linguaProposta;
   if (lingua !== (linguaScelta ?? "it")) v = await valoriPrenotazione(hotelId, prenotazioneId, lingua, importiVisibili);
   const m = await modelloEmail(hotelId, chiave, lingua);
-  const oggetto = compila(m.oggetto, v.valori);
-  const corpo = compila(m.corpo, v.valori);
+  const valori = extra ? { ...v.valori, ...(await extra(lingua)) } : v.valori;
+  const oggetto = compila(m.oggetto, valori);
+  const corpo = compila(m.corpo, valori);
   return { lingua, oggetto: oggetto.testo, corpo: corpo.testo, mancanti: [...new Set([...oggetto.mancanti, ...corpo.mancanti])], destinatari: v.destinatari };
 }
 

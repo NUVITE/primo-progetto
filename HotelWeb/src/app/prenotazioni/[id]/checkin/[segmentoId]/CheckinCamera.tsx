@@ -8,6 +8,7 @@ import type { datiCheckin, AnagraficaInput, DatiPresenzaInput } from "@/lib/chec
 import { OspiteSearch, type OspiteValue } from "../../../nuova/OspiteSearch";
 import { LuogoSearch } from "./LuogoSearch";
 import { ContoApertoCheckout } from "./ContoApertoCheckout";
+import { ChiaviCamera } from "./ChiaviCamera";
 import { NoteAlimentari } from "./NoteAlimentari";
 import { STATI_PULIZIA, type StatoPulizia } from "@/lib/pulizieRegole";
 import type { NotaOspite } from "@/lib/noteAlimentari";
@@ -61,6 +62,9 @@ export function CheckinCamera({
   noteIniziali = null,
   puoRoomService = false,
   statoPulizia = null,
+  daConsegnare = 0,
+  valoriAperti = 0,
+  chiavi = false,
 }: {
   iniziale: Dati;
   puoGestire: boolean;
@@ -68,6 +72,9 @@ export function CheckinCamera({
   noteIniziali?: Record<number, NotaOspite> | null;
   puoRoomService?: boolean;
   statoPulizia?: StatoPulizia | null;
+  daConsegnare?: number;
+  valoriAperti?: number;
+  chiavi?: boolean;
 }) {
   const [dati, setDati] = useState(iniziale);
   // null = senza il permesso "Note alimentari" (o modulo Ristorazione spento): il riquadro non c'è.
@@ -173,6 +180,29 @@ export function CheckinCamera({
           proponi di aspettare.
         </Avviso>
       )}
+
+      {daConsegnare > 0 && (
+        <Avviso tipo="avviso">
+          {daConsegnare === 1 ? "C'è un messaggio o della posta da consegnare a questa prenotazione: consegnalo" : `Ci sono ${daConsegnare} messaggi o posta da consegnare a questa prenotazione: consegnali`} prima che l&apos;ospite parta (
+          <Link href="/portineria/messaggi" className="underline">
+            Messaggi e posta
+          </Link>
+          ).
+        </Avviso>
+      )}
+
+      {valoriAperti > 0 && (
+        <Avviso tipo="avviso">
+          {valoriAperti === 1 ? "L'ospite ha dei valori in custodia nella cassaforte dell'hotel" : `L'ospite ha ${valoriAperti} depositi di valori in custodia`}: restituiscili prima
+          della partenza (
+          <Link href="/portineria/custodia" className="underline">
+            Custodia
+          </Link>
+          ).
+        </Avviso>
+      )}
+
+      {chiavi && <ChiaviCamera segmentoId={s.id} consegnate={s.chiaviConsegnate} restituite={s.chiaviRestituite} />}
 
       {!dati.tabelleCaricate && (
         <Avviso tipo="avviso">

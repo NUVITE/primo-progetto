@@ -3,7 +3,8 @@
 import { SezioneTassa } from "./SezioneTassa";
 import { sbusta } from "@/lib/esito";
 import { Fragment, useEffect, useState } from "react";
-import { ArrowLeft, Utensils, Ban, BedDouble, CalendarRange, Check, ChevronDown, ChevronUp, KeyRound, LogIn, Pencil, Plus, RefreshCw, Repeat, Trash2, Users, Sun } from "lucide-react";
+import { ArrowLeft, Utensils, Ban, BedDouble, CalendarRange, Check, ChevronDown, ChevronUp, KeyRound, LogIn, Pencil, Plus, RefreshCw, Repeat, Trash2, Users, Sun, Star, Mail } from "lucide-react";
+import { etichettaRitorno } from "@/lib/ospitiRegole";
 import { Avviso, Campo, classePulsante, Etichetta, Input, IntestazionePagina, Pulsante, Select, Sezione, Spunta } from "@/components/ui";
 import { AiutoSezione, Esempio } from "@/components/AiutoSezione";
 import { Suggerimento } from "@/components/Suggerimento";
@@ -257,7 +258,14 @@ export function PrenotazioneDettaglio({
         }
         sottotitolo={
           <>
-            Prenotata da <strong className="text-stone-900">{prenotazione.ospitePrenotante}</strong>
+            Prenotata da{" "}
+            {puoGestireRuolo ? (
+              <Link href={`/ospiti/${prenotazione.ospitePrenotanteId}`} className="font-semibold text-teal-800 hover:underline">
+                {prenotazione.ospitePrenotante}
+              </Link>
+            ) : (
+              <strong className="text-stone-900">{prenotazione.ospitePrenotante}</strong>
+            )}
             {prenotazione.gruppoNome && <> · gruppo <strong className="text-stone-900">{prenotazione.gruppoNome}</strong></>}
           </>
         }
@@ -278,6 +286,51 @@ export function PrenotazioneDettaglio({
       <BarraStato prenotazione={prenotazione} puoGestire={puoGestireRuolo} puoIncassare={puoIncassare} salvando={salvando} esegui={eseguendo} aggiorna={setPrenotazione} />
 
       {errore && <Avviso tipo="errore">{errore}</Avviso>}
+
+      {prenotazione.messaggi && prenotazione.messaggi.length > 0 && (
+        <Avviso
+          tipo={prenotazione.messaggi.some((m) => m.urgente) ? "errore" : "avviso"}
+          azione={
+            <Link href="/portineria/messaggi" className={classePulsante("secondario", "piccolo")}>
+              Consegna
+            </Link>
+          }
+        >
+          <span className="flex items-center gap-1 font-semibold">
+            <Mail className="h-4 w-4" aria-hidden /> Da consegnare
+          </span>
+          <ul className="mt-1">
+            {prenotazione.messaggi.map((m) => (
+              <li key={m.id}>
+                {m.urgente && <strong>URGENTE · </strong>}
+                {m.tipo === "messaggio" ? `Messaggio da ${m.daChi}` : m.tipo === "lettera" ? "Lettera" : "Pacco"} per <strong>{m.destinatario}</strong>
+                {m.testo && m.tipo === "messaggio" && <>: «{m.testo}»</>}
+                {m.doveRiposto && <> (in {m.doveRiposto})</>}
+              </li>
+            ))}
+          </ul>
+        </Avviso>
+      )}
+
+      {prenotazione.daConoscere && prenotazione.daConoscere.length > 0 && (
+        <Avviso tipo={prenotazione.daConoscere.some((o) => o.riguardo) ? "avviso" : "info"}>
+          <span className="flex items-center gap-1 font-semibold">
+            <Star className="h-4 w-4" aria-hidden /> Ospiti da conoscere
+          </span>
+          <ul className="mt-1">
+            {prenotazione.daConoscere.map((o) => (
+              <li key={o.id}>
+                <Link href={`/ospiti/${o.id}`} className="font-semibold underline">
+                  {o.nome}
+                </Link>
+                {o.riguardo && " · di riguardo"}
+                {o.soggiorni > 0 && ` · ${etichettaRitorno(o.soggiorni)!.toLowerCase()}, ultima partenza ${o.ultimo!.split("-").reverse().join("/")}`}
+                {o.preferenze && <>: {o.preferenze}</>}
+              </li>
+            ))}
+          </ul>
+        </Avviso>
+      )}
 
       {prenotazione.noteAlimentari && prenotazione.noteAlimentari.length > 0 && (
         <Avviso tipo={prenotazione.noteAlimentari.some((n) => n.allergie) ? "errore" : "info"}>

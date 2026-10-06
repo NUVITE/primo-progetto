@@ -1,4 +1,4 @@
-import { ConciergeBell, Contact, Settings, ShieldCheck, Sparkles, Utensils, type LucideIcon } from "lucide-react";
+import { BellRing, ConciergeBell, Contact, Settings, ShieldCheck, Sparkles, Utensils, type LucideIcon } from "lucide-react";
 import type { Modulo } from "@/lib/moduli";
 import { PERMESSI, type Permesso } from "@/lib/permessi";
 
@@ -21,15 +21,29 @@ export const MENU: GruppoMenu[] = [
       { href: "/", label: "Planning camere", permesso: PERMESSI.PRENOTAZIONI_VEDI },
       { href: "/prenotazioni", label: "Prenotazioni", permesso: PERMESSI.PRENOTAZIONI_VEDI },
       { href: "/preventivi", label: "Richieste e preventivi", permesso: PERMESSI.PRENOTAZIONI_GESTISCI },
+      { href: "/questionari", label: "Questionari e ringraziamenti", permesso: PERMESSI.QUESTIONARI_VEDI },
       { href: "/addebiti", label: "Addebiti dei reparti", permesso: PERMESSI.ADDEBITI_REGISTRA },
       { href: "/conti", label: "Conti aperti e sospesi", permesso: PERMESSI.PAGAMENTI_REGISTRA },
       { href: "/cassa", label: "Cassa e chiusura del giorno", permesso: PERMESSI.CASSA_CHIUDI },
+      { href: "/giornale", label: "Giornale d'albergo", permesso: [PERMESSI.CASSA_CHIUDI, PERMESSI.PAGAMENTI_REGISTRA] },
       { href: "/schedine", label: "Schedine Polizia", permesso: PERMESSI.ADEMPIMENTI_INVIA },
       { href: "/istat", label: "ISTAT movimento turistico", permesso: PERMESSI.ADEMPIMENTI_INVIA },
       { href: "/rendiconto-tassa", label: "Rendiconto tassa di soggiorno", permesso: PERMESSI.ADEMPIMENTI_INVIA },
       { href: "/sale/planning", label: "Planning sale", permesso: PERMESSI.SALE_VEDI, modulo: "sale" },
       { href: "/sale/prenotazioni", label: "Prenotazioni sale", permesso: PERMESSI.SALE_VEDI, modulo: "sale" },
       { href: "/tassa-soggiorno", label: "Regole tassa di soggiorno", permesso: PERMESSI.PRENOTAZIONI_VEDI },
+    ],
+  },
+  {
+    id: "portineria",
+    label: "Portineria",
+    icona: BellRing,
+    voci: [
+      { href: "/portineria/agenda", label: "Agenda e sveglie", permesso: PERMESSI.PORTINERIA, modulo: "portineria" },
+      { href: "/portineria/messaggi", label: "Messaggi e posta", permesso: PERMESSI.PORTINERIA, modulo: "portineria" },
+      { href: "/portineria/custodia", label: "Bagagli, valori e chiavi", permesso: PERMESSI.PORTINERIA, modulo: "portineria" },
+      { href: "/portineria/consegne", label: "Consegne fra turni", permesso: PERMESSI.PORTINERIA, modulo: "portineria" },
+      { href: "/portineria/reclami", label: "Reclami", permesso: PERMESSI.RECLAMI, modulo: "portineria" },
     ],
   },
   {
@@ -61,7 +75,9 @@ export const MENU: GruppoMenu[] = [
     label: "Anagrafiche",
     icona: Contact,
     voci: [
+      { href: "/ospiti", label: "Ospiti", permesso: PERMESSI.PRENOTAZIONI_GESTISCI },
       { href: "/clienti", label: "Clienti e aziende", permesso: [PERMESSI.PRENOTAZIONI_GESTISCI, PERMESSI.SALE_GESTISCI] },
+      { href: "/agenzie", label: "Agenzie e allotment", permesso: [PERMESSI.LISTINI_GESTISCI, PERMESSI.PAGAMENTI_REGISTRA] },
       { href: "/servizi", label: "Servizi", permesso: PERMESSI.LISTINI_GESTISCI },
     ],
   },

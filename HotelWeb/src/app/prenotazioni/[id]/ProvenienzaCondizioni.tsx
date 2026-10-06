@@ -5,7 +5,8 @@ import { useState } from "react";
 import { sbusta } from "@/lib/esito";
 import { Campo, Dato, Etichetta, Input, Pulsante, Select, Sezione } from "@/components/ui";
 import { AiutoSezione, Esempio } from "@/components/AiutoSezione";
-import { azioneOpzioniProvenienza, azionePolitica, azioneProvenienza, caricaPrenotazione } from "./actions";
+import { azioneOpzioniProvenienza, azionePolitica, azioneProvenienza, azioneVoucher, caricaPrenotazione } from "./actions";
+import { VOUCHER_COPRE, type VoucherCopre } from "@/lib/agenzieRegole";
 
 type Prenotazione = Awaited<ReturnType<typeof caricaPrenotazione>>;
 type Opzioni = Awaited<ReturnType<typeof azioneOpzioniProvenienza>> extends infer R ? (R extends { ok: true; valore: infer V } ? V : never) : never;
@@ -42,6 +43,7 @@ export function ProvenienzaCondizioni({
   }>(null);
   const v = p.provenienza;
   const annullata = p.stato === "ANNULLATA";
+  const [voucher, setVoucher] = useState<null | { numero: string; copre: VoucherCopre }>(null);
 
   async function modifica() {
     const o = opzioni ?? (await esegui(() => sbusta(azioneOpzioniProvenienza())));
@@ -122,6 +124,56 @@ export function ProvenienzaCondizioni({
           </Dato>
           <Dato etichetta="Tramite">{v.intermediario ?? "—"}</Dato>
           <Dato etichetta="Paga">{v.clientePagante ?? "l'ospite"}</Dato>
+          {(v.intermediarioAgenzia || v.voucher) && (
+            <Dato etichetta="Voucher dell'agenzia" className="col-span-2">
+              {voucher ? (
+                <span className="flex flex-wrap items-end gap-2">
+                  <Input className="w-40" placeholder="Numero" value={voucher.numero} onChange={(e) => setVoucher({ ...voucher, numero: e.target.value })} />
+                  <Select className="w-auto" value={voucher.copre} onChange={(e) => setVoucher({ ...voucher, copre: e.target.value as VoucherCopre })}>
+                    {(Object.entries(VOUCHER_COPRE) as [VoucherCopre, { testo: string }][]).map(([k, x]) => (
+                      <option key={k} value={k}>
+                        {x.testo}
+                      </option>
+                    ))}
+                  </Select>
+                  <Pulsante
+                    variante="primario"
+                    dimensione="piccolo"
+                    disabled={salvando}
+                    onClick={async () => {
+                      const r = await esegui(() => sbusta(azioneVoucher(p.id, voucher.numero, voucher.numero.trim() ? voucher.copre : null)));
+                      if (r) {
+                        aggiorna(r);
+                        setVoucher(null);
+                      }
+                    }}
+                  >
+                    Salva
+                  </Pulsante>
+                  <Pulsante dimensione="piccolo" onClick={() => setVoucher(null)}>
+                    Annulla
+                  </Pulsante>
+                  <span className="w-full text-xs text-stone-600">Il conto si divide da solo: quello che copre il voucher va all&apos;agenzia. Numero vuoto = toglie il voucher.</span>
+                </span>
+              ) : (
+                <span className="flex flex-wrap items-center gap-2">
+                  {v.voucher ? (
+                    <>
+                      <strong>{v.voucher}</strong>
+                      <span className="text-stone-600">· {VOUCHER_COPRE[v.voucherCopre as VoucherCopre]?.testo ?? v.voucherCopre}</span>
+                    </>
+                  ) : (
+                    <span className="text-stone-600">nessuno</span>
+                  )}
+                  {puoGestire && !annullata && (
+                    <Pulsante variante="leggero" dimensione="piccolo" onClick={() => setVoucher({ numero: v.voucher, copre: (v.voucherCopre as VoucherCopre) || "soggiorno" })}>
+                      {v.voucher ? "Modifica" : "Aggiungi"}
+                    </Pulsante>
+                  )}
+                </span>
+              )}
+            </Dato>
+          )}
           <Dato etichetta="Garanzia">{v.garanzia === "nessuna" ? <Etichetta tono="ambra">non garantita</Etichetta> : v.garanziaTesto}</Dato>
           <Dato etichetta="Arrivo previsto">{v.oraArrivo ? `ore ${v.oraArrivo}` : "—"}</Dato>
           <Dato etichetta="Politica di cancellazione" className="col-span-2">

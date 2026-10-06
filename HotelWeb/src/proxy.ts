@@ -41,8 +41,8 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // Tutto tranne /login, le pagine pubbliche (room service /rs/<codice>, preventivo /pv/<codice>), gli asset
+    // Tutto tranne /login, le pagine pubbliche (room service /rs/<codice>, preventivo /pv/<codice>, questionario /qs/<codice>), gli asset
     // statici e le richieste interne di Next.js.
-    "/((?!login|rs/|pv/|_next/static|_next/image|favicon.ico).*)",
+    "/((?!login|rs/|pv/|qs/|_next/static|_next/image|favicon.ico).*)",
   ],
 };

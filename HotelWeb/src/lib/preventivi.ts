@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { calcolaNotte, nottiTraDate, regoleListino, verificaComposizione } from "@/lib/pricing";
 import { creaPrenotazioneGenerica, impostaPrezzoConcordato } from "@/lib/prenotazioni";
+import { bloccatePerNotte } from "@/lib/agenzie";
 import { politicaPer } from "@/lib/politiche";
 import { descriviPolitica } from "@/lib/politicheRegole";
 import { compila, EMAIL_VALIDA, LINGUE, type Lingua, type Segnaposto } from "@/lib/emailRegole";
@@ -126,7 +127,9 @@ export async function disponibilitaTipo(hotelId: number, tipoCameraId: number, d
     prisma.cameraIndisponibilita.findMany({ where: { camera: { hotelId, tipoCameraId, attivo: true }, dal: { lt: al }, al: { gt: dal } }, select: { dal: true, al: true } }),
   ]);
   const notti = nottiTraDate(dal, al);
-  const occupate = notti.map((n) => segmenti.filter((s) => s.dataInizio <= n && s.dataFine > n).length + fs.filter((f) => f.dal <= n && f.al > n).length);
+  // Le camere in allotment alle agenzie (non usate, non ancora rilasciate) non si offrono ai clienti diretti.
+  const allotment = await bloccatePerNotte(hotelId, tipoCameraId, notti);
+  const occupate = notti.map((n, i) => segmenti.filter((s) => s.dataInizio <= n && s.dataFine > n).length + fs.filter((f) => f.dal <= n && f.al > n).length + (allotment[i] ?? 0));
   return camereLibere(camere, occupate);
 }
 

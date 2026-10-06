@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getUtenteCorrente, puo } from "@/lib/auth";
 import { PERMESSI } from "@/lib/permessi";
 import { quadroCamere } from "@/lib/pulizie";
+import { bloccatePerNotte } from "@/lib/agenzie";
 
 function isoGiorno(d: Date) {
   return d.toISOString().slice(0, 10);
@@ -188,12 +189,14 @@ export async function GET(request: NextRequest) {
 
   // Riepilogo disponibilita' per tipo camera e per giorno: quante ne restano libere,
   // conteggiando anche le prenotazioni generiche (senza camera fisica assegnata).
+  // Camere in allotment alle agenzie (non usate e non ancora rilasciate), per tipo e giorno.
+  const allotmentPerTipo = new Map(await Promise.all(tipiCamera.map(async (t) => [t.id, await bloccatePerNotte(HOTEL_ID, t.id, giorni.map((g) => new Date(g)))] as const)));
   const riepilogoTipi = tipiCamera.map((t) => {
     const camereDelTipo = camere.filter((c) => c.tipoCameraId === t.id);
     const genericiDelTipo = segmentiGenericiPerTipo.get(t.id) ?? [];
 
-    const perGiorno: Record<string, { liberi: number; totale: number }> = {};
-    for (const giornoIso of giorni) {
+    const perGiorno: Record<string, { liberi: number; totale: number; allotment: number }> = {};
+    for (const [indice, giornoIso] of giorni.entries()) {
       const giorno = new Date(giornoIso);
       const inManutenzione = camereDelTipo.filter((c) =>
         (indisponibilitaPerCamera.get(c.id) ?? []).some((m) => m.dal <= giorno && giorno < m.al)
@@ -203,9 +206,13 @@ export async function GET(request: NextRequest) {
       ).length;
       const genericheOccupate = genericiDelTipo.filter((s) => s.dataInizio <= giorno && giorno < s.dataFine).length;
 
+      const liberi = camereDelTipo.length - inManutenzione - assegnateOccupate - genericheOccupate;
+      const allotment = Math.min(Math.max(liberi, 0), allotmentPerTipo.get(t.id)?.[indice] ?? 0);
       perGiorno[giornoIso] = {
         totale: camereDelTipo.length,
-        liberi: camereDelTipo.length - inManutenzione - assegnateOccupate - genericheOccupate,
+        // Libere per la vendita diretta: senza le camere riservate alle agenzie.
+        liberi: liberi - allotment,
+        allotment,
       };
     }
 

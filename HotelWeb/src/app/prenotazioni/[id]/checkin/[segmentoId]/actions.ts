@@ -20,6 +20,9 @@ import { cercaLuoghi } from "@/lib/tabellePolizia";
 import { aggiornaComposizione, trovaPrenotazione } from "@/lib/prenotazioni";
 import { sospendiConto, statoConto } from "@/lib/contiSospesi";
 import { prisma } from "@/lib/prisma";
+import { indirizzoPubblico } from "@/lib/indirizzoPubblico";
+import { ringraziamentoAutomatico } from "@/lib/questionari";
+import { impostaChiavi } from "@/lib/custodia";
 import type { NotaInput } from "@/lib/allergeni";
 import { cancellaNotaAlimentare, noteDegliOspiti, salvaNotaAlimentare } from "@/lib/noteAlimentari";
 
@@ -84,12 +87,14 @@ async function conControlloConto(segmentoId: number, fn: (u: UtenteSessione) => 
     const utente = await richiediPermesso(PERMESSI.PRENOTAZIONI_GESTISCI);
     await fn(utente);
     const seg = await prisma.segmentoSoggiorno.findFirstOrThrow({ where: { id: segmentoId, prenotazione: { hotelId: utente.hotelId } } });
+    // Partiti tutti: ringraziamento con il questionario, se l'hotel lo manda da solo (mai un errore del check-out).
+    const avviso = await ringraziamentoAutomatico(utente.hotelId, seg.prenotazioneId, await indirizzoPubblico(), utente.nome).catch((e) => `Ringraziamento automatico non inviato: ${e instanceof Error ? e.message : e}`);
     const conto = statoConto(await trovaPrenotazione(utente.hotelId, seg.prenotazioneId));
     const contoAperto =
       conto.aperto && !conto.sospeso
         ? { prenotazioneId: seg.prenotazioneId, daPagare: puo(utente, PERMESSI.IMPORTI_VEDI) ? conto.daPagare : null }
         : null;
-    return { dati: await datiCheckin(utente.hotelId, segmentoId, true), avviso: null as string | null, contoAperto };
+    return { dati: await datiCheckin(utente.hotelId, segmentoId, true), avviso: avviso as string | null, contoAperto };
   });
 }
 
@@ -99,6 +104,15 @@ export async function azioneCheckoutCamera(segmentoId: number, dataPartenza: str
 
 export async function azioneCheckoutOccupante(segmentoId: number, presenzaId: number, dataPartenza: string) {
   return conControlloConto(segmentoId, (u) => checkoutOccupante(u.hotelId, u.id, presenzaId, dataPartenza));
+}
+
+/** Chiavi o key card della camera consegnate e restituite (portineria). */
+export async function azioneChiaviCamera(segmentoId: number, consegnate: number, restituite: number) {
+  return conEsito(async () => {
+    const utente = await richiediPermesso([PERMESSI.PORTINERIA, PERMESSI.PRENOTAZIONI_GESTISCI]);
+    await impostaChiavi(utente.hotelId, segmentoId, consegnate, restituite);
+    return { consegnate, restituite };
+  });
 }
 
 /** Clienti (aziende, agenzie) a cui addebitare un conto lasciato in sospeso. */

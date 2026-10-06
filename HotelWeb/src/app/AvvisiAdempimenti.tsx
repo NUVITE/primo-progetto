@@ -1,6 +1,6 @@
 "use client";
 
-import { BarChart3, MailCheck, ShieldAlert, type LucideIcon } from "lucide-react";
+import { BarChart3, MailCheck, MessageSquareWarning, NotebookPen, ShieldAlert, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -10,6 +10,8 @@ type Avvisi = {
   schedine: { quante: number; scadute: number; primaScadenza: string } | null;
   istat: { sistema: string; giorni: number; scaduti: number; primaScadenza: string; dal: string } | null;
   preventivi?: number;
+  questionari?: number;
+  consegne?: number;
 };
 
 /** "tra 5 ore" / "scaduta da 2 ore" rispetto a adesso. */
@@ -48,7 +50,9 @@ export function AvvisiAdempimenti({ attivo }: { attivo: boolean }) {
   const s = avvisi?.schedine;
   const i = avvisi?.istat;
   const pv = avvisi?.preventivi ?? 0;
-  if (!s && !i && !pv) return null;
+  const qs = avvisi?.questionari ?? 0;
+  const cs = avvisi?.consegne ?? 0;
+  if (!s && !i && !pv && !qs && !cs) return null;
   const it = (g: string) => g.split("-").reverse().join("/");
   return (
     <>
@@ -56,6 +60,18 @@ export function AvvisiAdempimenti({ attivo }: { attivo: boolean }) {
         <Barra scaduto={false} icona={MailCheck} link={pathname !== "/preventivi" ? { href: "/preventivi", testo: "Vai ai preventivi" } : null}>
           <strong>{pv === 1 ? "Un ospite ha risposto online a un preventivo" : `${pv} ospiti hanno risposto online ai preventivi`}</strong> — aprilo per vedere se ha
           accettato.
+        </Barra>
+      )}
+      {cs > 0 && (
+        <Barra scaduto={false} icona={NotebookPen} link={pathname !== "/portineria/consegne" ? { href: "/portineria/consegne", testo: "Leggi le consegne" } : null}>
+          <strong>{cs === 1 ? "Una consegna del turno da leggere" : `${cs} consegne del turno da leggere`}</strong>
+          {cs === 1 ? " — lasciata da un collega." : " — lasciate dai colleghi."}
+        </Barra>
+      )}
+      {qs > 0 && (
+        <Barra scaduto={false} icona={MessageSquareWarning} link={pathname !== "/questionari" ? { href: "/questionari", testo: "Vai ai questionari" } : null}>
+          <strong>{qs === 1 ? "Un ospite ha dato un voto basso nel questionario" : `${qs} questionari con voto basso`}</strong>
+          {qs === 1 ? " — leggilo e segnalo come letto." : " — leggili e segnali come letti."}
         </Barra>
       )}
       {s && (

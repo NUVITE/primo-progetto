@@ -42,6 +42,7 @@ export const SEGNAPOSTO = {
   indirizzo_hotel: "Indirizzo dell'hotel",
   link_preventivo: "Link al preventivo (solo per il preventivo)",
   valido_fino: "Scadenza del preventivo",
+  link_questionario: "Link al questionario di gradimento (solo per il ringraziamento)",
 } as const;
 export type Segnaposto = keyof typeof SEGNAPOSTO;
 
@@ -153,6 +154,9 @@ Have a good trip,
 
 grazie per aver soggiornato da noi. Speriamo di rivederla presto!
 
+Ci aiuterebbe molto sapere com'è andata: bastano due minuti per il nostro breve questionario.
+{{link_questionario}}
+
 Cordiali saluti,
 {{hotel}}`,
     },
@@ -161,6 +165,9 @@ Cordiali saluti,
       corpo: `Dear {{nome}} {{cognome}},
 
 thank you for staying with us. We hope to welcome you again soon!
+
+It would help us a lot to know how it went: our short questionnaire takes just two minutes.
+{{link_questionario}}
 
 Kind regards,
 {{hotel}}`,

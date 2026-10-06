@@ -164,6 +164,8 @@ export async function datiCheckin(hotelId: number, segmentoId: number, mostraDoc
       intestatarioId: segmento.ospiteId,
       gruppo: segmento.prenotazione.gruppo?.nome ?? null,
       prenotanteId: segmento.prenotazione.ospitePrenotanteId,
+      chiaviConsegnate: segmento.chiaviConsegnate,
+      chiaviRestituite: segmento.chiaviRestituite,
     },
     sistemaIstat: sistema,
     liste: sistema ? LISTE_ISTAT[sistema] : null,
