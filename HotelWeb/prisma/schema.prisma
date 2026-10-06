@@ -205,6 +205,9 @@ model TipoCamera {
   animaliAmmessi     Boolean  @default(false)
   // Prezzo orario proposto per l'uso diurno (day use) di questo tipo di camera.
   prezzoOraUsoDiurno Decimal? @db.Decimal(10, 2)
+  // Pulizia finale: addebitata una volta per soggiorno a ogni nuova prenotazione di questo tipo
+  // (servizio "Pulizia finale" della camera, modificabile o eliminabile nella prenotazione). Null = nessuna.
+  puliziaFinale      Decimal? @db.Decimal(10, 2)
 
   camere                Camera[]
   periodiTariffari      PeriodoTariffario[]

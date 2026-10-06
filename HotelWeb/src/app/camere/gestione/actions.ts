@@ -3,6 +3,7 @@
 import { conEsito } from "@/lib/esito";
 import { impostaOpzioniTipoCamera,
   impostaPrezzoUsoDiurno,
+  impostaPuliziaFinale,
   cambiaTipoCamera,
   creaCamera,
   creaIndisponibilita,
@@ -23,7 +24,7 @@ export async function datiGestione() {
   const hotelId = await hotelAmministrato();
   const { tipiCamera, camere, indisponibilita } = await datiGestioneCamere(hotelId);
   return {
-    tipiCamera: tipiCamera.map((t) => ({ id: t.id, codice: t.codice, descrizione: t.descrizione, lettiAggiuntiMax: t.lettiAggiuntiMax, animaliAmmessi: t.animaliAmmessi, prezzoOraUsoDiurno: t.prezzoOraUsoDiurno === null ? null : Number(t.prezzoOraUsoDiurno) })),
+    tipiCamera: tipiCamera.map((t) => ({ id: t.id, codice: t.codice, descrizione: t.descrizione, lettiAggiuntiMax: t.lettiAggiuntiMax, animaliAmmessi: t.animaliAmmessi, prezzoOraUsoDiurno: t.prezzoOraUsoDiurno === null ? null : Number(t.prezzoOraUsoDiurno), puliziaFinale: t.puliziaFinale === null ? null : Number(t.puliziaFinale) })),
     camere: camere.map((c) => ({
       id: c.id,
       codice: c.codice,
@@ -57,6 +58,14 @@ export async function azionePrezzoUsoDiurno(id: number, prezzo: number | null) {
   return conEsito(async () => {
     const hotelId = await hotelAmministrato();
     await impostaPrezzoUsoDiurno(hotelId, id, prezzo);
+    return datiGestione();
+  });
+}
+
+export async function azionePuliziaFinale(id: number, prezzo: number | null) {
+  return conEsito(async () => {
+    const hotelId = await hotelAmministrato();
+    await impostaPuliziaFinale(hotelId, id, prezzo);
     return datiGestione();
   });
 }

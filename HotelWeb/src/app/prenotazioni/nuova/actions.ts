@@ -76,7 +76,7 @@ export async function anteprimaSegmento(input: {
 
     const camera = await prisma.camera.findFirstOrThrow({
       where: { id: input.cameraId, hotelId },
-      include: { hotel: { include: { comune: true } } },
+      include: { hotel: { include: { comune: true } }, tipoCamera: { select: { puliziaFinale: true } } },
     });
 
     const dataInizio = new Date(input.dataInizio);
@@ -117,6 +117,8 @@ export async function anteprimaSegmento(input: {
       dettaglioPrimaNotte: primaNotte?.righe ?? [],
       avvisi,
       tassaStimata: stima.importo * persone,
+      // Pulizia finale del tipo di camera: si aggiunge da sola alla prenotazione, una volta.
+      puliziaFinale: camera.tipoCamera.puliziaFinale === null ? 0 : Number(camera.tipoCamera.puliziaFinale),
       regolamento: stima.riferimento
         ? { comune: camera.hotel.comune.nome, aliquota: stima.riferimento.aliquota, tettoNotti: stima.riferimento.tettoNotti }
         : null,

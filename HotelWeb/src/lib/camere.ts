@@ -27,6 +27,13 @@ export async function impostaPrezzoUsoDiurno(hotelId: number, id: number, prezzo
   return prisma.tipoCamera.update({ where: { id }, data: { prezzoOraUsoDiurno: prezzo } });
 }
 
+/** Pulizia finale del tipo di camera (una volta per soggiorno nelle nuove prenotazioni); null = nessuna. */
+export async function impostaPuliziaFinale(hotelId: number, id: number, prezzo: number | null) {
+  if (prezzo !== null && !(prezzo >= 0 && prezzo <= 10000)) throw new Error("Prezzo della pulizia finale non valido.");
+  await prisma.tipoCamera.findFirstOrThrow({ where: { id, hotelId } });
+  return prisma.tipoCamera.update({ where: { id }, data: { puliziaFinale: prezzo || null } });
+}
+
 export async function impostaOpzioniTipoCamera(hotelId: number, id: number, lettiAggiuntiMax: number, animaliAmmessi: boolean) {
   if (!(Number.isInteger(lettiAggiuntiMax) && lettiAggiuntiMax >= 0 && lettiAggiuntiMax <= 5)) throw new Error("Letti aggiunti: da 0 a 5.");
   await prisma.tipoCamera.findFirstOrThrow({ where: { id, hotelId } });

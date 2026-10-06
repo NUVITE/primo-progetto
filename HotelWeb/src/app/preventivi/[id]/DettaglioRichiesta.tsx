@@ -21,7 +21,7 @@ import {
 } from "../actions";
 
 type Dati = Awaited<ReturnType<typeof datiRichiestaDisp>>;
-type Proposta = { tipoCameraId: string; listinoId: string; trattamento: string; prezzo: string; nota: string; calcolo: null | { prezzo: number; mancante: boolean; libere: number; camere: number } };
+type Proposta = { tipoCameraId: string; listinoId: string; trattamento: string; prezzo: string; nota: string; calcolo: null | { prezzo: number; mancante: boolean; libere: number; camere: number; pulizia: number } };
 
 const it = (g: string) => g.split("-").reverse().join("/");
 const eur = (n: number) => n.toLocaleString("it-IT", { style: "currency", currency: "EUR" });
@@ -260,7 +260,8 @@ export function DettaglioRichiesta({ iniziale }: { iniziale: Dati }) {
                 </div>
                 {p.calcolo && (
                   <p className={`mt-2 text-xs ${p.calcolo.libere < p.calcolo.camere ? "font-semibold text-red-800" : "text-stone-700"}`}>
-                    {p.calcolo.mancante ? "Il listino non ha tutti i prezzi per queste date: scrivi tu il prezzo." : `Listino: ${eur(p.calcolo.prezzo)}.`} Camere libere di questo
+                    {p.calcolo.mancante ? "Il listino non ha tutti i prezzi per queste date: scrivi tu il prezzo." : `Listino: ${eur(p.calcolo.prezzo)}.`}
+                    {p.calcolo.pulizia > 0 && ` Più pulizia finale ${eur(p.calcolo.pulizia)}, mostrata a parte all'ospite.`} Camere libere di questo
                     tipo: {p.calcolo.libere}
                     {p.calcolo.libere < p.calcolo.camere ? ` (ne servono ${p.calcolo.camere})` : ""}.
                   </p>

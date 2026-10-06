@@ -141,7 +141,8 @@ export function NuovaPrenotazioneForm() {
   const totali = useMemo(() => {
     const subtotale = segmenti.reduce((t, s) => t + (s.anteprima?.subtotale ?? 0), 0);
     const tassa = segmenti.reduce((t, s) => t + (s.anteprima?.tassaStimata ?? 0), 0);
-    return { subtotale, tassa, totale: subtotale + tassa };
+    const pulizie = segmenti.reduce((t, s) => t + (s.anteprima?.puliziaFinale ?? 0), 0);
+    return { subtotale, tassa, pulizie, totale: subtotale + pulizie + tassa };
   }, [segmenti]);
 
   function ospiteValidoPerInvio(o: OspiteValue) {
@@ -326,6 +327,7 @@ export function NuovaPrenotazioneForm() {
                     <div className="flex flex-wrap items-baseline justify-between gap-2">
                       <span className="font-semibold text-stone-900">
                         {seg.anteprima.notti} {seg.anteprima.notti === 1 ? "notte" : "notti"} · € {seg.anteprima.subtotale.toFixed(2)}
+                        {seg.anteprima.puliziaFinale > 0 && <span className="font-normal text-stone-600"> + pulizia finale € {seg.anteprima.puliziaFinale.toFixed(2)}</span>}
                       </span>
                       <span className="text-xs text-stone-600">
                         {seg.anteprima.regolamento
@@ -364,6 +366,7 @@ export function NuovaPrenotazioneForm() {
         <Sezione titolo="Riepilogo" className="xl:sticky xl:top-6 xl:w-96 xl:flex-shrink-0">
           <dl className="space-y-1 text-sm">
             <div className="flex justify-between"><dt>Subtotale soggiorno</dt><dd className="font-mono">€ {totali.subtotale.toFixed(2)}</dd></div>
+            {totali.pulizie > 0 && <div className="flex justify-between"><dt>Pulizia finale</dt><dd className="font-mono">€ {totali.pulizie.toFixed(2)}</dd></div>}
             <div className="flex justify-between text-stone-600"><dt>Tassa di soggiorno (stimata)</dt><dd className="font-mono">€ {totali.tassa.toFixed(2)}</dd></div>
             <div className="flex justify-between border-t border-stone-200 pt-1 text-base font-bold"><dt>Totale stimato</dt><dd className="font-mono">€ {totali.totale.toFixed(2)}</dd></div>
           </dl>

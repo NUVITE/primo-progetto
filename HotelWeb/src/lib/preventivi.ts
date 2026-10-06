@@ -152,8 +152,14 @@ async function prezzoProposta(hotelId: number, r: { dal: Date; al: Date; adulti:
 /** Per la pagina della richiesta: prezzo e camere libere di una proposta prima di salvarla. */
 export async function calcolaProposta(hotelId: number, richiestaId: number, p: { tipoCameraId: number; listinoId: number; trattamento: string }) {
   const r = await prisma.richiestaDisponibilita.findFirstOrThrow({ where: { id: richiestaId, hotelId } });
-  const [prezzo, libere] = await Promise.all([prezzoProposta(hotelId, r, p), disponibilitaTipo(hotelId, p.tipoCameraId, r.dal, r.al)]);
-  return { ...prezzo, libere, camere: r.camere };
+  const [prezzo, libere, tipo] = await Promise.all([
+    prezzoProposta(hotelId, r, p),
+    disponibilitaTipo(hotelId, p.tipoCameraId, r.dal, r.al),
+    prisma.tipoCamera.findFirst({ where: { id: p.tipoCameraId, hotelId }, select: { puliziaFinale: true } }),
+  ]);
+  // Pulizia finale a parte (una per camera): all'accettazione la prenotazione la aggiunge da sola.
+  const pulizia = tipo?.puliziaFinale ? Number(tipo.puliziaFinale) * r.camere : 0;
+  return { ...prezzo, libere, camere: r.camere, pulizia };
 }
 
 export type PreventivoInput = {
@@ -371,6 +377,8 @@ export async function paginaPreventivo(codice: string) {
       prezzo: Number(x.prezzo),
       aNotte: notti ? arrotonda(Number(x.prezzo) / notti / r.camere) : 0,
       nota: x.nota ?? "",
+      // Pulizia finale del tipo, una per camera: si aggiunge al prezzo del soggiorno.
+      pulizia: x.tipoCamera.puliziaFinale ? Number(x.tipoCamera.puliziaFinale) * r.camere : 0,
       politica: politiche[i] ? descriviPolitica(politiche[i]!) : [],
     })),
   };

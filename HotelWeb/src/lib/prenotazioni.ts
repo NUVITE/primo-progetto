@@ -135,6 +135,7 @@ export async function creaPrenotazione(hotelId: number, input: CreaPrenotazioneI
       await creaSegmento(tx, hotelId, prenotazione.id, segInput);
     }
     await ricalcolaGratuita(tx, prenotazione.id);
+    await aggiungiPulizieFinali(tx, prenotazione.id);
 
     return caricaPrenotazioneCompleta(tx, hotelId, prenotazione.id);
   });
@@ -186,6 +187,7 @@ export async function creaPrenotazioneGenerica(hotelId: number, input: CreaPreno
       }
     }
     await ricalcolaGratuita(tx, prenotazione.id);
+    await aggiungiPulizieFinali(tx, prenotazione.id);
 
     return caricaPrenotazioneCompleta(tx, hotelId, prenotazione.id);
   });
@@ -488,6 +490,36 @@ export async function capacitaLiberaPerTipo(
   return totale - inManutenzione.length - segmentiSovrapposti;
 }
 
+export const DESCRIZIONE_PULIZIA_FINALE = "Pulizia finale";
+
+/**
+ * Pulizia finale: a ogni camera della prenotazione il cui tipo ha il prezzo della pulizia finale si
+ * aggiunge il servizio "Pulizia finale" (una volta per soggiorno, legato alla camera). Non si duplica
+ * (camera che l'ha già) e non riguarda il cambio camera, che non passa di qui. Il servizio resta
+ * modificabile o eliminabile come gli altri.
+ */
+async function aggiungiPulizieFinali(db: Db, prenotazioneId: number) {
+  const segmenti = await db.segmentoSoggiorno.findMany({
+    where: { prenotazioneId, stato: { not: "ANNULLATO" }, tipoCamera: { puliziaFinale: { gt: 0 } } },
+    include: { tipoCamera: { select: { puliziaFinale: true } }, serviziAggiunti: { include: { servizioAggiunto: { select: { descrizione: true } } } } },
+  });
+  for (const s of segmenti) {
+    if (s.serviziAggiunti.some((x) => x.servizioAggiunto.descrizione === DESCRIZIONE_PULIZIA_FINALE)) continue;
+    await db.servizioAggiunto.create({
+      data: {
+        prenotazioneId,
+        descrizione: DESCRIZIONE_PULIZIA_FINALE,
+        prezzoUnitario: s.tipoCamera.puliziaFinale!,
+        addebito: "una_tantum",
+        unita: 1,
+        quantita: 1,
+        note: "Aggiunta in automatico dal tipo di camera",
+        segmenti: { create: { segmentoId: s.id } },
+      },
+    });
+  }
+}
+
 async function creaSegmento(
   db: Db,
   hotelId: number,
@@ -662,6 +694,7 @@ export async function aggiungiSegmentoAPrenotazione(hotelId: number, prenotazion
     if ("id" in segInput.ospite) await verificaPosizioneAperta(tx, prenotazioneId, segInput.ospite.id);
     await creaSegmento(tx, hotelId, prenotazioneId, segInput);
     await ricalcolaGratuita(tx, prenotazioneId);
+    await aggiungiPulizieFinali(tx, prenotazioneId);
     return caricaPrenotazioneCompleta(tx, hotelId, prenotazioneId);
   });
 }

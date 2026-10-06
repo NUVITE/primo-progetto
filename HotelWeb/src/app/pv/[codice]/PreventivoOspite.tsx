@@ -34,6 +34,7 @@ const TESTI = {
     scaduto: "Il preventivo è scaduto. Ci contatti per una nuova proposta.",
     contatti: "Per qualsiasi domanda",
     scelta: "La sua scelta",
+    pulizia: "più pulizia finale",
   },
   en: {
     titolo: "Your quotation",
@@ -60,6 +61,7 @@ const TESTI = {
     scaduto: "This quotation has expired. Please contact us for a new offer.",
     contatti: "For any question",
     scelta: "Your choice",
+    pulizia: "plus final cleaning",
   },
 };
 
@@ -124,6 +126,11 @@ export function PreventivoOspite({ codice, iniziale }: { codice: string; inizial
                 </h2>
                 <span className="text-right">
                   <span className="block text-xl font-bold">{eur(p.prezzo)}</span>
+                  {p.pulizia > 0 && (
+                    <span className="block text-xs text-stone-600">
+                      {t.pulizia} {eur(p.pulizia)}
+                    </span>
+                  )}
                   <span className="text-xs text-stone-600">
                     {eur(p.aNotte)} {t.aNotte}
                   </span>
