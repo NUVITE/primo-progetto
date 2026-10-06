@@ -158,7 +158,8 @@ async function serializza(prenotazione: Awaited<ReturnType<typeof trovaPrenotazi
       mezzoTesto: prenotazione.mezzo ? (MEZZI[prenotazione.mezzo as keyof typeof MEZZI] ?? prenotazione.mezzo) : "",
       intermediarioId: prenotazione.intermediarioId,
       intermediario: prenotazione.intermediario?.denominazione ?? null,
-      intermediarioAgenzia: !!prenotazione.intermediario && ["agenzia", "portale"].includes(prenotazione.intermediario.tipo),
+      // Voucher proposto solo con le agenzie accese (un voucher già registrato resta comunque visibile).
+      intermediarioAgenzia: !utente.funzioniSpente.includes("agenzie") && !!prenotazione.intermediario && ["agenzia", "portale"].includes(prenotazione.intermediario.tipo),
       voucher: prenotazione.voucher ?? "",
       voucherCopre: prenotazione.voucherCopre ?? "",
       clientePaganteId: prenotazione.clientePaganteId,

@@ -16,7 +16,8 @@ export async function GET() {
   if (!utente) return NextResponse.json({ error: "Non autenticato." }, { status: 401 });
   const adempimenti = puo(utente, PERMESSI.ADEMPIMENTI_INVIA);
   // Preventivi a cui l'ospite ha risposto online (accettati o rifiutati) e non ancora guardati.
-  const preventivi = puo(utente, PERMESSI.PRENOTAZIONI_GESTISCI) && puo(utente, PERMESSI.IMPORTI_VEDI) ? await risposteDaVedere(utente.hotelId) : 0;
+  const preventivi =
+    puo(utente, PERMESSI.PRENOTAZIONI_GESTISCI) && puo(utente, PERMESSI.IMPORTI_VEDI) && !utente.funzioniSpente.includes("preventivi") ? await risposteDaVedere(utente.hotelId) : 0;
   // Questionari di gradimento con voto basso non ancora letti dalla direzione.
   const questionari = puo(utente, PERMESSI.QUESTIONARI_VEDI) ? await votiBassiDaLeggere(utente.hotelId) : 0;
   // Consegne fra turni lasciate dai colleghi e non ancora lette da questo utente (portineria).

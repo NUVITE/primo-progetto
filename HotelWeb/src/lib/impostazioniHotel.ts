@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { calcolaNotte, composizioneDi, regoleListino, ricalcolaGratuita, giorniWeekendDi } from "@/lib/pricing";
+import { nomeTipologia } from "@/lib/tipologie";
 
 /**
  * Impostazioni che l'hotel gestisce da sé (permesso "Configurare l'hotel" / "Gestire listini"):
@@ -32,7 +33,7 @@ export async function caricaStruttura(hotelId: number) {
   const h = await prisma.hotel.findUniqueOrThrow({ where: { id: hotelId }, include: { comune: true } });
   const t = (s: string | null) => s ?? "";
   return {
-    sola: { nome: h.nome, comune: `${h.comune.nome} (${h.comune.provincia})`, categoria: h.categoria, sistemaIstat: h.sistemaIstat },
+    sola: { nome: h.nome, comune: `${h.comune.nome} (${h.comune.provincia})`, tipologia: nomeTipologia(h.tipologia), categoria: h.categoria, sistemaIstat: h.sistemaIstat },
     dati: {
       ragioneSociale: t(h.ragioneSociale),
       partitaIva: t(h.partitaIva),

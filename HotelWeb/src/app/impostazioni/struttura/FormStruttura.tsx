@@ -34,7 +34,7 @@ export function FormStruttura({ iniziale, chiusure }: { iniziale: Struttura; chi
         <Suggerimento id="struttura" titolo="A cosa servono questi dati">
           <p>
             Ragione sociale, partita IVA, indirizzo e contatti compaiono nell&apos;intestazione di ricevute e documenti; gli orari di check-in e
-            check-out sono quelli comunicati agli ospiti. Nome, comune e categoria dell&apos;hotel li gestisce il fornitore del programma, perché
+            check-out sono quelli comunicati agli ospiti. Nome, comune, tipologia e categoria dell&apos;hotel li gestisce il fornitore del programma, perché
             decidono la tassa di soggiorno.
           </p>
         </Suggerimento>
@@ -47,7 +47,7 @@ export function FormStruttura({ iniziale, chiusure }: { iniziale: Struttura; chi
 
       <section className="rounded-xl border border-stone-200 bg-stone-50 p-4 text-sm sm:p-5">
         <h2 className="mb-2 text-sm font-bold text-stone-900">Gestiti dalla piattaforma</h2>
-        <dl className="grid grid-cols-1 gap-2 sm:grid-cols-4">
+        <dl className="grid grid-cols-1 gap-2 sm:grid-cols-3 lg:grid-cols-5">
           <div>
             <dt className="text-xs text-stone-500">Nome</dt>
             <dd className="font-semibold">{s.nome}</dd>
@@ -55,6 +55,10 @@ export function FormStruttura({ iniziale, chiusure }: { iniziale: Struttura; chi
           <div>
             <dt className="text-xs text-stone-500">Comune</dt>
             <dd className="font-semibold">{s.comune}</dd>
+          </div>
+          <div>
+            <dt className="text-xs text-stone-500">Tipologia</dt>
+            <dd className="font-semibold">{s.tipologia}</dd>
           </div>
           <div>
             <dt className="text-xs text-stone-500">Categoria (tassa di soggiorno)</dt>

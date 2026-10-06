@@ -7,6 +7,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { filtraPerModuli, permessiAccesso, TUTTI_I_PERMESSI, type Permesso } from "@/lib/permessi";
 import { moduliAttivi, type Modulo } from "@/lib/moduli";
+import { funzioniSpente, type Funzione } from "@/lib/funzioniRegole";
 
 const COOKIE_SESSIONE = "hotelweb_sessione";
 const DURATA_SESSIONE_SECONDI = 60 * 60 * 24 * 7; // 7 giorni
@@ -120,6 +121,9 @@ export type UtenteSessione = {
   permessi: Permesso[];
   /** Moduli opzionali attivi nell'hotel attivo. */
   moduli: Modulo[];
+  /** Tipologia della struttura (nomi delle unità) e funzioni del nucleo spente. */
+  tipologia: string;
+  funzioniSpente: Funzione[];
 };
 
 /** Utente loggato, o null. Non reindirizza: usarla dove l'assenza di sessione è un caso normale. */
@@ -142,7 +146,7 @@ export async function getUtenteCorrente(): Promise<UtenteSessione | null> {
   // dopo il login): si ripiega silenziosamente sul primo disponibile.
   const hotelAttivo = hotels.find((h) => h.id === sessione.hotelId) ?? hotels[0];
   const accesso = utente.accessi.find((a) => a.hotelId === hotelAttivo.id);
-  const hotelDati = await prisma.hotel.findUnique({ where: { id: hotelAttivo.id }, select: { moduli: true, modalitaUtenti: true } });
+  const hotelDati = await prisma.hotel.findUnique({ where: { id: hotelAttivo.id }, select: { moduli: true, modalitaUtenti: true, tipologia: true, funzioniSpente: true } });
   const titolare = hotelDati?.modalitaUtenti === "titolare";
   const ruoli = accesso ? [accesso.ruolo, ...accesso.ruoliAggiuntivi.map((x) => x.ruolo)] : [];
   const moduli = moduliAttivi(hotelDati?.moduli);
@@ -161,6 +165,8 @@ export async function getUtenteCorrente(): Promise<UtenteSessione | null> {
       moduli,
     ),
     moduli,
+    tipologia: hotelDati?.tipologia ?? "albergo",
+    funzioniSpente: funzioniSpente(hotelDati?.funzioniSpente),
   };
 }
 

@@ -43,6 +43,8 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
               hotelId: utente.hotelId,
               hotelNome: utente.hotelNome,
               hotels: utente.hotels,
+              tipologia: utente.tipologia,
+              funzioniSpente: utente.funzioniSpente,
             }}
           >
             {children}

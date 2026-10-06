@@ -1,6 +1,8 @@
 import { puo, richiediUtente } from "@/lib/auth";
 import { PERMESSI } from "@/lib/permessi";
 import { SituazioneCamere } from "./camere/situazione/SituazioneCamere";
+import { unitaDi } from "@/lib/tipologie";
+import { funzioneAttiva } from "@/lib/funzioniRegole";
 
 export default async function Home() {
   const utente = await richiediUtente();
@@ -17,5 +19,11 @@ export default async function Home() {
       </div>
     );
   }
-  return <SituazioneCamere puoGestire={puo(utente, PERMESSI.PRENOTAZIONI_GESTISCI)} />;
+  return (
+    <SituazioneCamere
+      puoGestire={puo(utente, PERMESSI.PRENOTAZIONI_GESTISCI)}
+      unitaPlurale={unitaDi(utente.tipologia).plurale}
+      usoDiurno={funzioneAttiva(utente.funzioniSpente, "uso_diurno")}
+    />
+  );
 }

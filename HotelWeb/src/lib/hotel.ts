@@ -5,6 +5,8 @@ import { TRATTAMENTI_PREDEFINITI } from "@/lib/impostazioniHotel";
 import { CATALOGO_MODULI, moduliAttivi, type Modulo } from "@/lib/moduli";
 import { sistemaIstatValido } from "@/lib/istat";
 import { FASCE_PREDEFINITE } from "@/lib/sale";
+import { tipologiaValida } from "@/lib/tipologie";
+import { applicaProfilo } from "@/lib/profili";
 
 /**
  * Gestione degli hotel dalla sezione Piattaforma (solo superadmin: il controllo è nelle action).
@@ -12,6 +14,7 @@ import { FASCE_PREDEFINITE } from "@/lib/sale";
 export type DatiHotel = {
   nome: string;
   comuneId: number;
+  tipologia: string;
   categoria: string;
   ragioneSociale: string;
   partitaIva: string;
@@ -34,6 +37,7 @@ function normalizza(d: DatiHotel) {
   return {
     nome: d.nome.trim(),
     comuneId: d.comuneId,
+    tipologia: tipologiaValida(d.tipologia),
     categoria: v(d.categoria),
     ragioneSociale: v(d.ragioneSociale),
     partitaIva,
@@ -99,7 +103,7 @@ export async function creaHotel(dati: DatiHotel, amministratore?: { nome: string
     passwordHash = await bcrypt.hash(admin.password, 10);
   }
 
-  return prisma.$transaction(async (tx) => {
+  const hotel = await prisma.$transaction(async (tx) => {
     const hotel = await tx.hotel.create({ data: valori });
     let ruoloAmministratoreId = 0;
     for (const r of RUOLI_PREDEFINITI) {
@@ -127,6 +131,9 @@ export async function creaHotel(dati: DatiHotel, amministratore?: { nome: string
     }
     return hotel;
   });
+  // Struttura nuova: si parte dal profilo della sua tipologia (moduli, utenti, trattamenti).
+  await applicaProfilo(hotel.id);
+  return hotel;
 }
 
 export async function aggiornaHotel(hotelId: number, dati: DatiHotel) {

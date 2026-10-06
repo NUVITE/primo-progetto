@@ -1,6 +1,7 @@
 import { BellRing, ConciergeBell, Contact, Settings, ShieldCheck, Sparkles, Utensils, type LucideIcon } from "lucide-react";
 import type { Modulo } from "@/lib/moduli";
 import { PERMESSI, type Permesso } from "@/lib/permessi";
+import { conUnita, type Funzione } from "@/lib/funzioniRegole";
 
 /**
  * Struttura del menu laterale: unica fonte per desktop e telefono. Una voce compare solo se
@@ -8,8 +9,9 @@ import { PERMESSI, type Permesso } from "@/lib/permessi";
  * visibili sparisce. Le funzioni non ancora sviluppate NON si elencano (niente pagine vuote).
  * Il vero controllo d'accesso resta comunque lato server, in ogni pagina/azione.
  */
-// permesso: uno solo o un elenco (basta averne uno).
-export type VoceMenu = { href: string; label: string; permesso?: Permesso | Permesso[]; modulo?: Modulo };
+// permesso: uno solo o un elenco (basta averne uno). funzione: sparisce se la struttura l'ha spenta.
+// Nell'etichetta {camere}/{Camere} diventa "camere" o "appartamenti" secondo la tipologia.
+export type VoceMenu = { href: string; label: string; permesso?: Permesso | Permesso[]; modulo?: Modulo; funzione?: Funzione };
 export type GruppoMenu = { id: string; label: string; icona: LucideIcon; voci: VoceMenu[]; soloSuperAdmin?: boolean };
 
 export const MENU: GruppoMenu[] = [
@@ -18,9 +20,9 @@ export const MENU: GruppoMenu[] = [
     label: "Ricevimento",
     icona: ConciergeBell,
     voci: [
-      { href: "/", label: "Planning camere", permesso: PERMESSI.PRENOTAZIONI_VEDI },
+      { href: "/", label: "Planning {camere}", permesso: PERMESSI.PRENOTAZIONI_VEDI },
       { href: "/prenotazioni", label: "Prenotazioni", permesso: PERMESSI.PRENOTAZIONI_VEDI },
-      { href: "/preventivi", label: "Richieste e preventivi", permesso: PERMESSI.PRENOTAZIONI_GESTISCI },
+      { href: "/preventivi", label: "Richieste e preventivi", permesso: PERMESSI.PRENOTAZIONI_GESTISCI, funzione: "preventivi" },
       { href: "/questionari", label: "Questionari e ringraziamenti", permesso: PERMESSI.QUESTIONARI_VEDI },
       { href: "/addebiti", label: "Addebiti dei reparti", permesso: PERMESSI.ADDEBITI_REGISTRA },
       { href: "/conti", label: "Conti aperti e sospesi", permesso: PERMESSI.PAGAMENTI_REGISTRA },
@@ -51,9 +53,9 @@ export const MENU: GruppoMenu[] = [
     label: "Piani e manutenzioni",
     icona: Sparkles,
     voci: [
-      { href: "/pulizie", label: "Stato camere", permesso: PERMESSI.CAMERE_STATO_VEDI, modulo: "pulizie" },
+      { href: "/pulizie", label: "Stato {camere}", permesso: PERMESSI.CAMERE_STATO_VEDI, modulo: "pulizie" },
       { href: "/pulizie/foglio", label: "Foglio dei piani", permesso: PERMESSI.PULIZIE_GESTISCI, modulo: "pulizie" },
-      { href: "/pulizie/mie", label: "Le mie camere", permesso: PERMESSI.PULIZIE_MIE, modulo: "pulizie" },
+      { href: "/pulizie/mie", label: "Le mie {camere}", permesso: PERMESSI.PULIZIE_MIE, modulo: "pulizie" },
       { href: "/manutenzioni", label: "Manutenzioni", permesso: PERMESSI.GUASTI_SEGNALA, modulo: "manutenzioni" },
       { href: "/richieste", label: "Richieste degli ospiti", permesso: PERMESSI.CAMERE_STATO_VEDI, modulo: "pulizie" },
       { href: "/oggetti-smarriti", label: "Oggetti smarriti", permesso: PERMESSI.OGGETTI_SMARRITI, modulo: "pulizie" },
@@ -77,7 +79,7 @@ export const MENU: GruppoMenu[] = [
     voci: [
       { href: "/ospiti", label: "Ospiti", permesso: PERMESSI.PRENOTAZIONI_GESTISCI },
       { href: "/clienti", label: "Clienti e aziende", permesso: [PERMESSI.PRENOTAZIONI_GESTISCI, PERMESSI.SALE_GESTISCI] },
-      { href: "/agenzie", label: "Agenzie e allotment", permesso: [PERMESSI.LISTINI_GESTISCI, PERMESSI.PAGAMENTI_REGISTRA] },
+      { href: "/agenzie", label: "Agenzie e allotment", permesso: [PERMESSI.LISTINI_GESTISCI, PERMESSI.PAGAMENTI_REGISTRA], funzione: "agenzie" },
       { href: "/servizi", label: "Servizi", permesso: PERMESSI.LISTINI_GESTISCI },
     ],
   },
@@ -87,7 +89,7 @@ export const MENU: GruppoMenu[] = [
     icona: Settings,
     voci: [
       { href: "/impostazioni/struttura", label: "Struttura", permesso: PERMESSI.HOTEL_CONFIGURA },
-      { href: "/camere/gestione", label: "Camere", permesso: PERMESSI.CAMERE_GESTISCI },
+      { href: "/camere/gestione", label: "{Camere}", permesso: PERMESSI.CAMERE_GESTISCI },
       { href: "/impostazioni/listini", label: "Listini e tariffe", permesso: PERMESSI.LISTINI_GESTISCI },
       { href: "/impostazioni/politiche", label: "Politiche di cancellazione", permesso: PERMESSI.LISTINI_GESTISCI },
       { href: "/impostazioni/reparti", label: "Reparti e IVA", permesso: PERMESSI.HOTEL_CONFIGURA },
@@ -112,11 +114,24 @@ export const MENU: GruppoMenu[] = [
   },
 ];
 
-export function menuVisibile(permessi: Permesso[], superAdmin: boolean, moduli: Modulo[]): GruppoMenu[] {
+export function menuVisibile(
+  permessi: Permesso[],
+  superAdmin: boolean,
+  moduli: Modulo[],
+  spente: readonly string[] = [],
+  unita: { singolare: string; plurale: string } = { singolare: "camera", plurale: "camere" },
+): GruppoMenu[] {
   return MENU.filter((g) => !g.soloSuperAdmin || superAdmin)
     .map((g) => ({
       ...g,
-      voci: g.voci.filter((v) => (!v.permesso || [v.permesso].flat().some((p) => permessi.includes(p))) && (!v.modulo || moduli.includes(v.modulo))),
+      voci: g.voci
+        .filter(
+          (v) =>
+            (!v.permesso || [v.permesso].flat().some((p) => permessi.includes(p))) &&
+            (!v.modulo || moduli.includes(v.modulo)) &&
+            (!v.funzione || !spente.includes(v.funzione)),
+        )
+        .map((v) => ({ ...v, label: conUnita(v.label, unita) })),
     }))
     .filter((g) => g.voci.length > 0);
 }

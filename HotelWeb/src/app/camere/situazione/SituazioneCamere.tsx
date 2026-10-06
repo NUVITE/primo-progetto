@@ -103,7 +103,17 @@ function oggi() {
 }
 
 /** puoGestire=false: planning in sola lettura (niente prenotazione veloce né assegnazione camere). */
-export function SituazioneCamere({ puoGestire }: { puoGestire: boolean }) {
+export function SituazioneCamere({
+  puoGestire,
+  unitaPlurale = "camere",
+  usoDiurno = true,
+}: {
+  puoGestire: boolean;
+  /** "camere" o "appartamenti" secondo la tipologia della struttura. */
+  unitaPlurale?: string;
+  /** Uso diurno acceso nella struttura (Impostazioni › Struttura › Funzioni). */
+  usoDiurno?: boolean;
+}) {
   const router = useRouter();
   const [viewMode, setViewMode] = useState<ViewMode>("quindicina");
   const [anchor, setAnchor] = useState(oggi);
@@ -463,7 +473,7 @@ export function SituazioneCamere({ puoGestire }: { puoGestire: boolean }) {
   return (
     <div className="flex w-full min-w-0 flex-col gap-4 p-3 sm:p-6">
       <div className="flex flex-wrap items-baseline gap-x-3">
-        <h1 className="text-xl font-bold">Planning camere</h1>
+        <h1 className="text-xl font-bold">Planning {unitaPlurale}</h1>
         <span className="text-sm font-medium text-stone-700">{rangeLabel()}</span>
       </div>
 
@@ -851,7 +861,7 @@ export function SituazioneCamere({ puoGestire }: { puoGestire: boolean }) {
                     <Plus className="h-4 w-4" aria-hidden /> Nuova prenotazione (camera specifica)
                   </Link>
                 )}
-                {puoGestire && selezionata && (cellaSelezionata.stato === "libera" || cellaSelezionata.stato === "in_partenza" || cellaSelezionata.stato === "uso_diurno") && (
+                {puoGestire && usoDiurno && selezionata && (cellaSelezionata.stato === "libera" || cellaSelezionata.stato === "in_partenza" || cellaSelezionata.stato === "uso_diurno") && (
                   <Link
                     href={`/prenotazioni/uso-diurno?camera=${cameraSelezionata.id}&giorno=${selezionata.giorno}`}
                     className={classePulsante("secondario", "normale")}

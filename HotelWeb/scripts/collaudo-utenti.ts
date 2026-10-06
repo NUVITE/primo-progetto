@@ -46,6 +46,8 @@ async function main() {
       ruoloNome: "Superadmin",
       permessi: TUTTI_I_PERMESSI,
       moduli: [],
+      tipologia: "albergo",
+      funzioniSpente: [],
     };
 
     const soloRec = permessiAccesso("ruoli", [rec.permessi]);

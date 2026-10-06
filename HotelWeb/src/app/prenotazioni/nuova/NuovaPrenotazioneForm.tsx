@@ -1,5 +1,6 @@
 "use client";
 
+import { conUnita } from "@/lib/funzioniRegole";
 import { sbusta, type ValoreDi } from "@/lib/esito";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
@@ -67,6 +68,9 @@ export function NuovaPrenotazioneForm() {
   const [provenienza, setProvenienza] = useState({ canale: "diretta", mezzo: "", intermediarioId: "", garanzia: "nessuna", oraArrivo: "" });
 
   const [trattamenti, setTrattamenti] = useState<string[]>([]);
+  // Struttura: funzioni spente (es. gruppi) e nome delle unità (camera o appartamento).
+  const [struttura, setStruttura] = useState<{ spente: string[]; unita: { singolare: string; plurale: string } }>({ spente: [], unita: { singolare: "camera", plurale: "camere" } });
+  const u = (testo: string) => conUnita(testo, struttura.unita);
   const [salvando, setSalvando] = useState(false);
   const [errore, setErrore] = useState<string | null>(null);
   const [esito, setEsito] = useState<ValoreDi<typeof salvaPrenotazione> | null>(null);
@@ -78,6 +82,7 @@ export function NuovaPrenotazioneForm() {
         setListini(d.listini);
         setScelte({ canali: d.canali, mezzi: d.mezzi, garanzie: d.garanzie, intermediari: d.intermediari, orarioLimiteArrivo: d.orarioLimiteArrivo });
         setTrattamenti(d.trattamenti);
+        setStruttura({ spente: d.funzioniSpente, unita: d.unita });
         if (d.giorniOpzione > 0) {
           const scad = new Date();
           scad.setDate(scad.getDate() + d.giorniOpzione);
@@ -223,29 +228,31 @@ export function NuovaPrenotazioneForm() {
         <ol className="list-decimal space-y-1 pl-5">
           <li>Cerca chi prenota per nome o cognome; se non c&apos;è, crealo dal menu della ricerca.</li>
           <li>
-            Per ogni camera scegli camera, arrivo e partenza, listino e trattamento, e indica le <strong>persone</strong> (adulti ed età dei
+            {u("Per ogni {camera} scegli {camera}, arrivo e partenza, listino e trattamento, e indica le")} <strong>persone</strong> (adulti ed età dei
             bambini): servono per il prezzo.
           </li>
           <li>Il prezzo si calcola mentre compili; controlla il riepilogo e premi <strong>Conferma prenotazione</strong>.</li>
         </ol>
-        <p>Per bloccare più camere senza sceglierle subito, trascina le date sul Planning camere (prenotazione veloce).</p>
+        <p>{u("Per bloccare più {camere} senza sceglierle subito, trascina le date sul Planning {camere} (prenotazione veloce).")}</p>
       </Suggerimento>
 
       <div className="flex flex-col gap-4 xl:flex-row xl:items-start">
         <div className="flex min-w-0 flex-1 flex-col gap-4 xl:max-w-3xl">
           <Sezione titolo="Ospite prenotante">
             <OspiteSearch value={ospitePrenotante} onChange={setOspitePrenotante} etichetta="Chi prenota" />
+            {!struttura.spente.includes("gruppi") && (
             <div className="mt-3 flex flex-wrap items-center gap-3">
               <Spunta etichetta="Fa parte di un gruppo" checked={gruppoAttivo} onChange={(e) => setGruppoAttivo(e.target.checked)} />
               {gruppoAttivo && <Input className="max-w-xs" placeholder="Nome del gruppo" value={gruppoNome} onChange={(e) => setGruppoNome(e.target.value)} />}
             </div>
+            )}
           </Sezione>
 
           <Sezione
-            titolo="Camere e soggiorni"
+            titolo={u("{Camere} e soggiorni")}
             azioni={
               <Pulsante icona={Plus} onClick={aggiungiSegmento}>
-                Aggiungi camera
+                {u("Aggiungi {camera}")}
               </Pulsante>
             }
             corpoClassName="flex flex-col gap-4"
@@ -255,7 +262,7 @@ export function NuovaPrenotazioneForm() {
                 <div className="mb-3 flex items-center justify-between">
                   <span className="flex items-center gap-2 text-sm font-bold text-stone-900">
                     <BedDouble className="h-4 w-4 text-teal-700" aria-hidden />
-                    Camera {idx + 1}
+                    {u("{Camera}")} {idx + 1}
                   </span>
                   {segmenti.length > 1 && (
                     <Pulsante variante="pericolo" dimensione="piccolo" icona={Trash2} onClick={() => rimuoviSegmento(idx)}>
@@ -265,7 +272,7 @@ export function NuovaPrenotazioneForm() {
                 </div>
 
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                  <Campo etichetta="Camera" obbligatorio className="lg:col-span-2">
+                  <Campo etichetta={u("{Camera}")} obbligatorio className="lg:col-span-2">
                     <Select value={seg.cameraId ?? ""} onChange={(e) => aggiornaSegmento(idx, { cameraId: Number(e.target.value) })}>
                       <option value="" disabled>Seleziona...</option>
                       {camere.map((c) => (
@@ -279,6 +286,8 @@ export function NuovaPrenotazioneForm() {
                   <Campo etichetta="Partenza" obbligatorio>
                     <Input type="date" value={seg.dataFine} min={seg.dataInizio || undefined} onChange={(e) => aggiornaSegmento(idx, { dataFine: e.target.value })} />
                   </Campo>
+                  {/* Con un solo listino o un solo trattamento la scelta non serve: si usa quello. */}
+                  {listini.length > 1 && (
                   <Campo etichetta="Listino" className="lg:col-span-2">
                     <Select value={seg.listinoId ?? ""} onChange={(e) => aggiornaSegmento(idx, { listinoId: Number(e.target.value) })}>
                       {listini.map((l) => (
@@ -286,6 +295,8 @@ export function NuovaPrenotazioneForm() {
                       ))}
                     </Select>
                   </Campo>
+                  )}
+                  {trattamenti.length > 1 && (
                   <Campo etichetta="Trattamento" className="lg:col-span-2">
                     <Select value={seg.trattamento} onChange={(e) => aggiornaSegmento(idx, { trattamento: e.target.value })}>
                       {trattamenti.map((t) => (
@@ -293,15 +304,16 @@ export function NuovaPrenotazioneForm() {
                       ))}
                     </Select>
                   </Campo>
+                  )}
                 </div>
 
                 <div className="mt-3 flex flex-col gap-1">
-                  <span className="text-xs font-semibold text-stone-700">Persone in camera <span className="font-normal text-stone-500">(base del prezzo)</span></span>
+                  <span className="text-xs font-semibold text-stone-700">{u("Persone in {camera}")} <span className="font-normal text-stone-500">(base del prezzo)</span></span>
                   <CampoComposizione valore={seg.composizione} onChange={(c) => aggiornaSegmento(idx, { composizione: c })} />
                 </div>
 
                 <div className="mt-3">
-                  <OspiteSearch value={seg.ospite} onChange={(v) => aggiornaSegmento(idx, { ospite: v })} etichetta="Intestatario della camera" />
+                  <OspiteSearch value={seg.ospite} onChange={(v) => aggiornaSegmento(idx, { ospite: v })} etichetta={u("Intestatario della {camera}")} />
                 </div>
 
                 {seg.anteprima && (

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { richiediSuperAdmin } from "@/lib/auth";
 import { elencoHotel } from "@/lib/hotel";
 import { CATALOGO_MODULI } from "@/lib/moduli";
+import { nomeTipologia } from "@/lib/tipologie";
 
 export default async function HotelPiattaformaPage() {
   await richiediSuperAdmin();
@@ -26,6 +27,7 @@ export default async function HotelPiattaformaPage() {
             <tr>
               <th className="px-4 py-2">Hotel</th>
               <th className="px-4 py-2">Comune</th>
+              <th className="px-4 py-2">Tipologia</th>
               <th className="px-4 py-2">Categoria</th>
               <th className="px-4 py-2">Camere</th>
               <th className="px-4 py-2">Utenti</th>
@@ -42,6 +44,7 @@ export default async function HotelPiattaformaPage() {
                   </Link>
                 </td>
                 <td data-label="Comune" className="px-4 py-2">{h.comune.nome} ({h.comune.provincia})</td>
+                <td data-label="Tipologia" className="px-4 py-2">{nomeTipologia(h.tipologia)}</td>
                 <td data-label="Categoria" className="px-4 py-2">{h.categoria ?? "—"}</td>
                 <td data-label="Camere" className="px-4 py-2">{h._count.camere}</td>
                 <td data-label="Utenti" className="px-4 py-2">{h._count.accessi}</td>

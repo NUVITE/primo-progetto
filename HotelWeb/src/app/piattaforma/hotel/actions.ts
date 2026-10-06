@@ -13,6 +13,7 @@ import {
   type DatiHotel,
 } from "@/lib/hotel";
 import type { Modulo } from "@/lib/moduli";
+import { applicaProfilo } from "@/lib/profili";
 
 export async function datiModulo() {
   await richiediSuperAdmin();
@@ -28,6 +29,14 @@ export async function azioneCreaComune(input: { nome: string; provincia: string;
     await richiediSuperAdmin();
     const c = await creaComune(input);
     return { id: c.id, nome: c.nome, provincia: c.provincia };
+  });
+}
+
+/** Applica all'hotel il profilo di partenza della sua tipologia (moduli, utenti, trattamenti). */
+export async function azioneApplicaProfilo(hotelId: number) {
+  return conEsito(async () => {
+    await richiediSuperAdmin();
+    await applicaProfilo(hotelId);
   });
 }
 

@@ -11,6 +11,7 @@ import { HotelSwitcher } from "./HotelSwitcher";
 import { COOKIE_BARRA, menuVisibile, voceAttiva, type GruppoMenu, type PreferenzeBarra } from "./menu";
 import { PERMESSI } from "@/lib/permessi";
 import { AvvisiAdempimenti } from "./AvvisiAdempimenti";
+import { unitaDi } from "@/lib/tipologie";
 
 export type DatiBarra = {
   nomeUtente: string;
@@ -21,6 +22,8 @@ export type DatiBarra = {
   hotelId: number;
   hotelNome: string;
   hotels: { id: number; nome: string }[];
+  tipologia: string;
+  funzioniSpente: string[];
 };
 
 function salvaPreferenze(p: PreferenzeBarra) {
@@ -34,7 +37,7 @@ function salvaPreferenze(p: PreferenzeBarra) {
 export function Cornice({ dati, preferenze, children }: { dati: DatiBarra; preferenze: PreferenzeBarra; children: ReactNode }) {
   const [pref, setPref] = useState(preferenze);
   const [pannelloAperto, setPannelloAperto] = useState(false);
-  const gruppi = menuVisibile(dati.permessi, dati.superAdmin, dati.moduli);
+  const gruppi = menuVisibile(dati.permessi, dati.superAdmin, dati.moduli, dati.funzioniSpente, unitaDi(dati.tipologia));
 
   function aggiorna(p: Partial<PreferenzeBarra>) {
     const nuove = { ...pref, ...p };

@@ -5,6 +5,7 @@ import { useState } from "react";
 import { sbusta } from "@/lib/esito";
 import type { DatiHotel } from "@/lib/hotel";
 import { SISTEMI_ISTAT } from "@/lib/istat";
+import { GRUPPI_TIPOLOGIA, TIPOLOGIE } from "@/lib/tipologie";
 import { azioneAggiornaHotel, azioneCreaComune, azioneCreaHotel, datiModulo } from "./actions";
 
 type Riferimenti = Awaited<ReturnType<typeof datiModulo>>;
@@ -15,6 +16,7 @@ const ETICHETTA = "flex flex-col text-xs text-stone-600";
 export const HOTEL_VUOTO: DatiHotel = {
   nome: "",
   comuneId: 0,
+  tipologia: "albergo",
   categoria: "",
   ragioneSociale: "",
   partitaIva: "",
@@ -124,6 +126,23 @@ export function FormHotel({ riferimenti, iniziale, hotelId }: { riferimenti: Rif
               </div>
             )}
           </div>
+          <label className={ETICHETTA}>
+            Tipologia della struttura
+            <select className={INPUT} value={dati.tipologia} onChange={(e) => setDati({ ...dati, tipologia: e.target.value })}>
+              {Object.entries(GRUPPI_TIPOLOGIA).map(([g, nomeGruppo]) => (
+                <optgroup key={g} label={nomeGruppo}>
+                  {Object.entries(TIPOLOGIE)
+                    .filter(([, t]) => t.gruppo === g)
+                    .map(([k, t]) => (
+                      <option key={k} value={k}>
+                        {t.nome}
+                      </option>
+                    ))}
+                </optgroup>
+              ))}
+            </select>
+            <span className="mt-1 text-[11px] text-stone-500">Adatta il programma alla struttura; la classificazione resta quella autorizzata dal comune.</span>
+          </label>
           <label className={ETICHETTA}>
             Categoria (per la tassa di soggiorno)
             {categorieSuggerite.length > 0 ? (

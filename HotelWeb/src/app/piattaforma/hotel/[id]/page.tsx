@@ -5,6 +5,8 @@ import { moduliAttivi } from "@/lib/moduli";
 import { datiModulo } from "../actions";
 import { FormHotel } from "../FormHotel";
 import { ModuliHotel } from "./ModuliHotel";
+import { ProfiloTipologia } from "./ProfiloTipologia";
+import { anteprimaProfilo } from "@/lib/profili";
 
 export default async function DettaglioHotelPage({ params }: { params: Promise<{ id: string }> }) {
   const riferimenti = await datiModulo(); // verifica anche che sia un superadmin
@@ -21,12 +23,14 @@ export default async function DettaglioHotelPage({ params }: { params: Promise<{
         <h1 className="text-xl font-bold">{hotel.nome}</h1>
       </div>
       <ModuliHotel hotelId={hotel.id} attivo={hotel.attivo} moduli={moduliAttivi(hotel.moduli)} />
+      <ProfiloTipologia hotelId={hotel.id} anteprima={await anteprimaProfilo(hotel.id)} />
       <FormHotel
         riferimenti={riferimenti}
         hotelId={hotel.id}
         iniziale={{
           nome: hotel.nome,
           comuneId: hotel.comuneId,
+          tipologia: hotel.tipologia,
           categoria: t(hotel.categoria),
           ragioneSociale: t(hotel.ragioneSociale),
           partitaIva: t(hotel.partitaIva),

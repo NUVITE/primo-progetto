@@ -1,5 +1,7 @@
 "use server";
 
+import { funzioniSpente } from "@/lib/funzioniRegole";
+import { unitaDi } from "@/lib/tipologie";
 import { avvisoAllotment } from "@/lib/agenzie";
 import { conEsito } from "@/lib/esito";
 import { prisma } from "@/lib/prisma";
@@ -46,6 +48,9 @@ export async function datiIniziali() {
     garanzie: Object.entries(GARANZIE).map(([valore, nome]) => ({ valore, nome })),
     intermediari,
     orarioLimiteArrivo: hotel.orarioLimiteArrivo,
+    // Struttura: funzioni spente e nome delle unità (camera o appartamento) secondo la tipologia.
+    funzioniSpente: funzioniSpente(hotel.funzioniSpente) as string[],
+    unita: unitaDi(hotel.tipologia),
   };
 }
 

@@ -18,6 +18,12 @@ model Hotel {
   comune                 Comune    @relation(fields: [comuneId], references: [id])
   nome                   String
   // Usata per scegliere il regolamento della tassa di soggiorno (RegolamentoTassaComune.categoriaStruttura).
+  // Tipologia della struttura (albergo, B&B, casa vacanze...: src/lib/tipologie.ts): adatta il programma
+  // (profilo proposto, nomi delle unità). Diversa dalla categoria, che serve solo per la tassa di soggiorno.
+  tipologia              String    @default("albergo")
+  // Funzioni del nucleo SPENTE (src/lib/funzioniRegole.ts: gruppi, agenzie, uso diurno, preventivi).
+  // Null o vuoto = tutto acceso come prima.
+  funzioniSpente         Json?
   categoria              String?
   // Dati anagrafici e fiscali della struttura (intestazione fatture, adempimenti).
   ragioneSociale         String?

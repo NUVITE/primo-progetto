@@ -1,5 +1,6 @@
 "use server";
 
+import { impostaFunzioniSpente } from "@/lib/funzioni";
 import { richiediPermesso } from "@/lib/auth";
 import { conEsito } from "@/lib/esito";
 import { PERMESSI } from "@/lib/permessi";
@@ -43,6 +44,14 @@ export async function azioneSalvaStruttura(dati: DatiStruttura) {
 }
 
 // --- Periodi di chiusura (ISTAT) ---
+
+/** Funzioni del nucleo che la struttura usa (le spente spariscono da menu e maschere, i dati restano). */
+export async function azioneFunzioniSpente(spente: string[]) {
+  return conEsito(async () => {
+    const u = await richiediPermesso(PERMESSI.HOTEL_CONFIGURA);
+    return impostaFunzioniSpente(u.hotelId, spente);
+  });
+}
 
 export async function azioneAggiungiChiusura(d: { dal: string; al: string; nota: string }) {
   return conEsito(async () => {
