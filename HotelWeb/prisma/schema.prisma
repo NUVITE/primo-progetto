@@ -144,8 +144,15 @@ model Utente {
   attivo       Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  // Sicurezza degli accessi: la versione sta nel cookie di sessione; cambiandola (cambio password,
+  // "esci dagli altri dispositivi", reimpostazione) tutte le sessioni aperte smettono di valere.
+  versioneSessione          Int       @default(0)
+  // Password iniziale o reimpostata da un altro: al primo accesso va cambiata prima di fare altro.
+  cambioPasswordObbligatorio Boolean  @default(false)
+  passwordCambiataIl        DateTime?
 
   accessi               UtenteHotel[]
+  eventiAccesso         EventoAccesso[]
   eventiTassa           EventoTassa[]
   assegnazioniPulizia   AssegnazionePulizia[]
   segnalazioniAssegnate Segnalazione[]        @relation("assegnata")
@@ -2163,4 +2170,25 @@ model Allotment {
   creatoDa      String
 
   @@index([hotelId, tipoCameraId])
+}
+
+/**
+ * Registro degli accessi: login riusciti e falliti, blocchi per troppi tentativi, cambi e
+ * reimpostazioni della password. Serve al blocco dopo troppi errori e a sapere chi è entrato (GDPR).
+ */
+model EventoAccesso {
+  id        Int      @id @default(autoincrement())
+  utenteId  Int?
+  utente    Utente?  @relation(fields: [utenteId], references: [id], onDelete: SetNull)
+  // Email scritta nel login (anche inesistente): il blocco vale per l'email, non per l'account.
+  email     String
+  ip        String?
+  // "accesso" | "accesso_fallito" | "bloccato" | "password_cambiata" | "password_reimpostata" | "uscita_dispositivi"
+  tipo      String
+  dettaglio String?
+  creatoIl  DateTime @default(now())
+
+  @@index([email, creatoIl])
+  @@index([ip, creatoIl])
+  @@index([utenteId, creatoIl])
 }

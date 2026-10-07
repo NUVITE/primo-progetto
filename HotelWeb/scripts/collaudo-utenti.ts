@@ -68,12 +68,12 @@ async function main() {
     const h = await prisma.hotel.findUniqueOrThrow({ where: { id: hotel.id } });
     verifica("Con un solo utente si passa al titolare unico", h.modalitaUtenti === "titolare");
     verifica("Il titolare ha tutti i permessi qualunque sia il ruolo", permessiAccesso("titolare", [rec.permessi]).length === TUTTI_I_PERMESSI.length);
-    const e2 = await errore(() => aggiungiUtente(chi, { nome: "Altro", email: `altro${SUFFISSO}`, password: "password123", ruoloId: rec.id }));
+    const e2 = await errore(() => aggiungiUtente(chi, { nome: "Altro", email: `altro${SUFFISSO}`, password: "girasole-di-prova-7", ruoloId: rec.id }));
     verifica("Con il titolare unico non si aggiungono utenti", !!e2, e2 ?? "");
     const e3 = await errore(() => impostaRuoliAggiuntivi(chi, a.id, [cassa.id]));
     verifica("Con il titolare unico niente ruoli in più", !!e3, e3 ?? "");
     await impostaModalitaUtenti(chi, "ruoli");
-    await aggiungiUtente(chi, { nome: "Altro", email: `altro${SUFFISSO}`, password: "password123", ruoloId: rec.id });
+    await aggiungiUtente(chi, { nome: "Altro", email: `altro${SUFFISSO}`, password: "girasole-di-prova-7", ruoloId: rec.id });
     verifica("Tornati ai ruoli si aggiungono utenti", (await prisma.utenteHotel.count({ where: { hotelId: hotel.id } })) === 2);
 
     const altro = await prisma.utente.findUniqueOrThrow({ where: { email: `altro${SUFFISSO}` } });

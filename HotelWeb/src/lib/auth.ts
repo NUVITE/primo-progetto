@@ -31,8 +31,9 @@ export async function verificaPassword(password: string, hash: string) {
  * coincide sempre con quello; per un account multi-struttura è quello scelto con
  * cambiaHotelAttivo() e può cambiare senza dover rifare login.
  */
-async function firmaSessione(utenteId: number, hotelId: number) {
-  const token = await new SignJWT({ sub: String(utenteId), hotelId })
+async function firmaSessione(utenteId: number, hotelId: number, versione: number) {
+  // v = versione della sessione dell'utente: se cambia (cambio password, uscita dagli altri dispositivi) il cookie non vale più.
+  const token = await new SignJWT({ sub: String(utenteId), hotelId, v: versione })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime(`${DURATA_SESSIONE_SECONDI}s`)
@@ -70,7 +71,14 @@ export async function creaSessione(utenteId: number) {
   if (hotels.length === 0) {
     throw new Error(`L'utente ${utente.email} non è associato a nessun hotel.`);
   }
-  await firmaSessione(utenteId, hotels[0].id);
+  await firmaSessione(utenteId, hotels[0].id, utente.versioneSessione);
+}
+
+/** Dopo un cambio di versione (es. cambio password) chi lo ha fatto resta dentro, nello stesso hotel. */
+export async function rinnovaSessione(utenteId: number, versione: number) {
+  const sessione = await leggiSessioneDaCookie();
+  if (!sessione || sessione.utenteId !== utenteId) return;
+  await firmaSessione(utenteId, sessione.hotelId, versione);
 }
 
 /** Cambia l'hotel attivo di un account con accesso a più strutture, senza rifare login. */
@@ -86,7 +94,7 @@ export async function cambiaHotelAttivo(nuovoHotelId: number) {
     throw new Error("Non hai accesso a questo hotel.");
   }
 
-  await firmaSessione(sessione.utenteId, nuovoHotelId);
+  await firmaSessione(sessione.utenteId, nuovoHotelId, sessione.versione);
 }
 
 export async function distruggiSessione() {
@@ -94,14 +102,15 @@ export async function distruggiSessione() {
   store.delete(COOKIE_SESSIONE);
 }
 
-async function leggiSessioneDaCookie(): Promise<{ utenteId: number; hotelId: number } | null> {
+async function leggiSessioneDaCookie(): Promise<{ utenteId: number; hotelId: number; versione: number } | null> {
   const store = await cookies();
   const token = store.get(COOKIE_SESSIONE)?.value;
   if (!token) return null;
   try {
     const { payload } = await jwtVerify(token, chiaveSegreta());
     if (!payload.sub || typeof payload.hotelId !== "number") return null;
-    return { utenteId: Number(payload.sub), hotelId: payload.hotelId };
+    // Cookie di prima della versione: valgono come versione 0 (nessuno viene buttato fuori dall'aggiornamento).
+    return { utenteId: Number(payload.sub), hotelId: payload.hotelId, versione: typeof payload.v === "number" ? payload.v : 0 };
   } catch {
     return null;
   }
@@ -126,8 +135,23 @@ export type UtenteSessione = {
   funzioniSpente: Funzione[];
 };
 
-/** Utente loggato, o null. Non reindirizza: usarla dove l'assenza di sessione è un caso normale. */
+/**
+ * Utente loggato, o null. Non reindirizza: usarla dove l'assenza di sessione è un caso normale.
+ * Chi deve ancora cambiare la password temporanea non conta come loggato (solo la pagina
+ * /cambia-password lo vede, con utenteDaCambiarePassword).
+ */
 export async function getUtenteCorrente(): Promise<UtenteSessione | null> {
+  const u = await caricaUtente();
+  return u && !u.cambioObbligatorio ? u.utente : null;
+}
+
+/** Utente con la sessione valida che deve cambiare la password prima di fare altro, o null. */
+export async function utenteDaCambiarePassword() {
+  const u = await caricaUtente();
+  return u?.cambioObbligatorio ? u.utente : null;
+}
+
+async function caricaUtente(): Promise<{ utente: UtenteSessione; cambioObbligatorio: boolean } | null> {
   const sessione = await leggiSessioneDaCookie();
   if (!sessione) return null;
 
@@ -138,6 +162,8 @@ export async function getUtenteCorrente(): Promise<UtenteSessione | null> {
     },
   });
   if (!utente || !utente.attivo) return null;
+  // Sessione di prima di un cambio password o di un'uscita da tutti i dispositivi.
+  if (utente.versioneSessione !== sessione.versione) return null;
 
   const hotels = await hotelAccessibili(utente);
   if (hotels.length === 0) return null;
@@ -151,7 +177,7 @@ export async function getUtenteCorrente(): Promise<UtenteSessione | null> {
   const ruoli = accesso ? [accesso.ruolo, ...accesso.ruoliAggiuntivi.map((x) => x.ruolo)] : [];
   const moduli = moduliAttivi(hotelDati?.moduli);
 
-  return {
+  const dati: UtenteSessione = {
     id: utente.id,
     nome: utente.nome,
     email: utente.email,
@@ -168,6 +194,7 @@ export async function getUtenteCorrente(): Promise<UtenteSessione | null> {
     tipologia: hotelDati?.tipologia ?? "albergo",
     funzioniSpente: funzioniSpente(hotelDati?.funzioniSpente),
   };
+  return { utente: dati, cambioObbligatorio: utente.cambioPasswordObbligatorio };
 }
 
 export function puo(utente: Pick<UtenteSessione, "permessi">, permesso: Permesso) {
@@ -176,9 +203,11 @@ export function puo(utente: Pick<UtenteSessione, "permessi">, permesso: Permesso
 
 /** Come getUtenteCorrente, ma manda a /login se non c'è sessione — da usare in cima alle pagine protette. */
 export async function richiediUtente(): Promise<UtenteSessione> {
-  const utente = await getUtenteCorrente();
-  if (!utente) redirect("/login");
-  return utente;
+  const u = await caricaUtente();
+  if (!u) redirect("/login");
+  // Password temporanea: prima di tutto va cambiata.
+  if (u.cambioObbligatorio) redirect("/cambia-password");
+  return u.utente;
 }
 
 /**

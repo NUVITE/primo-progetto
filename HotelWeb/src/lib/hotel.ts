@@ -7,6 +7,7 @@ import { sistemaIstatValido } from "@/lib/istat";
 import { FASCE_PREDEFINITE } from "@/lib/sale";
 import { tipologiaValida } from "@/lib/tipologie";
 import { applicaProfilo } from "@/lib/profili";
+import { problemaPassword } from "@/lib/accessiRegole";
 import { avvio } from "@/lib/avvio";
 import { funzioniSpente } from "@/lib/funzioniRegole";
 
@@ -111,7 +112,8 @@ export async function creaHotel(dati: DatiHotel, amministratore?: { nome: string
   const admin = amministratore?.email.trim() ? amministratore : undefined;
   if (admin) {
     if (!admin.nome.trim()) throw new Error("Indica il nome dell'amministratore.");
-    if (admin.password.length < 8) throw new Error("La password dell'amministratore deve avere almeno 8 caratteri.");
+    const problema = problemaPassword(admin.password, { email: admin.email.trim(), nome: admin.nome });
+    if (problema) throw new Error(`Password dell'amministratore: ${problema.charAt(0).toLowerCase()}${problema.slice(1)}`);
     const bcrypt = await import("bcryptjs");
     passwordHash = await bcrypt.hash(admin.password, 10);
   }
@@ -138,6 +140,8 @@ export async function creaHotel(dati: DatiHotel, amministratore?: { nome: string
           nome: admin.nome.trim(),
           email,
           passwordHash,
+          // La password la sceglie il fornitore: il titolare la cambia al primo accesso.
+          cambioPasswordObbligatorio: true,
           accessi: { create: { hotelId: hotel.id, ruoloId: ruoloAmministratoreId } },
         },
       });

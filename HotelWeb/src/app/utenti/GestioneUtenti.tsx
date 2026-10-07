@@ -9,6 +9,7 @@ import {
   azioneImpostaSuperAdmin,
   azioneModalitaUtenti,
   azioneRimuoviDaHotel,
+  azioneReimpostaPassword,
   azioneRuoliAggiuntivi,
   datiUtenti,
 } from "./actions";
@@ -23,6 +24,9 @@ export function GestioneUtenti({ iniziale }: { iniziale: Dati }) {
   const [errore, setErrore] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [daRimuovere, setDaRimuovere] = useState<number | null>(null);
+  // Password dimenticata: conferma e password temporanea appena creata (si vede una volta sola).
+  const [daReimpostare, setDaReimpostare] = useState<number | null>(null);
+  const [temporanea, setTemporanea] = useState<{ nome: string; password: string } | null>(null);
   // Utente di cui si stanno scegliendo i ruoli in più.
   const [ruoliInPiu, setRuoliInPiu] = useState<null | { utenteId: number; ids: number[] }>(null);
   const titolare = dati.modalitaUtenti === "titolare";
@@ -58,6 +62,20 @@ export function GestioneUtenti({ iniziale }: { iniziale: Dati }) {
       </div>
 
       {errore && <p className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm font-semibold text-red-800">{errore}</p>}
+      {temporanea && (
+        <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+          <p>
+            Password temporanea di <strong>{temporanea.nome}</strong>: <span className="font-mono text-base font-bold">{temporanea.password}</span>
+          </p>
+          <p className="mt-1 text-xs">
+            Comunicagliela di persona o al telefono, non per email. Al primo accesso dovrà sceglierne una sua; le sessioni che aveva aperte sono state chiuse. Questa password
+            non si potrà più rivedere.
+          </p>
+          <button className="mt-1 text-xs font-semibold underline" onClick={() => setTemporanea(null)}>
+            Fatto, chiudi
+          </button>
+        </div>
+      )}
 
       <section className="min-w-0 rounded-lg border border-stone-200 bg-white p-4 shadow-sm sm:p-5">
         <h2 className="mb-1 text-sm font-bold text-stone-900">Come è organizzata la struttura</h2>
@@ -99,6 +117,11 @@ export function GestioneUtenti({ iniziale }: { iniziale: Dati }) {
                 <td data-label="Nome" className="py-2 font-semibold">
                   {u.nome}
                   {u.id === dati.ioId && <span className="ml-1 text-xs font-normal text-stone-500">(tu)</span>}
+                  {u.passwordTemporanea && (
+                    <span className="ml-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-800" title="Al primo accesso dovrà sceglierne una sua">
+                      password temporanea
+                    </span>
+                  )}
                 </td>
                 <td data-label="Email" className="break-all py-2">{u.email}</td>
                 <td data-label="Ruolo" className="py-2">
@@ -172,7 +195,34 @@ export function GestioneUtenti({ iniziale }: { iniziale: Dati }) {
                   </td>
                 )}
                 <td className="cella-intera py-2 md:text-right">
-                  {daRimuovere === u.id ? (
+                  {daReimpostare === u.id ? (
+                    <span className="inline-flex flex-wrap items-center gap-2">
+                      <span className="text-xs text-stone-600">Creare una password temporanea per {u.nome}?</span>
+                      <button
+                        disabled={busy}
+                        className="rounded-md bg-amber-600 px-2.5 py-1 text-xs font-bold text-white disabled:opacity-40"
+                        onClick={async () => {
+                          setErrore(null);
+                          setBusy(true);
+                          try {
+                            const r = await sbusta(azioneReimpostaPassword(u.id));
+                            setDati(r.dati);
+                            setTemporanea({ nome: u.nome, password: r.temporanea });
+                            setDaReimpostare(null);
+                          } catch (e) {
+                            setErrore(e instanceof Error ? e.message : "Errore imprevisto.");
+                          } finally {
+                            setBusy(false);
+                          }
+                        }}
+                      >
+                        Reimposta
+                      </button>
+                      <button className="inline-flex h-7 items-center justify-center gap-1 rounded-md border border-stone-300 bg-white px-2.5 text-xs font-semibold text-stone-800 shadow-sm hover:bg-stone-50 disabled:opacity-45 pointer-coarse:h-9" onClick={() => setDaReimpostare(null)}>
+                        Annulla
+                      </button>
+                    </span>
+                  ) : daRimuovere === u.id ? (
                     <span className="inline-flex flex-wrap items-center gap-2">
                       <span className="text-xs text-stone-600">Togliere l&apos;accesso a {dati.hotelNome}?</span>
                       <button
@@ -196,10 +246,24 @@ export function GestioneUtenti({ iniziale }: { iniziale: Dati }) {
                           Rendi superadmin
                         </button>
                       )}
+                      {u.id !== dati.ioId && (
+                        <button
+                          className="inline-flex h-7 items-center gap-1 rounded-md border border-stone-300 bg-white px-2 text-xs font-semibold text-stone-700 shadow-sm hover:bg-stone-50 disabled:opacity-45 pointer-coarse:h-9"
+                          title="Password dimenticata: ne crea una temporanea da cambiare al primo accesso"
+                          onClick={() => {
+                            setErrore(null);
+                            setDaRimuovere(null);
+                            setDaReimpostare(u.id);
+                          }}
+                        >
+                          Reimposta password
+                        </button>
+                      )}
                       <button
                         className="inline-flex h-7 items-center gap-1 rounded-md border border-red-300 bg-white px-2 text-xs font-semibold text-red-700 shadow-sm hover:bg-red-50 disabled:opacity-45 pointer-coarse:h-9"
                         onClick={() => {
                           setErrore(null);
+                          setDaReimpostare(null);
                           setDaRimuovere(u.id);
                         }}
                       >
@@ -239,7 +303,7 @@ export function GestioneUtenti({ iniziale }: { iniziale: Dati }) {
             <input type="email" className="mt-1 w-full rounded-md border border-stone-300 px-2 py-1.5 text-sm text-stone-900" value={nuovo.email} onChange={(e) => setNuovo({ ...nuovo, email: e.target.value })} />
           </label>
           <label className="flex w-full flex-col text-xs text-stone-600 sm:w-auto">
-            Password iniziale (min. 8 caratteri)
+            Password iniziale (min. 10 caratteri, si cambia al primo accesso)
             <input type="text" className="mt-1 w-full rounded-md border border-stone-300 px-2 py-1.5 text-sm text-stone-900" value={nuovo.password} onChange={(e) => setNuovo({ ...nuovo, password: e.target.value })} />
           </label>
           <label className="flex w-full flex-col text-xs text-stone-600 sm:w-auto">

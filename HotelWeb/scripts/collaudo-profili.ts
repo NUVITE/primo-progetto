@@ -39,7 +39,7 @@ async function main() {
   // Struttura nuova di prova.
   const comune = await prisma.comune.findFirstOrThrow({ orderBy: { id: "asc" } });
   const dati: DatiHotel = { nome: "__Collaudo profili", comuneId: comune.id, tipologia: "bb", categoria: "", ragioneSociale: "", partitaIva: "", codiceFiscale: "", indirizzo: "", cap: "", telefono: "", email: "", pec: "", sistemaIstat: "" };
-  const hotel = await creaHotel(dati, { nome: "Titolare di prova", email: `titolare${SUFFISSO}`, password: "password-di-prova" });
+  const hotel = await creaHotel(dati, { nome: "Titolare di prova", email: `titolare${SUFFISSO}`, password: "girasole-di-campo-7" });
   try {
     let h = await prisma.hotel.findUniqueOrThrow({ where: { id: hotel.id }, include: { trattamenti: true } });
     const attivi = () => h.trattamenti.filter((t) => t.attivo).map((t) => t.nome).sort();

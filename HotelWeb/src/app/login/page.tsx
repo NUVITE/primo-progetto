@@ -1,11 +1,12 @@
 import { effettuaLogin } from "./actions";
+import { destinazioneSicura } from "@/lib/accessiRegole";
 
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ errore?: string; da?: string }>;
+  searchParams: Promise<{ errore?: string; da?: string; minuti?: string }>;
 }) {
-  const { errore, da } = await searchParams;
+  const { errore, da, minuti } = await searchParams;
 
   return (
     <div className="flex min-h-screen w-full items-center justify-center bg-stone-50">
@@ -13,11 +14,13 @@ export default async function LoginPage({
         <h1 className="mb-1 text-xl font-bold text-stone-900">HotelWeb</h1>
         <p className="mb-6 text-sm text-stone-600">Accedi al gestionale</p>
 
-        <input type="hidden" name="destinazione" value={da || "/"} />
+        <input type="hidden" name="destinazione" value={destinazioneSicura(da)} />
 
         {errore && (
           <p className="mb-4 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm font-semibold text-red-800">
-            Email o password non corrette.
+            {errore === "bloccato"
+              ? `Troppi tentativi sbagliati: per sicurezza l'accesso è sospeso. Riprova tra ${Number(minuti) || 15} ${Number(minuti) === 1 ? "minuto" : "minuti"}.`
+              : "Email o password non corrette."}
           </p>
         )}
 

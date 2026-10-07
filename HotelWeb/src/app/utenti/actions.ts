@@ -11,8 +11,10 @@ import {
   impostaModalitaUtenti,
   impostaRuoliAggiuntivi,
   impostaSuperAdmin,
+  reimpostaPasswordUtente,
   rimuoviDaHotel,
 } from "@/lib/utenti";
+import { ipRichiesta } from "@/lib/accessi";
 
 export async function datiUtenti() {
   const chi = await richiediPermesso(PERMESSI.UTENTI_GESTISCI);
@@ -28,6 +30,8 @@ export async function datiUtenti() {
       nome: a.utente.nome,
       email: a.utente.email,
       attivo: a.utente.attivo,
+      // Password iniziale o reimpostata non ancora cambiata dall'utente.
+      passwordTemporanea: a.utente.cambioPasswordObbligatorio,
       ruoloId: a.ruoloId,
       ruoliAggiuntivi: a.ruoliAggiuntivi.map((x) => x.ruoloId),
     })),
@@ -39,6 +43,15 @@ export async function azioneAggiungiUtente(input: { nome: string; email: string;
   return conEsito(async () => {
     await aggiungiUtente(await richiediPermesso(PERMESSI.UTENTI_GESTISCI), input);
     return datiUtenti();
+  });
+}
+
+/** Password dimenticata: la temporanea si mostra una sola volta a chi l'ha creata. */
+export async function azioneReimpostaPassword(utenteId: number) {
+  return conEsito(async () => {
+    const chi = await richiediPermesso(PERMESSI.UTENTI_GESTISCI);
+    const temporanea = await reimpostaPasswordUtente(chi, utenteId, await ipRichiesta());
+    return { temporanea, dati: await datiUtenti() };
   });
 }
 

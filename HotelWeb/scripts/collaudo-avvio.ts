@@ -56,7 +56,7 @@ async function main() {
   // Struttura nuova di prova (B&B: titolare unico già dal profilo).
   const comune = await prisma.comune.findFirstOrThrow({ orderBy: { id: "asc" } });
   const dati: DatiHotel = { nome: "__Collaudo avvio", comuneId: comune.id, tipologia: "bb", categoria: "", ragioneSociale: "", partitaIva: "", codiceFiscale: "", indirizzo: "", cap: "", telefono: "", email: "", pec: "", sistemaIstat: "" };
-  const hotel = await creaHotel(dati, { nome: "Titolare", email: `titolare${SUFFISSO}`, password: "password-di-prova" });
+  const hotel = await creaHotel(dati, { nome: "Titolare", email: `titolare${SUFFISSO}`, password: "girasole-di-campo-7" });
   try {
     let a = await avvio(hotel.id);
     const fatto = (id: string) => a.passi.find((p) => p.id === id)!.fatto;

@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import type { UtenteSessione } from "@/lib/auth";
+import { problemaPassword } from "@/lib/accessiRegole";
+import { reimpostaPassword } from "@/lib/accessi";
 import { filtraPerModuli, PERMESSI, permessiAccesso, permessiEffettivi, type Permesso } from "@/lib/permessi";
 
 type Tx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
@@ -125,13 +127,16 @@ export async function aggiungiUtente(
   }
 
   if (!input.nome.trim()) throw new Error("Indica il nome.");
-  if (input.password.length < 8) throw new Error("La password iniziale deve avere almeno 8 caratteri.");
+  const problema = problemaPassword(input.password, { email, nome: input.nome });
+  if (problema) throw new Error(`Password iniziale: ${problema.charAt(0).toLowerCase()}${problema.slice(1)}`);
   const bcrypt = await import("bcryptjs");
   await prisma.utente.create({
     data: {
       nome: input.nome.trim(),
       email,
       passwordHash: await bcrypt.hash(input.password, 10),
+      // La password iniziale la conosce chi ha creato l'account: al primo accesso va cambiata.
+      cambioPasswordObbligatorio: true,
       accessi: { create: { hotelId: chi.hotelId, ruoloId: ruolo.id } },
     },
   });
@@ -184,6 +189,11 @@ export async function rimuoviDaHotel(chi: UtenteSessione, utenteId: number) {
   await conservaGestoreUtenti(chi.hotelId, (tx) =>
     tx.utenteHotel.delete({ where: { utenteId_hotelId: { utenteId, hotelId: chi.hotelId } } }),
   );
+}
+
+/** Password dimenticata: password temporanea da comunicare all'utente (vedi reimpostaPassword). */
+export async function reimpostaPasswordUtente(chi: UtenteSessione, utenteId: number, ip: string | null) {
+  return reimpostaPassword(chi, utenteId, ip, accessoGestibile);
 }
 
 // --- Solo superadmin: operazioni sull'account intero, che valgono per tutti gli hotel ---

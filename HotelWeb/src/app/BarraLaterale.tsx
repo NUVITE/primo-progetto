@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, type ReactNode } from "react";
-import { ChevronDown, LogOut, Menu, Moon, PanelLeftClose, PanelLeftOpen, Sun, X } from "lucide-react";
+import { ChevronDown, LogOut, Menu, Moon, PanelLeftClose, PanelLeftOpen, Sun, UserRound, X } from "lucide-react";
 import type { Permesso } from "@/lib/permessi";
 import type { Modulo } from "@/lib/moduli";
 import { effettuaLogout } from "./logout-action";
@@ -208,14 +208,19 @@ function ContenutoBarra({
       {/* Utente e comandi */}
       <div className="border-t px-2 py-2" style={{ borderColor: "var(--sb-border)" }}>
         {!compatta && (
-          <div className="px-2 pb-2">
+          <Link href="/profilo" title="Il mio profilo: password e dispositivi" className="block rounded-md px-2 pb-2 hover:bg-[var(--sb-hover)]">
             <div className="truncate text-sm font-semibold">{dati.nomeUtente}</div>
             <div className="truncate text-xs" style={{ color: dati.superAdmin ? "var(--sb-piattaforma)" : "var(--sb-muted)" }}>
               {dati.ruoloNome}
             </div>
-          </div>
+          </Link>
         )}
         <div className={`flex ${compatta ? "flex-col items-center" : "items-center"} gap-1`}>
+          {compatta && (
+            <Link href="/profilo" title="Il mio profilo" aria-label="Il mio profilo" className="rounded-md p-2 hover:bg-[var(--sb-hover)]">
+              <UserRound size={16} />
+            </Link>
+          )}
           <form action={effettuaLogout} className={compatta ? "" : "flex-1"}>
             <button
               type="submit"
