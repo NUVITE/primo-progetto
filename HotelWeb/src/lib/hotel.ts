@@ -7,6 +7,8 @@ import { sistemaIstatValido } from "@/lib/istat";
 import { FASCE_PREDEFINITE } from "@/lib/sale";
 import { tipologiaValida } from "@/lib/tipologie";
 import { applicaProfilo } from "@/lib/profili";
+import { avvio } from "@/lib/avvio";
+import { funzioniSpente } from "@/lib/funzioniRegole";
 
 /**
  * Gestione degli hotel dalla sezione Piattaforma (solo superadmin: il controllo è nelle action).
@@ -59,7 +61,18 @@ export async function elencoHotel() {
     },
     orderBy: { nome: "asc" },
   });
-  return hotels.map((h) => ({ ...h, moduli: moduliAttivi(h.moduli) }));
+  // Primo avvio di ogni struttura: quanti passi fatti e quanti toccano al fornitore.
+  return Promise.all(
+    hotels.map(async (h) => {
+      const a = await avvio(h.id);
+      return {
+        ...h,
+        moduli: moduliAttivi(h.moduli),
+        funzioniSpente: funzioniSpente(h.funzioniSpente),
+        avvio: { fatti: a.fatti, totale: a.totale, completo: a.completo, daFornitore: a.passi.filter((p) => !p.fatto && p.fornitore).length },
+      };
+    }),
+  );
 }
 
 export async function elencoComuni() {

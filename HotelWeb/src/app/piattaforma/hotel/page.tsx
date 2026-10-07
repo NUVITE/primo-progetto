@@ -3,6 +3,7 @@ import { richiediSuperAdmin } from "@/lib/auth";
 import { elencoHotel } from "@/lib/hotel";
 import { CATALOGO_MODULI } from "@/lib/moduli";
 import { nomeTipologia } from "@/lib/tipologie";
+import { FUNZIONI } from "@/lib/funzioniRegole";
 
 export default async function HotelPiattaformaPage() {
   await richiediSuperAdmin();
@@ -31,7 +32,8 @@ export default async function HotelPiattaformaPage() {
               <th className="px-4 py-2">Categoria</th>
               <th className="px-4 py-2">Camere</th>
               <th className="px-4 py-2">Utenti</th>
-              <th className="px-4 py-2">Moduli</th>
+              <th className="px-4 py-2">Moduli e funzioni</th>
+              <th className="px-4 py-2">Avvio</th>
               <th className="px-4 py-2">Stato</th>
             </tr>
           </thead>
@@ -48,7 +50,16 @@ export default async function HotelPiattaformaPage() {
                 <td data-label="Categoria" className="px-4 py-2">{h.categoria ?? "—"}</td>
                 <td data-label="Camere" className="px-4 py-2">{h._count.camere}</td>
                 <td data-label="Utenti" className="px-4 py-2">{h._count.accessi}</td>
-                <td data-label="Moduli" className="px-4 py-2 text-xs">{h.moduli.length ? h.moduli.map(nomeModulo).join(", ") : "Solo base"}</td>
+                <td data-label="Moduli e funzioni" className="px-4 py-2 text-xs">
+                  {h.moduli.length ? h.moduli.map(nomeModulo).join(", ") : "Solo base"}
+                  {h.funzioniSpente.length > 0 && <div className="text-stone-500">Spente: {h.funzioniSpente.map((f) => FUNZIONI[f].nome).join(", ")}</div>}
+                </td>
+                <td data-label="Avvio" className="px-4 py-2 text-xs">
+                  <span className={`rounded-full px-2.5 py-0.5 font-semibold ${h.avvio.completo ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-800"}`}>
+                    {h.avvio.completo ? "Pronta" : `Da completare ${h.avvio.fatti}/${h.avvio.totale}`}
+                  </span>
+                  {h.avvio.daFornitore > 0 && <div className="mt-1 font-semibold text-red-700">{h.avvio.daFornitore === 1 ? "1 passo tocca a te" : `${h.avvio.daFornitore} passi toccano a te`}</div>}
+                </td>
                 <td data-label="Stato" className="px-4 py-2">
                   <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${h.attivo ? "bg-emerald-50 text-emerald-700" : "bg-stone-200 text-stone-600"}`}>
                     {h.attivo ? "Attivo" : "Disattivato"}

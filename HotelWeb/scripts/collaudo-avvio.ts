@@ -8,7 +8,7 @@ import "dotenv/config";
 import { prisma } from "../src/lib/prisma";
 import { passiAvvio, riepilogoAvvio, type StatoAvvio } from "../src/lib/avvioRegole";
 import { avvio } from "../src/lib/avvio";
-import { creaHotel, type DatiHotel } from "../src/lib/hotel";
+import { creaHotel, elencoHotel, type DatiHotel } from "../src/lib/hotel";
 
 let falliti = 0;
 const verifica = (nome: string, ok: boolean, dettaglio: unknown = "") => {
@@ -72,6 +72,13 @@ async function main() {
     a = await avvio(hotel.id);
     verifica("Prezzi, politica e dati: fatti", fatto("prezzi") && fatto("politiche") && fatto("struttura"));
     verifica("Restano da fare Alloggiati, email ed eventualmente tassa/ISTAT", !fatto("alloggiati") && !fatto("email") && !a.completo && a.fatti >= 5, `${a.fatti}/${a.totale}`);
+    // Pagina del fornitore: lo stesso stato nell'elenco degli hotel, con le funzioni spente dal profilo B&B.
+    const riga = (await elencoHotel()).find((h) => h.id === hotel.id)!;
+    verifica(
+      "Elenco del fornitore: avvio da completare con gli stessi numeri e funzioni spente del profilo",
+      !riga.avvio.completo && riga.avvio.fatti === a.fatti && riga.avvio.totale === 9 && riga.avvio.daFornitore === a.passi.filter((p) => !p.fatto && p.fornitore).length && riga.funzioniSpente.includes("gruppi"),
+      { avvio: riga.avvio, spente: riga.funzioniSpente },
+    );
   } finally {
     await prisma.politicaCancellazione.deleteMany({ where: { hotelId: hotel.id } });
     await prisma.periodoTariffario.deleteMany({ where: { listino: { hotelId: hotel.id } } });

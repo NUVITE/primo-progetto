@@ -7,6 +7,9 @@ import { FormHotel } from "../FormHotel";
 import { ModuliHotel } from "./ModuliHotel";
 import { ProfiloTipologia } from "./ProfiloTipologia";
 import { anteprimaProfilo } from "@/lib/profili";
+import { avvio } from "@/lib/avvio";
+import { funzioniSpente } from "@/lib/funzioniRegole";
+import { AvvioStruttura } from "./AvvioStruttura";
 
 export default async function DettaglioHotelPage({ params }: { params: Promise<{ id: string }> }) {
   const riferimenti = await datiModulo(); // verifica anche che sia un superadmin
@@ -23,7 +26,10 @@ export default async function DettaglioHotelPage({ params }: { params: Promise<{
         <h1 className="text-xl font-bold">{hotel.nome}</h1>
       </div>
       <ModuliHotel hotelId={hotel.id} attivo={hotel.attivo} moduli={moduliAttivi(hotel.moduli)} />
+      <AvvioStruttura avvio={await avvio(hotel.id)} funzioniSpente={funzioniSpente(hotel.funzioniSpente)} />
       <ProfiloTipologia hotelId={hotel.id} anteprima={await anteprimaProfilo(hotel.id)} />
+      {/* Ancora per il passo "Statistica ISTAT" del primo avvio (sistema regionale nei dati dell'hotel). */}
+      <div id="dati-hotel" className="scroll-mt-4" />
       <FormHotel
         riferimenti={riferimenti}
         hotelId={hotel.id}
