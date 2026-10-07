@@ -99,7 +99,8 @@ Kind regards,
       oggetto: "Acconto per la prenotazione n. {{numero_prenotazione}} - {{hotel}}",
       corpo: `Gentile {{nome}} {{cognome}},
 
-per confermare la prenotazione dal {{arrivo}} al {{partenza}} le chiediamo un acconto di {{acconto}} entro il {{acconto_entro}} con bonifico bancario:
+per confermare la prenotazione (arrivo {{arrivo}}, partenza {{partenza}}) le chiediamo un acconto di {{acconto}} con bonifico bancario.
+Scadenza dell'acconto: {{acconto_entro}}.
 
 IBAN: {{iban}}
 Intestato a: {{hotel}}
@@ -131,7 +132,7 @@ Kind regards,
       oggetto: "Ci vediamo presto! - {{hotel}}",
       corpo: `Gentile {{nome}} {{cognome}},
 
-la aspettiamo il {{arrivo}}: la camera sarà pronta dalle {{checkin_dalle}}.
+la aspettiamo! Arrivo: {{arrivo}}, la camera sarà pronta dalle {{checkin_dalle}}.
 Se prevede di arrivare tardi o le serve qualcosa (parcheggio, culla, esigenze alimentari) ci risponda pure a questa email o ci chiami al {{telefono_hotel}}.
 
 Buon viaggio,
@@ -181,12 +182,12 @@ Kind regards,
       oggetto: "Il suo preventivo - {{hotel}}",
       corpo: `Gentile {{nome}} {{cognome}},
 
-grazie per averci contattato. Abbiamo preparato le nostre proposte per il soggiorno dal {{arrivo}} al {{partenza}} ({{notti}} notti, {{persone}} persone).
+grazie per averci contattato. Abbiamo preparato le nostre proposte per il soggiorno che ci ha chiesto (arrivo {{arrivo}}, partenza {{partenza}}, {{notti}} notti, {{persone}} persone).
 
 Le trova qui, con prezzi e condizioni:
 {{link_preventivo}}
 
-Se una proposta le va bene può accettarla direttamente dalla pagina: le terremo la camera e le invieremo le indicazioni per l'acconto. Il preventivo è valido fino al {{valido_fino}}.
+Se una proposta le va bene può accettarla direttamente dalla pagina: le terremo la camera e le invieremo le indicazioni per l'acconto. Scadenza del preventivo: {{valido_fino}}.
 
 Cordiali saluti,
 {{hotel}}

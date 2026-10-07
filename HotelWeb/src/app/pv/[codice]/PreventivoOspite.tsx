@@ -21,7 +21,7 @@ const TESTI = {
     tassa: "Tassa di soggiorno esclusa, si paga in hotel.",
     cancellazione: "Cancellazione",
     acconto: (x: string) => `Per confermare le chiederemo un acconto di ${x}.`,
-    valido: (d: string) => `Preventivo valido fino al ${d}.`,
+    valido: (d: string) => `Scadenza del preventivo: ${d}.`,
     accetto: "Accetto questa proposta",
     conferma: "Confermi? Le terremo la camera e le invieremo le indicazioni per l'acconto.",
     si: "Sì, confermo",
