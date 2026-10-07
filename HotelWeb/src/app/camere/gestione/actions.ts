@@ -13,6 +13,7 @@ import { impostaOpzioniTipoCamera,
   eliminaIndisponibilita,
   impostaCameraAttiva,
 } from "@/lib/camere";
+import { impostaArrivoCamera } from "@/lib/arrivo";
 import { richiediPermesso } from "@/lib/auth";
 import { PERMESSI } from "@/lib/permessi";
 
@@ -35,6 +36,8 @@ export async function datiGestione() {
       capienzaAdulti: c.capienzaAdulti,
       capienzaBambini: c.capienzaBambini,
       attivo: c.attivo,
+      istruzioniArrivo: c.istruzioniArrivo ?? "",
+      codiceAccesso: c.codiceAccesso ?? "",
     })),
     indisponibilita: indisponibilita.map((i) => ({
       id: i.id,
@@ -67,6 +70,15 @@ export async function azionePuliziaFinale(id: number, prezzo: number | null) {
   return conEsito(async () => {
     const hotelId = await hotelAmministrato();
     await impostaPuliziaFinale(hotelId, id, prezzo);
+    return datiGestione();
+  });
+}
+
+/** Arrivo autonomo: istruzioni e codice di accesso fisso della camera (vuoti = nessuno). */
+export async function azioneArrivoCamera(id: number, istruzioni: string, codice: string) {
+  return conEsito(async () => {
+    const hotelId = await hotelAmministrato();
+    await impostaArrivoCamera(hotelId, id, istruzioni, codice);
     return datiGestione();
   });
 }

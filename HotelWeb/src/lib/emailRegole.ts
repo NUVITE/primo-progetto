@@ -12,6 +12,7 @@ export const MODELLI = {
   promemoria: "Promemoria prima dell'arrivo",
   ringraziamento: "Ringraziamento dopo la partenza",
   preventivo: "Preventivo",
+  arrivo: "Istruzioni di arrivo",
   libera: "Email libera",
 } as const;
 export type ChiaveModello = keyof typeof MODELLI;
@@ -43,6 +44,8 @@ export const SEGNAPOSTO = {
   link_preventivo: "Link al preventivo (solo per il preventivo)",
   valido_fino: "Scadenza del preventivo",
   link_questionario: "Link al questionario di gradimento (solo per il ringraziamento)",
+  istruzioni_arrivo: "Istruzioni di arrivo delle camere o degli appartamenti (solo per le istruzioni di arrivo)",
+  codice_accesso: "Codice di accesso del soggiorno (solo per le istruzioni di arrivo)",
 } as const;
 export type Segnaposto = keyof typeof SEGNAPOSTO;
 
@@ -203,6 +206,46 @@ If you like one of them you can accept it directly on the page: we will hold the
 Kind regards,
 {{hotel}}
 {{telefono_hotel}}`,
+    },
+  },
+  arrivo: {
+    it: {
+      oggetto: "Istruzioni per il suo arrivo - {{hotel}}",
+      corpo: `Gentile {{nome}} {{cognome}},
+
+ecco come arrivare ed entrare per il suo soggiorno:
+
+{{istruzioni_arrivo}}
+
+Codice di accesso: {{codice_accesso}}
+
+- arrivo: {{arrivo}}, dalle {{checkin_dalle}}
+- partenza: {{partenza}}, entro le {{checkout_entro}}
+
+La preghiamo di non condividere il codice con altre persone.
+Per qualsiasi necessità può chiamarci al {{telefono_hotel}}.
+
+Buon viaggio,
+{{hotel}}`,
+    },
+    en: {
+      oggetto: "Arrival instructions - {{hotel}}",
+      corpo: `Dear {{nome}} {{cognome}},
+
+here is how to get there and let yourself in for your stay:
+
+{{istruzioni_arrivo}}
+
+Access code: {{codice_accesso}}
+
+- arrival: {{arrivo}}, from {{checkin_dalle}}
+- departure: {{partenza}}, by {{checkout_entro}}
+
+Please do not share the code with anyone else.
+Should you need anything, please call us at {{telefono_hotel}}.
+
+Have a good trip,
+{{hotel}}`,
     },
   },
   libera: {

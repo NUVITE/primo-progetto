@@ -60,6 +60,8 @@ import { messaggiDaConsegnare } from "@/lib/messaggi";
 import { datiCauzione, incassaCauzione, restituisciCauzione } from "@/lib/cauzioni";
 import type { MetodoCauzione } from "@/lib/cauzioniRegole";
 import { impostaVoucher } from "@/lib/agenzie";
+import { datiArrivo, impostaCodiceSoggiorno, valoriArrivo } from "@/lib/arrivo";
+import { MODELLO_ARRIVO } from "@/lib/arrivoRegole";
 import type { VoucherCopre } from "@/lib/agenzieRegole";
 import { anteprimaEmail, inviaEmailPrenotazione, storicoEmail, type InvioInput } from "@/lib/email";
 import type { ChiaveModello, Lingua } from "@/lib/emailRegole";
@@ -98,13 +100,19 @@ async function serializza(prenotazione: Awaited<ReturnType<typeof trovaPrenotazi
   const trattamentiPasti = utente.moduli.includes("ristorazione")
     ? new Map((await prisma.trattamento.findMany({ where: { hotelId: utente.hotelId } })).map((t) => [t.nome, t]))
     : null;
+  const gestisce = puo(utente, PERMESSI.PRENOTAZIONI_GESTISCI);
   // Email agli ospiti: storico e invio per chi ha il permesso.
   const email = puo(utente, PERMESSI.EMAIL_INVIA)
     ? {
         configurata: !!(await prisma.configurazioneEmail.findUnique({ where: { hotelId: utente.hotelId }, select: { id: true } })),
-        storico: await storicoEmail(utente.hotelId, prenotazione.id),
+        // Le istruzioni di arrivo contengono il codice di accesso: il testo lo vede solo chi gestisce le prenotazioni.
+        storico: (await storicoEmail(utente.hotelId, prenotazione.id)).map((e) =>
+          e.modello === MODELLO_ARRIVO && !gestisce ? { ...e, corpo: "(Testo nascosto: contiene il codice di accesso.)" } : e,
+        ),
       }
     : null;
+  // Arrivo autonomo: unità con istruzioni e codici di accesso, solo per chi gestisce le prenotazioni.
+  const arrivo = gestisce ? await datiArrivo(utente.hotelId, prenotazione.id) : null;
   // Ospiti di riguardo, con preferenze o già stati da noi (scheda ospite): per chi gestisce le prenotazioni.
   const daConoscere = puo(utente, PERMESSI.PRENOTAZIONI_GESTISCI) ? await ospitiDaConoscere(utente.hotelId, prenotazione.id) : null;
   // Portineria: messaggi, lettere e pacchi ancora da consegnare (solo con il permesso e il modulo).
@@ -118,6 +126,7 @@ async function serializza(prenotazione: Awaited<ReturnType<typeof trovaPrenotazi
     daConoscere,
     messaggi,
     cauzione,
+    arrivo,
     contoVoci: {
       righe,
       riepilogoIva: riepilogo,
@@ -552,7 +561,14 @@ export async function azioneAnteprimaEmail(id: number, chiave: ChiaveModello, li
     const u = await richiediPermesso(PERMESSI.EMAIL_INVIA);
     // Ringraziamento: il link al questionario di gradimento (creato alla prima anteprima).
     const base = await indirizzoPubblico();
-    const extra = chiave === "ringraziamento" ? async (l: Lingua) => ({ link_questionario: await linkQuestionario(u.hotelId, id, l, base) }) : undefined;
+    // Istruzioni di arrivo: contengono il codice di accesso, le prepara solo chi gestisce le prenotazioni.
+    if (chiave === MODELLO_ARRIVO && !puo(u, PERMESSI.PRENOTAZIONI_GESTISCI)) throw new Error("Le istruzioni di arrivo con il codice di accesso le invia chi gestisce le prenotazioni.");
+    const extra =
+      chiave === "ringraziamento"
+        ? async (l: Lingua) => ({ link_questionario: await linkQuestionario(u.hotelId, id, l, base) })
+        : chiave === MODELLO_ARRIVO
+          ? (l: Lingua) => valoriArrivo(u.hotelId, id, l)
+          : undefined;
     return anteprimaEmail(u.hotelId, id, chiave, lingua, puo(u, PERMESSI.IMPORTI_VEDI), extra);
   });
 }
@@ -560,6 +576,7 @@ export async function azioneAnteprimaEmail(id: number, chiave: ChiaveModello, li
 export async function azioneInviaEmail(id: number, d: InvioInput) {
   return conEsito(async () => {
     const u = await richiediPermesso(PERMESSI.EMAIL_INVIA);
+    if (d.modello === MODELLO_ARRIVO && !puo(u, PERMESSI.PRENOTAZIONI_GESTISCI)) throw new Error("Le istruzioni di arrivo con il codice di accesso le invia chi gestisce le prenotazioni.");
     const esito = await inviaEmailPrenotazione(u.hotelId, id, d, u.nome);
     return { esito, prenotazione: await serializza(await trovaPrenotazione(u.hotelId, id), u) };
   });
@@ -576,6 +593,14 @@ export async function azioneIncassaCauzione(id: number, importo: number, metodo:
 export async function azioneRestituisciCauzione(id: number, trattenuta: number, motivo: string, metodo: MetodoCauzione) {
   return suPrenotazione(PERMESSI.PAGAMENTI_REGISTRA, async (u) => {
     await restituisciCauzione(u.hotelId, id, trattenuta, motivo, metodo, u.nome);
+    return trovaPrenotazione(u.hotelId, id);
+  });
+}
+
+/** Arrivo autonomo: codice di accesso di questo soggiorno (vuoto = quello fisso dell'unità). */
+export async function azioneCodiceSoggiorno(id: number, segmentoId: number, codice: string) {
+  return suPrenotazione(PERMESSI.PRENOTAZIONI_GESTISCI, async (u) => {
+    await impostaCodiceSoggiorno(u.hotelId, id, segmentoId, codice);
     return trovaPrenotazione(u.hotelId, id);
   });
 }

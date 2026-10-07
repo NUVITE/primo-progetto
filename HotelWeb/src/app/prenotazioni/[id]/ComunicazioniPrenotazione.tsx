@@ -2,12 +2,13 @@
 
 import { Mail, Send } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { sbusta } from "@/lib/esito";
 import { LINGUE, MODELLI, type ChiaveModello, type Lingua } from "@/lib/emailRegole";
 import { Avviso, Campo, Etichetta, Input, Pulsante, Select, Sezione, Textarea } from "@/components/ui";
 import { AiutoSezione } from "@/components/AiutoSezione";
 import { azioneAnteprimaEmail, azioneInviaEmail, caricaPrenotazione } from "./actions";
+import { EVENTO_PREPARA_EMAIL } from "./ArrivoAutonomo";
 
 type Prenotazione = Awaited<ReturnType<typeof caricaPrenotazione>>;
 type Bozza = {
@@ -29,6 +30,17 @@ export function ComunicazioniPrenotazione({ prenotazione: p, aggiorna }: { preno
   const [aperta, setAperta] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ tipo: "ok" | "errore" | "info"; testo: string } | null>(null);
+  const riquadro = useRef<HTMLDivElement>(null);
+  // Un altro riquadro (es. Arrivo autonomo) chiede di preparare un'email con un certo modello.
+  const suRichiesta = useEffectEvent((chiave: ChiaveModello) => {
+    riquadro.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    void prepara(chiave, null);
+  });
+  useEffect(() => {
+    const ascolta = (e: Event) => suRichiesta((e as CustomEvent<ChiaveModello>).detail);
+    window.addEventListener(EVENTO_PREPARA_EMAIL, ascolta);
+    return () => window.removeEventListener(EVENTO_PREPARA_EMAIL, ascolta);
+  }, []);
   if (!p.email) return null;
   const email = p.email;
 
@@ -48,6 +60,7 @@ export function ComunicazioniPrenotazione({ prenotazione: p, aggiorna }: { preno
   const restano = bozza ? [...new Set([...(bozza.oggetto + bozza.corpo).matchAll(/\{\{\s*([a-z_]+)\s*\}\}/g)].map((m) => m[1]))] : [];
 
   return (
+    <div ref={riquadro} className="scroll-mt-4">
     <Sezione
       titolo={
         <span className="flex items-center gap-2">
@@ -176,5 +189,6 @@ export function ComunicazioniPrenotazione({ prenotazione: p, aggiorna }: { preno
         </ul>
       )}
     </Sezione>
+    </div>
   );
 }

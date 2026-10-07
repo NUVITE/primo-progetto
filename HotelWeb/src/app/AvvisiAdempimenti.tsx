@@ -1,6 +1,6 @@
 "use client";
 
-import { BarChart3, MailCheck, MessageSquareWarning, NotebookPen, ShieldAlert, type LucideIcon } from "lucide-react";
+import { BarChart3, KeyRound, MailCheck, MessageSquareWarning, NotebookPen, ShieldAlert, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -12,6 +12,7 @@ type Avvisi = {
   preventivi?: number;
   questionari?: number;
   consegne?: number;
+  arrivi?: number;
 };
 
 /** "tra 5 ore" / "scaduta da 2 ore" rispetto a adesso. */
@@ -52,7 +53,8 @@ export function AvvisiAdempimenti({ attivo }: { attivo: boolean }) {
   const pv = avvisi?.preventivi ?? 0;
   const qs = avvisi?.questionari ?? 0;
   const cs = avvisi?.consegne ?? 0;
-  if (!s && !i && !pv && !qs && !cs) return null;
+  const ar = avvisi?.arrivi ?? 0;
+  if (!s && !i && !pv && !qs && !cs && !ar) return null;
   const it = (g: string) => g.split("-").reverse().join("/");
   return (
     <>
@@ -60,6 +62,12 @@ export function AvvisiAdempimenti({ attivo }: { attivo: boolean }) {
         <Barra scaduto={false} icona={MailCheck} link={pathname !== "/preventivi" ? { href: "/preventivi", testo: "Vai ai preventivi" } : null}>
           <strong>{pv === 1 ? "Un ospite ha risposto online a un preventivo" : `${pv} ospiti hanno risposto online ai preventivi`}</strong> — aprilo per vedere se ha
           accettato.
+        </Barra>
+      )}
+      {ar > 0 && (
+        <Barra scaduto={false} icona={KeyRound} link={pathname !== "/prenotazioni/istruzioni-arrivo" ? { href: "/prenotazioni/istruzioni-arrivo", testo: "Vedi gli arrivi" } : null}>
+          <strong>{ar === 1 ? "Un arrivo autonomo senza istruzioni inviate" : `${ar} arrivi autonomi senza istruzioni inviate`}</strong> — nei prossimi giorni: invia l&apos;email
+          con le istruzioni e il codice.
         </Barra>
       )}
       {cs > 0 && (

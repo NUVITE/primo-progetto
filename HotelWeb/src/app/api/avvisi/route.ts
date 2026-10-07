@@ -6,6 +6,8 @@ import { avvisoIstat } from "@/lib/movimentoIstat";
 import { risposteDaVedere } from "@/lib/preventivi";
 import { votiBassiDaLeggere } from "@/lib/questionari";
 import { consegneDaLeggere } from "@/lib/consegne";
+import { arriviSenzaIstruzioni } from "@/lib/arrivo";
+import { oggiItaliano } from "@/lib/cassaAperta";
 
 /**
  * Avvisi degli adempimenti per la barra in cima all'app (schedine di Polizia e giorni ISTAT da
@@ -22,6 +24,9 @@ export async function GET() {
   const questionari = puo(utente, PERMESSI.QUESTIONARI_VEDI) ? await votiBassiDaLeggere(utente.hotelId) : 0;
   // Consegne fra turni lasciate dai colleghi e non ancora lette da questo utente (portineria).
   const consegne = puo(utente, PERMESSI.PORTINERIA) ? await consegneDaLeggere(utente.hotelId, utente.id) : 0;
+  // Arrivi autonomi dei prossimi giorni senza istruzioni inviate: per chi gestisce le prenotazioni e invia le email.
+  const arrivi =
+    puo(utente, PERMESSI.PRENOTAZIONI_GESTISCI) && puo(utente, PERMESSI.EMAIL_INVIA) ? (await arriviSenzaIstruzioni(utente.hotelId, oggiItaliano())).length : 0;
   const [schedine, istat] = adempimenti ? await Promise.all([avvisoSchedine(utente.hotelId), avvisoIstat(utente.hotelId).catch(() => null)]) : [null, null];
-  return NextResponse.json({ schedine, istat, preventivi, questionari, consegne }, { headers: { "Cache-Control": "no-store" } });
+  return NextResponse.json({ schedine, istat, preventivi, questionari, consegne, arrivi }, { headers: { "Cache-Control": "no-store" } });
 }

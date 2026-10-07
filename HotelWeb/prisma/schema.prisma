@@ -240,6 +240,10 @@ model Camera {
   statoPuliziaDa  String?
   // Giorno in cui l'ospite ha chiesto di non essere disturbato (vale solo quel giorno).
   nonDisturbare   DateTime?  @db.Date
+  // Arrivo autonomo (case vacanze, self check-in): come arrivare ed entrare e codice di accesso fisso
+  // dell'unità (porta, cassetta delle chiavi); il soggiorno può avere un codice suo che lo sostituisce.
+  istruzioniArrivo String?   @db.Text
+  codiceAccesso    String?
 
   segmenti        SegmentoSoggiorno[]
   indisponibilita CameraIndisponibilita[]
@@ -754,6 +758,8 @@ model SegmentoSoggiorno {
   // Portineria: chiavi o key card della camera consegnate e restituite (al check-out si avvisa se ne mancano).
   chiaviConsegnate Int                        @default(0)
   chiaviRestituite Int                        @default(0)
+  // Arrivo autonomo: codice di accesso di questo soggiorno (sostituisce quello fisso della camera).
+  codiceAccesso    String?
 }
 
 /**

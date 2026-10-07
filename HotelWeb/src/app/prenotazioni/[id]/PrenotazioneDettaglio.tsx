@@ -11,6 +11,7 @@ import { Suggerimento } from "@/components/Suggerimento";
 import { statoPrenotazione } from "../stato";
 import { BarraStato, PannelloPagamenti } from "./StatoEPagamenti";
 import { CauzionePrenotazione } from "./CauzionePrenotazione";
+import { ArrivoAutonomo } from "./ArrivoAutonomo";
 import { ProvenienzaCondizioni } from "./ProvenienzaCondizioni";
 import { PrezzoConcordato } from "./PrezzoConcordato";
 import { ContoPrenotazione } from "./ContoPrenotazione";
@@ -700,6 +701,10 @@ export function PrenotazioneDettaglio({
             ))}
 
           <ContoPrenotazione prenotazione={prenotazione} salvando={salvando} esegui={eseguendo} aggiorna={setPrenotazione} />
+          {/* Arrivo autonomo: solo se almeno un'unità assegnata ha istruzioni o codice. */}
+          {prenotazione.arrivo && prenotazione.arrivo.unita.some((u) => u.istruzioni || u.codice) && (
+            <ArrivoAutonomo prenotazione={prenotazione} salvando={salvando} esegui={eseguendo} aggiorna={setPrenotazione} />
+          )}
           <ComunicazioniPrenotazione prenotazione={prenotazione} aggiorna={setPrenotazione} />
 
           {/* Solo usi diurni: non c'è pernottamento, quindi nemmeno tassa di soggiorno. */}

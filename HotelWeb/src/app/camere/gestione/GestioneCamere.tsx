@@ -1,12 +1,13 @@
 "use client";
 
 import { sbusta } from "@/lib/esito";
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import {
   azioneOpzioniTipoCamera,
   azionePrezzoUsoDiurno,
   azionePuliziaFinale,
   azioneCauzioneTipo,
+  azioneArrivoCamera,
   azioneCambiaTipoCamera,
   azioneCreaCamera,
   azioneCreaIndisponibilita,
@@ -34,6 +35,9 @@ export function GestioneCamere({ iniziale }: { iniziale: Dati }) {
   const [nuovaCamera, setNuovaCamera] = useState({ codice: "", tipoCameraId: 0, piano: "", capienzaAdulti: 2, capienzaBambini: 0 });
 
   const [nuovaIndisp, setNuovaIndisp] = useState({ cameraId: 0, dal: "", al: "", motivo: "" });
+
+  // Arrivo autonomo: istruzioni e codice della camera in modifica.
+  const [arrivo, setArrivo] = useState<{ cameraId: number; istruzioni: string; codice: string } | null>(null);
 
   useEffect(() => {
     if (dati.tipiCamera[0] && nuovaCamera.tipoCameraId === 0) {
@@ -240,11 +244,12 @@ export function GestioneCamere({ iniziale }: { iniziale: Dati }) {
         <h2 className="mb-3 text-sm font-bold text-stone-900">Camere</h2>
         <table className="tabella-responsive mb-4 w-full text-sm">
           <thead className="text-left text-xs uppercase text-stone-500">
-            <tr><th className="pb-1">Codice</th><th className="pb-1">Piano</th><th className="pb-1">Tipo</th><th className="pb-1">Cap. adulti</th><th className="pb-1">Cap. bambini</th><th className="pb-1">Attiva</th></tr>
+            <tr><th className="pb-1">Codice</th><th className="pb-1">Piano</th><th className="pb-1">Tipo</th><th className="pb-1">Cap. adulti</th><th className="pb-1">Cap. bambini</th><th className="pb-1">Attiva</th><th className="pb-1">Arrivo autonomo</th></tr>
           </thead>
           <tbody>
             {dati.camere.map((c) => (
-              <tr key={c.id} className="border-t border-stone-100">
+              <Fragment key={c.id}>
+              <tr className="border-t border-stone-100">
                 <td data-label="Codice" className="py-1.5 font-bold">{c.codice}</td>
                 <td data-label="Piano" className="py-1.5">{c.piano ?? "—"}</td>
                 <td data-label="Tipo" className="cella-intera py-1.5">
@@ -266,7 +271,60 @@ export function GestioneCamere({ iniziale }: { iniziale: Dati }) {
                     {c.attivo ? "Attiva" : "Disattivata"}
                   </button>
                 </td>
+                <td data-label="Arrivo autonomo" className="py-1.5">
+                  <button
+                    className="rounded-md border border-stone-300 bg-white px-2 py-0.5 text-xs font-semibold text-stone-700 shadow-sm hover:bg-stone-50"
+                    onClick={() => setArrivo(arrivo?.cameraId === c.id ? null : { cameraId: c.id, istruzioni: c.istruzioniArrivo, codice: c.codiceAccesso })}
+                  >
+                    {c.istruzioniArrivo || c.codiceAccesso ? [c.istruzioniArrivo && "Istruzioni", c.codiceAccesso && "codice"].filter(Boolean).join(" e ") : "Aggiungi"}
+                  </button>
+                </td>
               </tr>
+              {arrivo?.cameraId === c.id && (
+                <tr>
+                  <td colSpan={7} className="cella-intera pb-3">
+                    <div className="flex flex-col gap-2 rounded-md border border-teal-200 bg-teal-50/40 p-3">
+                      <p className="text-xs text-stone-600">
+                        Per chi arriva da solo: come raggiungere la struttura, dove trovare le chiavi, come entrare. Partono con l&apos;email «Istruzioni di arrivo», che si invia
+                        dalla prenotazione. Il codice è quello fisso di {c.codice} (porta, cassetta delle chiavi); ogni prenotazione può avere un codice suo.
+                      </p>
+                      <label className="text-xs text-stone-600">
+                        Istruzioni di arrivo
+                        <textarea
+                          rows={6}
+                          className="mt-1 block w-full rounded-md border border-stone-300 px-2 py-1.5 text-sm"
+                          placeholder="Es. Il portone è in via Roma 12. La cassetta delle chiavi è a destra del citofono: apri con il codice e prendi le chiavi dell'appartamento, 2° piano."
+                          value={arrivo.istruzioni}
+                          onChange={(e) => setArrivo({ ...arrivo, istruzioni: e.target.value })}
+                        />
+                      </label>
+                      <div className="flex flex-wrap items-end gap-2">
+                        <label className="text-xs text-stone-600">
+                          Codice di accesso fisso
+                          <input className="mt-1 block w-40 rounded-md border border-stone-300 px-2 py-1.5 font-mono text-sm" value={arrivo.codice} onChange={(e) => setArrivo({ ...arrivo, codice: e.target.value })} />
+                        </label>
+                        <button
+                          disabled={busy}
+                          className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md bg-teal-700 px-3 text-sm font-semibold text-white shadow-sm hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-45 pointer-coarse:h-10"
+                          onClick={() =>
+                            eseguendo(async () => {
+                              const r = await sbusta(azioneArrivoCamera(c.id, arrivo.istruzioni, arrivo.codice));
+                              setArrivo(null);
+                              return r;
+                            })
+                          }
+                        >
+                          Salva
+                        </button>
+                        <button className="inline-flex h-8 items-center rounded-md border border-stone-300 bg-white px-3 text-sm font-semibold text-stone-700 shadow-sm hover:bg-stone-50 pointer-coarse:h-10" onClick={() => setArrivo(null)}>
+                          Annulla
+                        </button>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              )}
+              </Fragment>
             ))}
           </tbody>
         </table>
