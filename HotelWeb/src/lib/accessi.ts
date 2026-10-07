@@ -30,13 +30,16 @@ export async function registraEvento(e: { utenteId?: number | null; email: strin
  * Login bloccato? Per l'email contano gli errori dopo l'ultimo accesso riuscito; per l'indirizzo di
  * rete tutti quelli della finestra. Restituisce i minuti di attesa, o null se si può provare.
  */
+// Contano per il blocco sia le password sbagliate sia i codici sbagliati della verifica in due passaggi.
+const ERRORI = ["accesso_fallito", "verifica_fallita"];
+
 export async function minutiDiBlocco(email: string, ip: string | null, ora = new Date()) {
   const da = new Date(ora.getTime() - FINESTRA_MINUTI * 60_000);
   const ultimoOk = await prisma.eventoAccesso.findFirst({ where: { email, tipo: "accesso" }, orderBy: { creatoIl: "desc" }, select: { creatoIl: true } });
   const dopo = ultimoOk && ultimoOk.creatoIl > da ? ultimoOk.creatoIl : da;
   const [perEmail, perIp] = await Promise.all([
-    prisma.eventoAccesso.findMany({ where: { email, tipo: "accesso_fallito", creatoIl: { gt: dopo } }, select: { creatoIl: true } }),
-    ip ? prisma.eventoAccesso.findMany({ where: { ip, tipo: "accesso_fallito", creatoIl: { gt: da } }, select: { creatoIl: true } }) : Promise.resolve([]),
+    prisma.eventoAccesso.findMany({ where: { email, tipo: { in: ERRORI }, creatoIl: { gt: dopo } }, select: { creatoIl: true } }),
+    ip ? prisma.eventoAccesso.findMany({ where: { ip, tipo: { in: ERRORI }, creatoIl: { gt: da } }, select: { creatoIl: true } }) : Promise.resolve([]),
   ]);
   const a = statoBlocco(perEmail.map((x) => x.creatoIl), ora, LIMITE_EMAIL);
   const b = statoBlocco(perIp.map((x) => x.creatoIl), ora, LIMITE_IP);
@@ -56,6 +59,8 @@ export async function cambiaPassword(utenteId: number, attuale: string, nuova: s
     data: { passwordHash: await creaPasswordHash(nuova), cambioPasswordObbligatorio: false, passwordCambiataIl: new Date(), versioneSessione: { increment: 1 } },
     select: { versioneSessione: true },
   });
+  // I dispositivi ricordati per la verifica in due passaggi si dimenticano: al prossimo accesso il codice si richiede.
+  await prisma.dispositivoFidato.deleteMany({ where: { utenteId } });
   await registraEvento({ utenteId, email: u.email, ip, tipo: "password_cambiata" });
   return r.versioneSessione;
 }
@@ -63,6 +68,7 @@ export async function cambiaPassword(utenteId: number, attuale: string, nuova: s
 /** Chiude tutte le sessioni dell'utente; chi lo chiede resta dentro con una sessione nuova. */
 export async function esciDagliAltriDispositivi(utenteId: number, ip: string | null) {
   const r = await prisma.utente.update({ where: { id: utenteId }, data: { versioneSessione: { increment: 1 } }, select: { versioneSessione: true, email: true } });
+  await prisma.dispositivoFidato.deleteMany({ where: { utenteId } });
   await registraEvento({ utenteId, email: r.email, ip, tipo: "uscita_dispositivi" });
   return r.versioneSessione;
 }
@@ -86,6 +92,7 @@ export async function reimpostaPassword(chi: UtenteSessione, utenteId: number, i
     where: { id: utenteId },
     data: { passwordHash: await creaPasswordHash(temporanea), cambioPasswordObbligatorio: true, versioneSessione: { increment: 1 } },
   });
+  await prisma.dispositivoFidato.deleteMany({ where: { utenteId } });
   await registraEvento({ utenteId, email: u.email, ip, tipo: "password_reimpostata", dettaglio: `da ${chi.nome}` });
   return temporanea;
 }

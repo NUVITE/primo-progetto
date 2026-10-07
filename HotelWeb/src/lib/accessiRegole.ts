@@ -75,7 +75,12 @@ export const EVENTI_ACCESSO = {
   password_cambiata: "Password cambiata",
   password_reimpostata: "Password reimpostata",
   uscita_dispositivi: "Uscita dagli altri dispositivi",
+  verifica_fallita: "Codice di verifica sbagliato",
+  verifica_attivata: "Verifica in due passaggi attivata",
+  verifica_disattivata: "Verifica in due passaggi spenta",
+  verifica_azzerata: "Verifica in due passaggi azzerata",
+  codice_riserva_usato: "Accesso con un codice di riserva",
 } as const;
 
 /** Eventi da guardare con attenzione (in rosso nel registro, filtro "solo problemi"). */
-export const EVENTI_PROBLEMA = ["accesso_fallito", "bloccato"] as const;
+export const EVENTI_PROBLEMA = ["accesso_fallito", "bloccato", "verifica_fallita"] as const;

@@ -2,7 +2,8 @@
 
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { creaSessione, verificaPassword } from "@/lib/auth";
+import { avviaVerifica, chiudiVerifica, creaSessione, leggiDispositivo, salvaDispositivo, utenteInVerifica, verificaPassword } from "@/lib/auth";
+import { controllaCodice, dispositivoRicordato, GIORNI_DISPOSITIVO, ricordaDispositivo, verificaObbligatoria } from "@/lib/dueFattori";
 import { ipRichiesta, minutiDiBlocco, pulisciEventiVecchi, registraEvento } from "@/lib/accessi";
 import { destinazioneSicura } from "@/lib/accessiRegole";
 
@@ -37,8 +38,45 @@ export async function effettuaLogin(formData: FormData) {
     redirect(`/login${parametriErrore}`);
   }
 
+  // Verifica in due passaggi attiva: prima il codice, salvo che questo dispositivo sia stato ricordato.
+  if (utente.totpAttivoIl && !(await dispositivoRicordato(utente.id, await leggiDispositivo()))) {
+    await avviaVerifica(utente.id, destinazione);
+    redirect("/login/verifica");
+  }
+
   await registraEvento({ utenteId: utente.id, email, ip, tipo: "accesso" });
   await pulisciEventiVecchi();
-  await creaSessione(utente.id);
+  await creaSessione(utente.id, await verificaObbligatoria(utente.id));
   redirect(utente.cambioPasswordObbligatorio ? "/cambia-password" : destinazione);
+}
+
+/** Secondo passaggio: codice dell'app (o di riserva), eventualmente ricordando il dispositivo. */
+export async function verificaCodiceLogin(formData: FormData) {
+  const v = await utenteInVerifica();
+  if (!v) redirect("/login?errore=scaduta");
+  const codice = String(formData.get("codice") ?? "");
+  const ricorda = formData.get("ricorda") === "si";
+  const utente = await prisma.utente.findUnique({ where: { id: v.utenteId } });
+  if (!utente || !utente.attivo) redirect("/login?errore=1");
+  const ip = await ipRichiesta();
+  // Anche i codici sbagliati contano per il blocco: altrimenti si potrebbero provare all'infinito.
+  const minuti = await minutiDiBlocco(utente.email, ip);
+  if (minuti) {
+    await registraEvento({ utenteId: utente.id, email: utente.email, ip, tipo: "bloccato" });
+    await chiudiVerifica();
+    redirect(`/login?errore=bloccato&minuti=${minuti}`);
+  }
+  const esito = await controllaCodice(utente.id, codice);
+  if (!esito) {
+    await registraEvento({ utenteId: utente.id, email: utente.email, ip, tipo: "verifica_fallita" });
+    redirect("/login/verifica?errore=1");
+  }
+  if (esito.riserva) await registraEvento({ utenteId: utente.id, email: utente.email, ip, tipo: "codice_riserva_usato", dettaglio: `ne restano ${esito.rimasti}` });
+  await registraEvento({ utenteId: utente.id, email: utente.email, ip, tipo: "accesso" });
+  if (ricorda) await salvaDispositivo(await ricordaDispositivo(utente.id), GIORNI_DISPOSITIVO);
+  await chiudiVerifica();
+  await pulisciEventiVecchi();
+  await creaSessione(utente.id, await verificaObbligatoria(utente.id));
+  // Pochi codici di riserva rimasti: si va al profilo per crearne di nuovi.
+  redirect(utente.cambioPasswordObbligatorio ? "/cambia-password" : esito.riserva && esito.rimasti <= 2 ? "/profilo?riserva=pochi" : destinazioneSicura(v.destinazione));
 }

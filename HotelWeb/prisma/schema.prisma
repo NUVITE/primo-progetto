@@ -150,9 +150,19 @@ model Utente {
   // Password iniziale o reimpostata da un altro: al primo accesso va cambiata prima di fare altro.
   cambioPasswordObbligatorio Boolean  @default(false)
   passwordCambiataIl        DateTime?
+  // Verifica in due passaggi (codice a 6 cifre da un'app sul telefono, TOTP RFC 6238). Il segreto è
+  // cifrato con CHIAVE_CREDENZIALI; "inAttesa" vale tra la lettura del codice QR e la conferma.
+  totpSegretoCifrato         String?
+  totpInAttesaCifrato        String?
+  totpAttivoIl               DateTime?
+  // Ultimo passo di 30 secondi usato: lo stesso codice non vale due volte.
+  totpUltimoPasso            Int?
+  // Codici di riserva (impronte SHA-256), ognuno usabile una volta.
+  codiciRiserva              Json?
 
   accessi               UtenteHotel[]
   eventiAccesso         EventoAccesso[]
+  dispositiviFidati     DispositivoFidato[]
   eventiTassa           EventoTassa[]
   assegnazioniPulizia   AssegnazionePulizia[]
   segnalazioniAssegnate Segnalazione[]        @relation("assegnata")
@@ -2191,4 +2201,20 @@ model EventoAccesso {
   @@index([email, creatoIl])
   @@index([ip, creatoIl])
   @@index([utenteId, creatoIl])
+}
+
+/**
+ * Dispositivo su cui l'utente ha chiesto di non ripetere il codice della verifica in due passaggi per
+ * 30 giorni: nel browser c'è un cookie con un valore casuale, qui solo la sua impronta. Si cancellano
+ * tutti con il cambio password, "esci dagli altri dispositivi" e l'azzeramento della verifica.
+ */
+model DispositivoFidato {
+  id        Int      @id @default(autoincrement())
+  utenteId  Int
+  utente    Utente   @relation(fields: [utenteId], references: [id], onDelete: Cascade)
+  impronta  String   @unique
+  scadeIl   DateTime
+  creatoIl  DateTime @default(now())
+
+  @@index([utenteId])
 }

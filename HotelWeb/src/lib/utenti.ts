@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import type { UtenteSessione } from "@/lib/auth";
 import { problemaPassword } from "@/lib/accessiRegole";
 import { reimpostaPassword } from "@/lib/accessi";
+import { azzeraVerifica } from "@/lib/dueFattori";
 import { filtraPerModuli, PERMESSI, permessiAccesso, permessiEffettivi, type Permesso } from "@/lib/permessi";
 
 type Tx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
@@ -194,6 +195,11 @@ export async function rimuoviDaHotel(chi: UtenteSessione, utenteId: number) {
 /** Password dimenticata: password temporanea da comunicare all'utente (vedi reimpostaPassword). */
 export async function reimpostaPasswordUtente(chi: UtenteSessione, utenteId: number, ip: string | null) {
   return reimpostaPassword(chi, utenteId, ip, accessoGestibile);
+}
+
+/** Telefono perso: azzera la verifica in due passaggi (stesse regole della reimpostazione della password). */
+export async function azzeraVerificaUtente(chi: UtenteSessione, utenteId: number, ip: string | null) {
+  return azzeraVerifica(chi, utenteId, ip, accessoGestibile);
 }
 
 // --- Solo superadmin: operazioni sull'account intero, che valgono per tutti gli hotel ---

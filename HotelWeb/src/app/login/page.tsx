@@ -20,7 +20,9 @@ export default async function LoginPage({
           <p className="mb-4 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm font-semibold text-red-800">
             {errore === "bloccato"
               ? `Troppi tentativi sbagliati: per sicurezza l'accesso è sospeso. Riprova tra ${Number(minuti) || 15} ${Number(minuti) === 1 ? "minuto" : "minuti"}.`
-              : "Email o password non corrette."}
+              : errore === "scaduta"
+                ? "Il tempo per scrivere il codice di verifica è scaduto: accedi di nuovo."
+                : "Email o password non corrette."}
           </p>
         )}
 

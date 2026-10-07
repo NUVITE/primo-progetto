@@ -31,9 +31,10 @@ export async function verificaPassword(password: string, hash: string) {
  * coincide sempre con quello; per un account multi-struttura è quello scelto con
  * cambiaHotelAttivo() e può cambiare senza dover rifare login.
  */
-async function firmaSessione(utenteId: number, hotelId: number, versione: number) {
+async function firmaSessione(utenteId: number, hotelId: number, versione: number, attivaVerifica = false) {
   // v = versione della sessione dell'utente: se cambia (cambio password, uscita dagli altri dispositivi) il cookie non vale più.
-  const token = await new SignJWT({ sub: String(utenteId), hotelId, v: versione })
+  // a2 = deve attivare la verifica in due passaggi (obbligatoria per lui) prima di fare altro.
+  const token = await new SignJWT({ sub: String(utenteId), hotelId, v: versione, ...(attivaVerifica ? { a2: true } : {}) })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime(`${DURATA_SESSIONE_SECONDI}s`)
@@ -61,8 +62,11 @@ async function hotelAccessibili(utente: { superAdmin: boolean; accessi: { hotel:
     .sort((x, y) => x.nome.localeCompare(y.nome));
 }
 
-/** Da chiamare al login: sceglie il primo hotel accessibile come hotel attivo iniziale. */
-export async function creaSessione(utenteId: number) {
+/**
+ * Da chiamare al login: sceglie il primo hotel accessibile come hotel attivo iniziale. Con
+ * attivaVerifica l'utente, prima di fare altro, attiva la verifica in due passaggi (obbligatoria per lui).
+ */
+export async function creaSessione(utenteId: number, attivaVerifica = false) {
   const utente = await prisma.utente.findUniqueOrThrow({
     where: { id: utenteId },
     include: { accessi: { include: { hotel: { select: { id: true, nome: true, attivo: true } } } } },
@@ -71,14 +75,16 @@ export async function creaSessione(utenteId: number) {
   if (hotels.length === 0) {
     throw new Error(`L'utente ${utente.email} non è associato a nessun hotel.`);
   }
-  await firmaSessione(utenteId, hotels[0].id, utente.versioneSessione);
+  await firmaSessione(utenteId, hotels[0].id, utente.versioneSessione, attivaVerifica && !utente.totpAttivoIl);
 }
 
 /** Dopo un cambio di versione (es. cambio password) chi lo ha fatto resta dentro, nello stesso hotel. */
 export async function rinnovaSessione(utenteId: number, versione: number) {
   const sessione = await leggiSessioneDaCookie();
   if (!sessione || sessione.utenteId !== utenteId) return;
-  await firmaSessione(utenteId, sessione.hotelId, versione);
+  // La verifica appena attivata toglie l'obbligo di attivarla.
+  const u = await prisma.utente.findUnique({ where: { id: utenteId }, select: { totpAttivoIl: true } });
+  await firmaSessione(utenteId, sessione.hotelId, versione, sessione.attivaVerifica && !u?.totpAttivoIl);
 }
 
 /** Cambia l'hotel attivo di un account con accesso a più strutture, senza rifare login. */
@@ -94,7 +100,48 @@ export async function cambiaHotelAttivo(nuovoHotelId: number) {
     throw new Error("Non hai accesso a questo hotel.");
   }
 
-  await firmaSessione(sessione.utenteId, nuovoHotelId, sessione.versione);
+  await firmaSessione(sessione.utenteId, nuovoHotelId, sessione.versione, sessione.attivaVerifica);
+}
+
+// ---- Tra password e codice della verifica in due passaggi ----
+
+const COOKIE_VERIFICA = "hotelweb_verifica";
+const COOKIE_DISPOSITIVO = "hotelweb_dispositivo";
+const MINUTI_VERIFICA = 10;
+
+/** Password giusta, manca il codice: un cookie provvisorio (10 minuti) che non è ancora una sessione. */
+export async function avviaVerifica(utenteId: number, destinazione: string) {
+  const token = await new SignJWT({ sub: String(utenteId), scopo: "verifica", dest: destinazione })
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setExpirationTime(`${MINUTI_VERIFICA}m`)
+    .sign(chiaveSegreta());
+  (await cookies()).set(COOKIE_VERIFICA, token, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/", maxAge: MINUTI_VERIFICA * 60 });
+}
+
+/** Chi sta facendo il secondo passaggio (o null se il cookie manca o è scaduto). */
+export async function utenteInVerifica(): Promise<{ utenteId: number; destinazione: string } | null> {
+  const token = (await cookies()).get(COOKIE_VERIFICA)?.value;
+  if (!token) return null;
+  try {
+    const { payload } = await jwtVerify(token, chiaveSegreta());
+    if (payload.scopo !== "verifica" || !payload.sub) return null;
+    return { utenteId: Number(payload.sub), destinazione: typeof payload.dest === "string" ? payload.dest : "/" };
+  } catch {
+    return null;
+  }
+}
+
+export async function chiudiVerifica() {
+  (await cookies()).delete(COOKIE_VERIFICA);
+}
+
+export async function leggiDispositivo() {
+  return (await cookies()).get(COOKIE_DISPOSITIVO)?.value ?? null;
+}
+
+export async function salvaDispositivo(token: string, giorni: number) {
+  (await cookies()).set(COOKIE_DISPOSITIVO, token, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/", maxAge: giorni * 86400 });
 }
 
 export async function distruggiSessione() {
@@ -102,7 +149,7 @@ export async function distruggiSessione() {
   store.delete(COOKIE_SESSIONE);
 }
 
-async function leggiSessioneDaCookie(): Promise<{ utenteId: number; hotelId: number; versione: number } | null> {
+async function leggiSessioneDaCookie(): Promise<{ utenteId: number; hotelId: number; versione: number; attivaVerifica: boolean } | null> {
   const store = await cookies();
   const token = store.get(COOKIE_SESSIONE)?.value;
   if (!token) return null;
@@ -110,7 +157,7 @@ async function leggiSessioneDaCookie(): Promise<{ utenteId: number; hotelId: num
     const { payload } = await jwtVerify(token, chiaveSegreta());
     if (!payload.sub || typeof payload.hotelId !== "number") return null;
     // Cookie di prima della versione: valgono come versione 0 (nessuno viene buttato fuori dall'aggiornamento).
-    return { utenteId: Number(payload.sub), hotelId: payload.hotelId, versione: typeof payload.v === "number" ? payload.v : 0 };
+    return { utenteId: Number(payload.sub), hotelId: payload.hotelId, versione: typeof payload.v === "number" ? payload.v : 0, attivaVerifica: payload.a2 === true };
   } catch {
     return null;
   }
@@ -142,16 +189,25 @@ export type UtenteSessione = {
  */
 export async function getUtenteCorrente(): Promise<UtenteSessione | null> {
   const u = await caricaUtente();
-  return u && !u.cambioObbligatorio ? u.utente : null;
+  return u && !u.obbligo ? u.utente : null;
 }
 
 /** Utente con la sessione valida che deve cambiare la password prima di fare altro, o null. */
 export async function utenteDaCambiarePassword() {
   const u = await caricaUtente();
-  return u?.cambioObbligatorio ? u.utente : null;
+  return u?.obbligo === "password" ? u.utente : null;
 }
 
-async function caricaUtente(): Promise<{ utente: UtenteSessione; cambioObbligatorio: boolean } | null> {
+/** Utente con la sessione valida che deve attivare la verifica in due passaggi prima di fare altro, o null. */
+export async function utenteDaAttivareVerifica() {
+  const u = await caricaUtente();
+  return u?.obbligo === "verifica" ? u.utente : null;
+}
+
+/** Cosa deve fare l'utente prima di usare il programma: cambiare la password temporanea o attivare la verifica. */
+type Obbligo = "password" | "verifica" | null;
+
+async function caricaUtente(): Promise<{ utente: UtenteSessione; obbligo: Obbligo } | null> {
   const sessione = await leggiSessioneDaCookie();
   if (!sessione) return null;
 
@@ -194,7 +250,8 @@ async function caricaUtente(): Promise<{ utente: UtenteSessione; cambioObbligato
     tipologia: hotelDati?.tipologia ?? "albergo",
     funzioniSpente: funzioniSpente(hotelDati?.funzioniSpente),
   };
-  return { utente: dati, cambioObbligatorio: utente.cambioPasswordObbligatorio };
+  const obbligo: Obbligo = utente.cambioPasswordObbligatorio ? "password" : sessione.attivaVerifica && !utente.totpAttivoIl ? "verifica" : null;
+  return { utente: dati, obbligo };
 }
 
 export function puo(utente: Pick<UtenteSessione, "permessi">, permesso: Permesso) {
@@ -205,8 +262,9 @@ export function puo(utente: Pick<UtenteSessione, "permessi">, permesso: Permesso
 export async function richiediUtente(): Promise<UtenteSessione> {
   const u = await caricaUtente();
   if (!u) redirect("/login");
-  // Password temporanea: prima di tutto va cambiata.
-  if (u.cambioObbligatorio) redirect("/cambia-password");
+  // Password temporanea: prima di tutto va cambiata; poi, se obbligatoria, si attiva la verifica in due passaggi.
+  if (u.obbligo === "password") redirect("/cambia-password");
+  if (u.obbligo === "verifica") redirect("/attiva-verifica");
   return u.utente;
 }
 

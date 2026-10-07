@@ -10,6 +10,7 @@ import {
   azioneModalitaUtenti,
   azioneRimuoviDaHotel,
   azioneReimpostaPassword,
+  azioneAzzeraVerifica,
   azioneRuoliAggiuntivi,
   datiUtenti,
 } from "./actions";
@@ -117,6 +118,11 @@ export function GestioneUtenti({ iniziale }: { iniziale: Dati }) {
                 <td data-label="Nome" className="py-2 font-semibold">
                   {u.nome}
                   {u.id === dati.ioId && <span className="ml-1 text-xs font-normal text-stone-500">(tu)</span>}
+                  {u.verificaAttiva && (
+                    <span className="ml-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700" title="Accede con password e codice dal telefono">
+                      verifica in due passaggi
+                    </span>
+                  )}
                   {u.passwordTemporanea && (
                     <span className="ml-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-800" title="Al primo accesso dovrà sceglierne una sua">
                       password temporanea
@@ -244,6 +250,16 @@ export function GestioneUtenti({ iniziale }: { iniziale: Dati }) {
                           onClick={() => eseguendo(() => sbusta(azioneImpostaSuperAdmin(u.id, true)))}
                         >
                           Rendi superadmin
+                        </button>
+                      )}
+                      {u.id !== dati.ioId && u.verificaAttiva && (
+                        <button
+                          className="inline-flex h-7 items-center gap-1 rounded-md border border-stone-300 bg-white px-2 text-xs font-semibold text-stone-700 shadow-sm hover:bg-stone-50 disabled:opacity-45 pointer-coarse:h-9"
+                          title="Telefono perso o cambiato: al prossimo accesso la riattiverà"
+                          disabled={busy}
+                          onClick={() => eseguendo(() => sbusta(azioneAzzeraVerifica(u.id)))}
+                        >
+                          Azzera verifica
                         </button>
                       )}
                       {u.id !== dati.ioId && (

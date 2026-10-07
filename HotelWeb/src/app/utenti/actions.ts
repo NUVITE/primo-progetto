@@ -12,6 +12,7 @@ import {
   impostaRuoliAggiuntivi,
   impostaSuperAdmin,
   reimpostaPasswordUtente,
+  azzeraVerificaUtente,
   rimuoviDaHotel,
 } from "@/lib/utenti";
 import { ipRichiesta } from "@/lib/accessi";
@@ -32,6 +33,7 @@ export async function datiUtenti() {
       attivo: a.utente.attivo,
       // Password iniziale o reimpostata non ancora cambiata dall'utente.
       passwordTemporanea: a.utente.cambioPasswordObbligatorio,
+      verificaAttiva: !!a.utente.totpAttivoIl,
       ruoloId: a.ruoloId,
       ruoliAggiuntivi: a.ruoliAggiuntivi.map((x) => x.ruoloId),
     })),
@@ -52,6 +54,15 @@ export async function azioneReimpostaPassword(utenteId: number) {
     const chi = await richiediPermesso(PERMESSI.UTENTI_GESTISCI);
     const temporanea = await reimpostaPasswordUtente(chi, utenteId, await ipRichiesta());
     return { temporanea, dati: await datiUtenti() };
+  });
+}
+
+/** Telefono perso: la verifica in due passaggi del collega si azzera e al prossimo accesso la riattiva. */
+export async function azioneAzzeraVerifica(utenteId: number) {
+  return conEsito(async () => {
+    const chi = await richiediPermesso(PERMESSI.UTENTI_GESTISCI);
+    await azzeraVerificaUtente(chi, utenteId, await ipRichiesta());
+    return datiUtenti();
   });
 }
 
