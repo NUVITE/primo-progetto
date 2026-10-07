@@ -5,19 +5,13 @@ import { sbusta } from "@/lib/esito";
 import { Avviso, Dato, IntestazionePagina, Pulsante, Sezione } from "@/components/ui";
 import { AiutoSezione } from "@/components/AiutoSezione";
 import { CambioPassword } from "./CambioPassword";
+import { EVENTI_ACCESSO } from "@/lib/accessiRegole";
 import { azioneEsciAltriDispositivi, datiProfilo } from "./actions";
 
 type Dati = Awaited<ReturnType<typeof datiProfilo>>;
 
 const quando = (iso: string) => new Date(iso).toLocaleString("it-IT", { timeZone: "Europe/Rome", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
-const EVENTI: Record<string, string> = {
-  accesso: "Accesso",
-  accesso_fallito: "Password sbagliata",
-  bloccato: "Tentativo durante il blocco",
-  password_cambiata: "Password cambiata",
-  password_reimpostata: "Password reimpostata",
-  uscita_dispositivi: "Uscita dagli altri dispositivi",
-};
+const EVENTI: Record<string, string> = EVENTI_ACCESSO;
 
 /** Il mio profilo: cambio password, uscita dagli altri dispositivi, ultimi accessi. */
 export function Profilo({ iniziale }: { iniziale: Dati }) {

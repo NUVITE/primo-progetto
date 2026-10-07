@@ -147,9 +147,15 @@ function ContenutoBarra({
       {/* Menu ad albero */}
       {/* In modalità compatta niente overflow: taglierebbe i riquadri a comparsa delle voci. */}
       <nav className={`flex-1 px-2 py-3 ${compatta ? "" : "overflow-y-auto"}`}>
-        {gruppi.map((g) => {
+        {(() => {
+          // Voce attiva = la più specifica che corrisponde (su /utenti/accessi non anche "Utenti").
+          const attivaHref = gruppi
+            .flatMap((g) => g.voci.map((v) => v.href))
+            .filter((h) => voceAttiva(h, pathname))
+            .sort((a, b) => b.length - a.length)[0];
+          return gruppi.map((g) => {
           const Icona = g.icona;
-          const contieneAttiva = g.voci.some((v) => voceAttiva(v.href, pathname));
+          const contieneAttiva = g.voci.some((v) => v.href === attivaHref);
           const aperto = contieneAttiva || !pref.chiusi.includes(g.id);
           const accento = g.soloSuperAdmin ? { color: "var(--sb-piattaforma)" } : undefined;
 
@@ -173,7 +179,7 @@ function ContenutoBarra({
                     {g.label}
                   </div>
                   {g.voci.map((v) => (
-                    <VoceLink key={v.href} voce={v} attiva={voceAttiva(v.href, pathname)} suNavigazione={suNavigazione} />
+                    <VoceLink key={v.href} voce={v} attiva={v.href === attivaHref} suNavigazione={suNavigazione} />
                   ))}
                 </div>
               </div>
@@ -196,13 +202,14 @@ function ContenutoBarra({
               {aperto && (
                 <div className="mt-0.5 flex flex-col gap-0.5 pl-6">
                   {g.voci.map((v) => (
-                    <VoceLink key={v.href} voce={v} attiva={voceAttiva(v.href, pathname)} suNavigazione={suNavigazione} />
+                    <VoceLink key={v.href} voce={v} attiva={v.href === attivaHref} suNavigazione={suNavigazione} />
                   ))}
                 </div>
               )}
             </div>
           );
-        })}
+          });
+        })()}
       </nav>
 
       {/* Utente e comandi */}

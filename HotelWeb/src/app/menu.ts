@@ -99,6 +99,7 @@ export const MENU: GruppoMenu[] = [
       { href: "/impostazioni/adempimenti", label: "Adempimenti (Polizia, ISTAT)", permesso: PERMESSI.HOTEL_CONFIGURA },
       { href: "/impostazioni/sale", label: "Sale e fasce orarie", permesso: PERMESSI.SALE_CONFIGURA, modulo: "sale" },
       { href: "/utenti", label: "Utenti", permesso: PERMESSI.UTENTI_GESTISCI },
+      { href: "/utenti/accessi", label: "Registro accessi", permesso: PERMESSI.UTENTI_GESTISCI },
       { href: "/ruoli", label: "Ruoli", permesso: PERMESSI.RUOLI_GESTISCI },
     ],
   },
@@ -111,6 +112,7 @@ export const MENU: GruppoMenu[] = [
       { href: "/piattaforma/hotel", label: "Hotel" },
       { href: "/piattaforma/tassa", label: "Tassa di soggiorno" },
       { href: "/piattaforma/tabelle-polizia", label: "Tabelle Polizia" },
+      { href: "/piattaforma/accessi", label: "Accessi" },
     ],
   },
 ];

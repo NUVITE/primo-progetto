@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { creaSessione, verificaPassword } from "@/lib/auth";
-import { ipRichiesta, minutiDiBlocco, registraEvento } from "@/lib/accessi";
+import { ipRichiesta, minutiDiBlocco, pulisciEventiVecchi, registraEvento } from "@/lib/accessi";
 import { destinazioneSicura } from "@/lib/accessiRegole";
 
 export async function effettuaLogin(formData: FormData) {
@@ -20,13 +20,13 @@ export async function effettuaLogin(formData: FormData) {
 
   // Troppi errori di recente per questa email (o da questo indirizzo): si rifiuta anche la password giusta.
   const ip = await ipRichiesta();
+  const utente = await prisma.utente.findUnique({ where: { email } });
   const minuti = await minutiDiBlocco(email, ip);
   if (minuti) {
-    await registraEvento({ email, ip, tipo: "bloccato" });
+    await registraEvento({ utenteId: utente?.id ?? null, email, ip, tipo: "bloccato" });
     redirect(`/login?errore=bloccato&minuti=${minuti}&da=${encodeURIComponent(destinazione)}`);
   }
 
-  const utente = await prisma.utente.findUnique({ where: { email } });
   const passwordOk = !!utente && utente.attivo && (await verificaPassword(password, utente.passwordHash));
   // Account senza più nessun hotel attivo (rimosso dall'ultimo, o hotel disattivato dalla
   // piattaforma): stesso messaggio di credenziali errate, invece di un errore generico da eccezione.
@@ -38,6 +38,7 @@ export async function effettuaLogin(formData: FormData) {
   }
 
   await registraEvento({ utenteId: utente.id, email, ip, tipo: "accesso" });
+  await pulisciEventiVecchi();
   await creaSessione(utente.id);
   redirect(utente.cambioPasswordObbligatorio ? "/cambia-password" : destinazione);
 }

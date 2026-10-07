@@ -12,7 +12,7 @@ import { prisma } from "../src/lib/prisma";
 import type { UtenteSessione } from "../src/lib/auth";
 import { PERMESSI, TUTTI_I_PERMESSI } from "../src/lib/permessi";
 import { destinazioneSicura, LIMITE_EMAIL, LIMITE_IP, passwordTemporanea, problemaPassword, statoBlocco } from "../src/lib/accessiRegole";
-import { cambiaPassword, esciDagliAltriDispositivi, minutiDiBlocco, registraEvento } from "../src/lib/accessi";
+import { cambiaPassword, esciDagliAltriDispositivi, minutiDiBlocco, pulisciEventiVecchi, registraEvento, registroAccessi } from "../src/lib/accessi";
 import { aggiungiUtente, reimpostaPasswordUtente } from "../src/lib/utenti";
 
 let falliti = 0;
@@ -134,6 +134,36 @@ async function main() {
     verifica("Nuovo utente con password debole: rifiutato", !!debole, debole);
     await aggiungiUtente(sessione(admin.id, "Admin", true), { nome: "Carla", email: `carla${SUFFISSO}`, password: "fiori di campo 2026", ruoloId: rec.id });
     verifica("Nuovo utente: password da cambiare al primo accesso", (await prisma.utente.findUniqueOrThrow({ where: { email: `carla${SUFFISSO}` } })).cambioPasswordObbligatorio);
+
+    // Registro: per la struttura solo i suoi utenti; filtri; conservazione 12 mesi.
+    const sa = await prisma.utente.create({ data: { nome: "Fornitore", email: `fornitore${SUFFISSO}`, passwordHash: hash, superAdmin: true } });
+    await registraEvento({ utenteId: sa.id, email: `fornitore${SUFFISSO}`, ip: IP, tipo: "accesso" });
+    await registraEvento({ utenteId: null, email: `sconosciuto${SUFFISSO}`, ip: IP, tipo: "accesso_fallito" });
+    await registraEvento({ utenteId: anna.id, email: `anna${SUFFISSO}`, ip: IP, tipo: "accesso_fallito" });
+    const oggi = new Date().toISOString().slice(0, 10);
+    const filtro = { dal: oggi, al: oggi, utenteId: null, soloProblemi: false };
+    const r1 = await registroAccessi(hotel.id, filtro);
+    const nomi = new Set(r1.eventi.map((x) => x.utente));
+    verifica(
+      "Registro della struttura: i suoi utenti sì, il fornitore e le email sconosciute no",
+      nomi.has("Anna") && nomi.has("Bruno") && !nomi.has("Fornitore") && !nomi.has(null) && r1.utenti.every((u) => u.nome !== "Fornitore"),
+      [...nomi],
+    );
+    const r2 = await registroAccessi(hotel.id, { ...filtro, soloProblemi: true });
+    verifica("Solo problemi: password sbagliate e blocchi", r2.eventi.length > 0 && r2.eventi.every((x) => x.tipo === "accesso_fallito" || x.tipo === "bloccato"));
+    const r3 = await registroAccessi(hotel.id, { ...filtro, utenteId: anna.id });
+    verifica("Filtro per utente", r3.eventi.length > 0 && r3.eventi.every((x) => x.utente === "Anna"));
+    verifica("Utente di un'altra struttura (il fornitore): rifiutato", !!(await errore(() => registroAccessi(hotel.id, { ...filtro, utenteId: sa.id }))));
+    verifica("Periodo rovesciato: rifiutato", !!(await errore(() => registroAccessi(hotel.id, { ...filtro, dal: "2026-12-01", al: "2026-11-01" }))));
+    const tutto = await registroAccessi(null, filtro);
+    verifica("Registro della piattaforma: anche il fornitore e le email sconosciute", tutto.eventi.some((x) => x.utente === "Fornitore") && tutto.eventi.some((x) => x.email === `sconosciuto${SUFFISSO}`));
+    const vecchio = await prisma.eventoAccesso.create({ data: { email: `vecchio${SUFFISSO}`, ip: IP, tipo: "accesso", creatoIl: new Date(Date.now() - 400 * 86400000) } });
+    const recente = await prisma.eventoAccesso.create({ data: { email: `recente${SUFFISSO}`, ip: IP, tipo: "accesso", creatoIl: new Date(Date.now() - 300 * 86400000) } });
+    await pulisciEventiVecchi();
+    verifica(
+      "Conservazione: dopo 12 mesi l'evento si cancella, prima no",
+      !(await prisma.eventoAccesso.findUnique({ where: { id: vecchio.id } })) && !!(await prisma.eventoAccesso.findUnique({ where: { id: recente.id } })),
+    );
   } finally {
     await prisma.eventoAccesso.deleteMany({ where: { OR: [{ email: { endsWith: SUFFISSO } }, { ip: IP }] } });
     await prisma.utenteHotel.deleteMany({ where: { hotelId: { in: [hotel.id, altro.id] } } });

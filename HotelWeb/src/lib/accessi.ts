@@ -7,7 +7,7 @@ import { randomBytes } from "node:crypto";
 import { headers } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import type { UtenteSessione } from "@/lib/auth";
-import { LIMITE_EMAIL, LIMITE_IP, FINESTRA_MINUTI, passwordTemporanea, problemaPassword, statoBlocco } from "@/lib/accessiRegole";
+import { EVENTI_PROBLEMA, LIMITE_EMAIL, LIMITE_IP, FINESTRA_MINUTI, MESI_CONSERVAZIONE, passwordTemporanea, problemaPassword, statoBlocco } from "@/lib/accessiRegole";
 
 // Come in auth.ts (che è solo per il server e non si può importare dai collaudi).
 const creaPasswordHash = (p: string) => bcrypt.hash(p, 10);
@@ -88,4 +88,51 @@ export async function reimpostaPassword(chi: UtenteSessione, utenteId: number, i
   });
   await registraEvento({ utenteId, email: u.email, ip, tipo: "password_reimpostata", dettaglio: `da ${chi.nome}` });
   return temporanea;
+}
+
+/** Cancella gli eventi più vecchi del periodo di conservazione (si chiama a ogni accesso riuscito). */
+export async function pulisciEventiVecchi(ora = new Date()) {
+  const limite = new Date(ora);
+  limite.setMonth(limite.getMonth() - MESI_CONSERVAZIONE);
+  await prisma.eventoAccesso.deleteMany({ where: { creatoIl: { lt: limite } } });
+}
+
+/** Scarto dell'ora italiana per un giorno: "+01:00" d'inverno, "+02:00" con l'ora legale. */
+function offsetRoma(g: string) {
+  const nome = new Intl.DateTimeFormat("en-US", { timeZone: "Europe/Rome", timeZoneName: "shortOffset" }).formatToParts(new Date(`${g}T12:00:00Z`)).find((p) => p.type === "timeZoneName")?.value;
+  return nome === "GMT+2" ? "+02:00" : "+01:00";
+}
+
+export type FiltroRegistro = { dal: string; al: string; utenteId: number | null; soloProblemi: boolean };
+
+/**
+ * Registro degli accessi. Con hotelId: solo gli utenti che lavorano in quella struttura (il gestore
+ * della piattaforma no); senza: tutto, anche i tentativi su email inesistenti (pagina del fornitore).
+ * Al massimo 500 righe, le più recenti.
+ */
+export async function registroAccessi(hotelId: number | null, f: FiltroRegistro) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(f.dal) || !/^\d{4}-\d{2}-\d{2}$/.test(f.al) || f.dal > f.al) throw new Error("Periodo non valido.");
+  const utenti = hotelId
+    ? await prisma.utente.findMany({ where: { superAdmin: false, accessi: { some: { hotelId } } }, select: { id: true, nome: true, email: true }, orderBy: { nome: "asc" } })
+    : await prisma.utente.findMany({ select: { id: true, nome: true, email: true }, orderBy: { nome: "asc" } });
+  const ids = utenti.map((u) => u.id);
+  if (f.utenteId !== null && !ids.includes(f.utenteId)) throw new Error("Utente non trovato.");
+  // Le date sono giorni italiani: la fine del giorno "al" è compresa.
+  const dal = new Date(`${f.dal}T00:00:00${offsetRoma(f.dal)}`);
+  const al = new Date(`${f.al}T23:59:59.999${offsetRoma(f.al)}`);
+  const eventi = await prisma.eventoAccesso.findMany({
+    where: {
+      creatoIl: { gte: dal, lte: al },
+      ...(f.utenteId !== null ? { utenteId: f.utenteId } : hotelId ? { utenteId: { in: ids } } : {}),
+      ...(f.soloProblemi ? { tipo: { in: [...EVENTI_PROBLEMA] } } : {}),
+    },
+    include: { utente: { select: { nome: true } } },
+    orderBy: { creatoIl: "desc" },
+    take: 501,
+  });
+  return {
+    utenti,
+    troppi: eventi.length > 500,
+    eventi: eventi.slice(0, 500).map((e) => ({ id: e.id, quando: e.creatoIl.toISOString(), tipo: e.tipo, utente: e.utente?.nome ?? null, email: e.email, ip: e.ip, dettaglio: e.dettaglio })),
+  };
 }

@@ -64,3 +64,18 @@ export function passwordTemporanea(casuali: Uint8Array) {
   const c = [...casuali.slice(0, 12)].map((b) => ALFABETO[b % ALFABETO.length]).join("");
   return `${c.slice(0, 4)}-${c.slice(4, 8)}-${c.slice(8, 12)}`;
 }
+
+/** Il registro degli accessi si conserva 12 mesi, poi si cancella (minimizzazione dei dati, GDPR). */
+export const MESI_CONSERVAZIONE = 12;
+
+export const EVENTI_ACCESSO = {
+  accesso: "Accesso",
+  accesso_fallito: "Password sbagliata",
+  bloccato: "Tentativo durante il blocco",
+  password_cambiata: "Password cambiata",
+  password_reimpostata: "Password reimpostata",
+  uscita_dispositivi: "Uscita dagli altri dispositivi",
+} as const;
+
+/** Eventi da guardare con attenzione (in rosso nel registro, filtro "solo problemi"). */
+export const EVENTI_PROBLEMA = ["accesso_fallito", "bloccato"] as const;
