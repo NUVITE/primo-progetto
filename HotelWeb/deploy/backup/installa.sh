@@ -47,6 +47,7 @@ systemctl daemon-reload
 systemctl enable --now hotelweb-backup.timer
 # Primo backup subito, per avere una copia e uno stato da mostrare.
 systemctl start hotelweb-backup.service
-systemctl --no-pager status hotelweb-backup.service | tail -3
+# (status restituisce 3 per un servizio "oneshot" già terminato: non è un errore)
+systemctl --no-pager status hotelweb-backup.service | tail -3 || true
 cat "$DEST/stato.json"
 systemctl list-timers hotelweb-backup.timer --no-pager
