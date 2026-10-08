@@ -8,6 +8,7 @@ import { votiBassiDaLeggere } from "@/lib/questionari";
 import { consegneDaLeggere } from "@/lib/consegne";
 import { arriviSenzaIstruzioni } from "@/lib/arrivo";
 import { oggiItaliano } from "@/lib/cassaAperta";
+import { statoBackup } from "@/lib/backup";
 
 /**
  * Avvisi degli adempimenti per la barra in cima all'app (schedine di Polizia e giorni ISTAT da
@@ -27,6 +28,9 @@ export async function GET() {
   // Arrivi autonomi dei prossimi giorni senza istruzioni inviate: per chi gestisce le prenotazioni e invia le email.
   const arrivi =
     puo(utente, PERMESSI.PRENOTAZIONI_GESTISCI) && puo(utente, PERMESSI.EMAIL_INVIA) ? (await arriviSenzaIstruzioni(utente.hotelId, oggiItaliano())).length : 0;
+  // Backup notturni con problemi: solo per il gestore della piattaforma.
+  const v = utente.superAdmin ? (await statoBackup()).valutazione : null;
+  const backup = v && (v.livello === "errore" || v.livello === "avviso") ? v : null;
   const [schedine, istat] = adempimenti ? await Promise.all([avvisoSchedine(utente.hotelId), avvisoIstat(utente.hotelId).catch(() => null)]) : [null, null];
-  return NextResponse.json({ schedine, istat, preventivi, questionari, consegne, arrivi }, { headers: { "Cache-Control": "no-store" } });
+  return NextResponse.json({ schedine, istat, preventivi, questionari, consegne, arrivi, backup }, { headers: { "Cache-Control": "no-store" } });
 }

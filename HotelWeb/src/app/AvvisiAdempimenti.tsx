@@ -1,6 +1,6 @@
 "use client";
 
-import { BarChart3, KeyRound, MailCheck, MessageSquareWarning, NotebookPen, ShieldAlert, type LucideIcon } from "lucide-react";
+import { BarChart3, DatabaseBackup, KeyRound, MailCheck, MessageSquareWarning, NotebookPen, ShieldAlert, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -13,6 +13,7 @@ type Avvisi = {
   questionari?: number;
   consegne?: number;
   arrivi?: number;
+  backup?: { livello: "errore" | "avviso"; messaggi: string[] } | null;
 };
 
 /** "tra 5 ore" / "scaduta da 2 ore" rispetto a adesso. */
@@ -54,7 +55,8 @@ export function AvvisiAdempimenti({ attivo }: { attivo: boolean }) {
   const qs = avvisi?.questionari ?? 0;
   const cs = avvisi?.consegne ?? 0;
   const ar = avvisi?.arrivi ?? 0;
-  if (!s && !i && !pv && !qs && !cs && !ar) return null;
+  const bk = avvisi?.backup ?? null;
+  if (!s && !i && !pv && !qs && !cs && !ar && !bk) return null;
   const it = (g: string) => g.split("-").reverse().join("/");
   return (
     <>
@@ -62,6 +64,11 @@ export function AvvisiAdempimenti({ attivo }: { attivo: boolean }) {
         <Barra scaduto={false} icona={MailCheck} link={pathname !== "/preventivi" ? { href: "/preventivi", testo: "Vai ai preventivi" } : null}>
           <strong>{pv === 1 ? "Un ospite ha risposto online a un preventivo" : `${pv} ospiti hanno risposto online ai preventivi`}</strong> — aprilo per vedere se ha
           accettato.
+        </Barra>
+      )}
+      {bk && (
+        <Barra scaduto={bk.livello === "errore"} icona={DatabaseBackup} link={pathname !== "/piattaforma/hotel" ? { href: "/piattaforma/hotel", testo: "Vedi i backup" } : null}>
+          <strong>{bk.livello === "errore" ? "Backup: attenzione" : "Backup da controllare"}</strong> — {bk.messaggi.join(" ")}
         </Barra>
       )}
       {ar > 0 && (

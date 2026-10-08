@@ -4,10 +4,12 @@ import { elencoHotel } from "@/lib/hotel";
 import { CATALOGO_MODULI } from "@/lib/moduli";
 import { nomeTipologia } from "@/lib/tipologie";
 import { FUNZIONI } from "@/lib/funzioniRegole";
+import { statoBackup } from "@/lib/backup";
+import { StatoBackup } from "./StatoBackup";
 
 export default async function HotelPiattaformaPage() {
   await richiediSuperAdmin();
-  const hotels = await elencoHotel();
+  const [hotels, backup] = await Promise.all([elencoHotel(), statoBackup()]);
   const nomeModulo = (m: string) => CATALOGO_MODULI.find((c) => c.modulo === m)?.nome ?? m;
 
   return (
@@ -21,6 +23,8 @@ export default async function HotelPiattaformaPage() {
           + Nuovo hotel
         </Link>
       </div>
+
+      <StatoBackup stato={backup} />
 
       <div className="overflow-x-auto rounded-xl border border-stone-200 bg-white">
         <table className="tabella-responsive w-full text-sm">

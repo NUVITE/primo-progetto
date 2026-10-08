@@ -1,0 +1,9 @@
+[Unit]
+Description=HotelWeb: backup notturno del database
+After=mariadb.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/hotelweb-backup-notturno
+Nice=10
+IOSchedulingClass=idle

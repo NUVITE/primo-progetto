@@ -7,6 +7,7 @@ import { randomBytes } from "node:crypto";
 import { headers } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import type { UtenteSessione } from "@/lib/auth";
+import { offsetRoma } from "@/lib/backupRegole";
 import { EVENTI_PROBLEMA, LIMITE_EMAIL, LIMITE_IP, FINESTRA_MINUTI, MESI_CONSERVAZIONE, passwordTemporanea, problemaPassword, statoBlocco } from "@/lib/accessiRegole";
 
 // Come in auth.ts (che è solo per il server e non si può importare dai collaudi).
@@ -102,12 +103,6 @@ export async function pulisciEventiVecchi(ora = new Date()) {
   const limite = new Date(ora);
   limite.setMonth(limite.getMonth() - MESI_CONSERVAZIONE);
   await prisma.eventoAccesso.deleteMany({ where: { creatoIl: { lt: limite } } });
-}
-
-/** Scarto dell'ora italiana per un giorno: "+01:00" d'inverno, "+02:00" con l'ora legale. */
-function offsetRoma(g: string) {
-  const nome = new Intl.DateTimeFormat("en-US", { timeZone: "Europe/Rome", timeZoneName: "shortOffset" }).formatToParts(new Date(`${g}T12:00:00Z`)).find((p) => p.type === "timeZoneName")?.value;
-  return nome === "GMT+2" ? "+02:00" : "+01:00";
 }
 
 export type FiltroRegistro = { dal: string; al: string; utenteId: number | null; soloProblemi: boolean };
