@@ -187,7 +187,7 @@ Il manuale che stai leggendo si apre da **Aiuto › Manuale** ([Manuale](/manual
 
 - Il tuo account è personale: non dare la password ai colleghi. Ognuno ha il suo, così il programma registra chi ha fatto cosa.
 - Se una pagina non compare nel menu, il tuo ruolo non ha il permesso per usarla: chiedi a chi gestisce gli utenti.
-- Se il tuo ruolo non comprende **Vedere prenotazioni** (per esempio cucina o cameriere ai piani), la pagina iniziale mostra solo un messaggio di benvenuto al posto del planning: apri le tue pagine dal menu laterale.
+- Se il tuo ruolo non comprende **Vedere prenotazioni** (per esempio cucina o cameriere ai piani), la pagina iniziale non mostra il planning ma i pulsanti delle pagine che puoi usare, divisi per gruppo come nel menu.
 
 ## Problemi frequenti
 

@@ -43,7 +43,15 @@ function nuovoSegmento(listinoId: number | null, trattamento: string): Segmento 
   };
 }
 
-export function NuovaPrenotazioneForm() {
+/** Il giorno dopo (aaaa-mm-gg), per la partenza proposta di una notte. */
+const giornoDopo = (g: string) => {
+  const d = new Date(`${g}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10);
+};
+
+/** cameraIniziale/dalIniziale: dal planning (cella libera di una camera) la prima camera è già scelta. */
+export function NuovaPrenotazioneForm({ cameraIniziale = null, dalIniziale = null }: { cameraIniziale?: number | null; dalIniziale?: string | null }) {
   const [camere, setCamere] = useState<Camera[]>([]);
   const [listini, setListini] = useState<Listino[]>([]);
   const [caricato, setCaricato] = useState(false);
@@ -93,7 +101,14 @@ export function NuovaPrenotazioneForm() {
           scad.setDate(scad.getDate() + d.giorniOpzione);
           setScadenzaOpzione(`${scad.getFullYear()}-${String(scad.getMonth() + 1).padStart(2, "0")}-${String(scad.getDate()).padStart(2, "0")}`);
         }
-        setSegmenti([nuovoSegmento(d.listini[0]?.id ?? null, d.trattamenti[0] ?? "")]);
+        const primo = nuovoSegmento(d.listini[0]?.id ?? null, d.trattamenti[0] ?? "");
+        // Camera e giorno passati dal planning (solo se la camera è tra quelle dell'hotel).
+        if (cameraIniziale && d.camere.some((c) => c.id === cameraIniziale)) primo.cameraId = cameraIniziale;
+        if (dalIniziale) {
+          primo.dataInizio = dalIniziale;
+          primo.dataFine = giornoDopo(dalIniziale);
+        }
+        setSegmenti([primo]);
         setCaricato(true);
       })
       .catch((e) => {
@@ -114,6 +129,7 @@ export function NuovaPrenotazioneForm() {
           dataFine: seg.dataFine,
           trattamento: seg.trattamento,
           composizione: seg.composizione,
+          intermediarioId: provenienza.canale !== "diretta" && provenienza.intermediarioId ? Number(provenienza.intermediarioId) : null,
         })).catch(() => null);
         setSegmenti((prev) => {
           const next = [...prev];
@@ -124,7 +140,7 @@ export function NuovaPrenotazioneForm() {
       return () => clearTimeout(timer);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [segmenti.map((s) => `${s.cameraId}-${s.listinoId}-${s.dataInizio}-${s.dataFine}-${s.trattamento}-${JSON.stringify(s.composizione)}`).join("|")]);
+  }, [segmenti.map((s) => `${s.cameraId}-${s.listinoId}-${s.dataInizio}-${s.dataFine}-${s.trattamento}-${JSON.stringify(s.composizione)}`).join("|"), provenienza.canale, provenienza.intermediarioId]);
 
   function aggiornaSegmento(idx: number, patch: Partial<Segmento>) {
     setSegmenti((prev) => prev.map((s, i) => (i === idx ? { ...s, ...patch } : s)));

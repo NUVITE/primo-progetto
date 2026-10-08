@@ -27,7 +27,7 @@ La tipologia decide come si chiamano le unità che affitti:
 | Case e appartamenti per vacanze | appartamenti |
 | Residence | appartamenti |
 
-Così in una casa vacanze il menu mostra **Ricevimento › Planning appartamenti** e **Impostazioni › Appartamenti**, e chi pulisce trova **Piani e manutenzioni › I miei appartamenti**. Alcune scritte dentro le pagine di configurazione (per esempio *Tipi camera* nella pagina delle camere) restano uguali per tutti.
+Così in una casa vacanze il menu mostra **Ricevimento › Planning appartamenti** e **Impostazioni › Appartamenti**, e chi pulisce trova **Piani e manutenzioni › I miei appartamenti**. Anche la pagina degli appartamenti parla di *Tipi appartamento* e *+ Aggiungi appartamento*. Alcune scritte in altre pagine (per esempio *Aggiungi una camera* nel dettaglio della prenotazione) restano uguali per tutti.
 
 > La tipologia adatta il programma alla struttura. Non certifica la classificazione: quella resta quella autorizzata dal comune.
 
@@ -57,7 +57,7 @@ Chi può impostarla: chi ha il permesso **Gestire camere**.
 ### Impostare il prezzo
 
 1. Apri **Impostazioni › Camere** (o **Impostazioni › Appartamenti**): [Camere](/camere/gestione).
-2. Nella tabella **Tipi camera** trova la colonna **Pulizia finale €**.
+2. Nella tabella **Tipi camera** (nelle case vacanze **Tipi appartamento**) trova la colonna **Pulizia finale €**.
 3. Scrivi il prezzo nella riga del tipo, per esempio `50` per il bilocale e `70` per il trilocale.
 4. Esci dal campo (clic altrove o tasto Tab): il valore si salva da solo.
 
@@ -88,7 +88,7 @@ Chi può usarla: chi ha il permesso **Registrare pagamenti**. Il prezzo proposto
 ### Impostare la cauzione proposta
 
 1. Apri **Impostazioni › Camere** ([Camere](/camere/gestione)).
-2. Nella tabella **Tipi camera** scrivi l'importo nella colonna **Cauzione €**, per esempio `200`.
+2. Nella tabella **Tipi camera** (nelle case vacanze **Tipi appartamento**) scrivi l'importo nella colonna **Cauzione €**, per esempio `200`.
 3. Esci dal campo: si salva da solo.
 
 Nella prenotazione il programma propone la somma delle cauzioni dei tipi delle sue camere (le camere annullate non contano). Due appartamenti con cauzione 200 € ciascuno: si propongono 400 €.

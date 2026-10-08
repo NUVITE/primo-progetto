@@ -17,7 +17,7 @@ Il programma usa la parola giusta per la tua struttura. La **tipologia** (alberg
 - Albergo, B&B, affittacamere, casa per ferie, agriturismo: **camere**.
 - Residenza turistico-alberghiera, case e appartamenti per vacanze, residence: **appartamenti**.
 
-Così il menu dice **Impostazioni › Appartamenti** invece di **Impostazioni › Camere**, e il primo avvio dice "Appartamenti e tipi". In questo capitolo scriviamo "camera": se la tua struttura affitta appartamenti, leggi "appartamento". Dentro alcune pagine di configurazione (per esempio quella delle camere) certe scritte restano "camera" anche nelle case vacanze.
+Così il menu dice **Impostazioni › Appartamenti** invece di **Impostazioni › Camere**, e il primo avvio dice "Appartamenti e tipi". In questo capitolo scriviamo "camera": se la tua struttura affitta appartamenti, leggi "appartamento". In alcune pagine (per esempio nel dettaglio della prenotazione, *Aggiungi una camera*) certe scritte restano "camera" anche nelle case vacanze.
 
 ## La pagina Primo avvio
 

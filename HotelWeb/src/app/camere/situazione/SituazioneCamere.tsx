@@ -856,8 +856,8 @@ export function SituazioneCamere({
                   {ETICHETTA[cellaSelezionata.stato]}
                 </span>
                 {cellaSelezionata.label && <div className="text-sm"><strong>{cellaSelezionata.label}</strong></div>}
-                {(cellaSelezionata.stato === "libera" || cellaSelezionata.stato === "in_partenza" || cellaSelezionata.stato === "uso_diurno") && (
-                  <Link href="/prenotazioni/nuova" className={classePulsante("primario", "normale", "mt-2")}>
+                {puoGestire && selezionata && (cellaSelezionata.stato === "libera" || cellaSelezionata.stato === "in_partenza" || cellaSelezionata.stato === "uso_diurno") && (
+                  <Link href={`/prenotazioni/nuova?camera=${cameraSelezionata.id}&dal=${selezionata.giorno}`} className={classePulsante("primario", "normale", "mt-2")}>
                     <Plus className="h-4 w-4" aria-hidden /> Nuova prenotazione (camera specifica)
                   </Link>
                 )}

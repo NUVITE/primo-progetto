@@ -17,6 +17,7 @@ import {
   datiGestione,
 } from "./actions";
 import { Suggerimento } from "@/components/Suggerimento";
+import { conUnita } from "@/lib/funzioniRegole";
 
 type Dati = Awaited<ReturnType<typeof datiGestione>>;
 
@@ -24,7 +25,8 @@ function formattaIt(iso: string) {
   return iso.split("-").reverse().join("/");
 }
 
-export function GestioneCamere({ iniziale }: { iniziale: Dati }) {
+export function GestioneCamere({ iniziale, unita }: { iniziale: Dati; unita: { singolare: string; plurale: string; femminile: boolean } }) {
+  const t = (s: string) => conUnita(s, unita);
   const [dati, setDati] = useState(iniziale);
   const [errore, setErrore] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -63,12 +65,12 @@ export function GestioneCamere({ iniziale }: { iniziale: Dati }) {
 
   return (
     <div className="flex w-full min-w-0 flex-col gap-6 p-3 sm:p-6">
-      <h1 className="text-xl font-bold">Gestione camere</h1>
-      <Suggerimento id="gestione-camere" titolo="Come si configurano le camere">
+      <h1 className="text-xl font-bold">{t("Gestione {camere}")}</h1>
+      <Suggerimento id="gestione-camere" titolo={t("Come si configurano le {camere}")}>
         <ol className="list-decimal space-y-1 pl-5">
-          <li>Crea i <strong>tipi camera</strong> (singola, doppia, suite…): i prezzi dei listini sono per tipo. Qui indichi anche quanti letti aggiunti sono possibili, se gli animali sono ammessi e il prezzo all&apos;ora proposto per l&apos;uso diurno (day use).</li>
-          <li>Aggiungi le <strong>camere</strong> con numero, tipo, piano e capienza.</li>
-          <li>Per una camera in manutenzione usa <strong>Fuori servizio</strong>: nel periodo indicato non si può prenotare.</li>
+          <li>Crea i <strong>{t("tipi {camera}")}</strong> (singola, doppia, suite…): i prezzi dei listini sono per tipo. Qui indichi anche quanti letti aggiunti sono possibili, se gli animali sono ammessi e il prezzo all&apos;ora proposto per l&apos;uso diurno (day use).</li>
+          <li>Aggiungi {unita.femminile ? "le" : "gli"} <strong>{t("{camere}")}</strong> con numero, tipo, piano e capienza.</li>
+          <li>Per i lavori di manutenzione usa <strong>Fuori servizio</strong>: nel periodo indicato non si può prenotare.</li>
         </ol>
       </Suggerimento>
 
@@ -77,10 +79,10 @@ export function GestioneCamere({ iniziale }: { iniziale: Dati }) {
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         {/* Tipi camera */}
         <section className="min-w-0 rounded-lg border border-stone-200 bg-white p-4 shadow-sm sm:p-5">
-          <h2 className="mb-3 text-sm font-bold text-stone-900">Tipi camera</h2>
+          <h2 className="mb-3 text-sm font-bold text-stone-900">{t("Tipi {camera}")}</h2>
           <table className="mb-4 w-full text-sm">
             <thead className="text-left text-xs uppercase text-stone-500">
-              <tr><th className="pb-1">Codice</th><th className="pb-1">Descrizione</th><th className="pb-1" title="Letti aggiunti possibili oltre la capienza">Letti agg.</th><th className="pb-1">Animali</th><th className="pb-1" title="Prezzo all'ora proposto per l'uso diurno (day use)">Day use €/ora</th><th className="pb-1" title="Aggiunta da sola, una volta per soggiorno, a ogni nuova prenotazione di questo tipo">Pulizia finale €</th><th className="pb-1" title="Deposito proposto per una camera di questo tipo, da restituire alla partenza">Cauzione €</th></tr>
+              <tr><th className="pb-1">Codice</th><th className="pb-1">Descrizione</th><th className="pb-1" title="Letti aggiunti possibili oltre la capienza">Letti agg.</th><th className="pb-1">Animali</th><th className="pb-1" title="Prezzo all'ora proposto per l'uso diurno (day use)">Day use €/ora</th><th className="pb-1" title="Aggiunta da sola, una volta per soggiorno, a ogni nuova prenotazione di questo tipo">Pulizia finale €</th><th className="pb-1" title="Deposito proposto per ogni unità di questo tipo, da restituire alla partenza">Cauzione €</th></tr>
             </thead>
             <tbody>
               {dati.tipiCamera.map((t) => (
@@ -185,12 +187,12 @@ export function GestioneCamere({ iniziale }: { iniziale: Dati }) {
           <h2 className="mb-3 text-sm font-bold text-stone-900">Fuori servizio / manutenzione</h2>
           <table className="tabella-responsive mb-4 w-full text-sm">
             <thead className="text-left text-xs uppercase text-stone-500">
-              <tr><th className="pb-1">Camera</th><th className="pb-1">Dal</th><th className="pb-1">Al</th><th className="pb-1">Motivo</th><th /></tr>
+              <tr><th className="pb-1">{t("{Camera}")}</th><th className="pb-1">Dal</th><th className="pb-1">Al</th><th className="pb-1">Motivo</th><th /></tr>
             </thead>
             <tbody>
               {dati.indisponibilita.map((i) => (
                 <tr key={i.id} className="border-t border-stone-100">
-                  <td data-label="Camera" className="py-1.5 font-semibold">{i.cameraCodice}</td>
+                  <td data-label={t("{Camera}")} className="py-1.5 font-semibold">{i.cameraCodice}</td>
                   <td data-label="Dal" className="py-1.5 font-mono">{formattaIt(i.dal)}</td>
                   <td data-label="Al" className="py-1.5 font-mono">{formattaIt(i.al)}</td>
                   <td data-label="Motivo" className="py-1.5">{i.motivo}</td>
@@ -202,13 +204,13 @@ export function GestioneCamere({ iniziale }: { iniziale: Dati }) {
                 </tr>
               ))}
               {dati.indisponibilita.length === 0 && (
-                <tr><td colSpan={5} className="cella-intera py-2 text-stone-500">Nessuna camera fuori servizio in programma.</td></tr>
+                <tr><td colSpan={5} className="cella-intera py-2 text-stone-500">{t(unita.femminile ? "Nessuna {camera} fuori servizio in programma." : "Nessun {camera} fuori servizio in programma.")}</td></tr>
               )}
             </tbody>
           </table>
           <div className="flex flex-wrap items-end gap-2">
             <div>
-              <label className="mb-1 block text-xs text-stone-600">Camera</label>
+              <label className="mb-1 block text-xs text-stone-600">{t("{Camera}")}</label>
               <select className="rounded-md border border-stone-300 px-2 py-1.5 text-sm" value={nuovaIndisp.cameraId} onChange={(e) => setNuovaIndisp({ ...nuovaIndisp, cameraId: Number(e.target.value) })}>
                 {dati.camere.map((c) => <option key={c.id} value={c.id}>{c.codice}</option>)}
               </select>
@@ -241,7 +243,7 @@ export function GestioneCamere({ iniziale }: { iniziale: Dati }) {
 
       {/* Camere */}
       <section className="min-w-0 rounded-lg border border-stone-200 bg-white p-4 shadow-sm sm:p-5">
-        <h2 className="mb-3 text-sm font-bold text-stone-900">Camere</h2>
+        <h2 className="mb-3 text-sm font-bold text-stone-900">{t("{Camere}")}</h2>
         <table className="tabella-responsive mb-4 w-full text-sm">
           <thead className="text-left text-xs uppercase text-stone-500">
             <tr><th className="pb-1">Codice</th><th className="pb-1">Piano</th><th className="pb-1">Tipo</th><th className="pb-1">Cap. adulti</th><th className="pb-1">Cap. bambini</th><th className="pb-1">Attiva</th><th className="pb-1">Arrivo autonomo</th></tr>
@@ -363,7 +365,7 @@ export function GestioneCamere({ iniziale }: { iniziale: Dati }) {
               })
             }
           >
-            + Aggiungi camera
+            {t("+ Aggiungi {camera}")}
           </button>
         </div>
       </section>

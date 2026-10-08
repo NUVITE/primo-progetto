@@ -245,4 +245,4 @@ Premi **Salva**.
 - **"Mancano dei dati: {{iban}}"**: scrivi l'IBAN in **Impostazioni › Email e modelli**, riquadro **Bonifici degli acconti**.
 - **L'email ha esito "errore"**: apri la riga nello storico e leggi il motivo. Spesso è la password cambiata o un limite del provider: prova con **Invia la prova**.
 - **"Il ringraziamento è già stato inviato."**: per ogni prenotazione il ringraziamento parte una volta sola.
-- **L'ospite dice che il preventivo è scaduto**: un preventivo scaduto chiude anche la richiesta (stato *Scaduta*), e su una richiesta chiusa non si crea un nuovo preventivo. Registra una **Nuova richiesta** e prepara lì le nuove proposte.
+- **L'ospite dice che il preventivo è scaduto**: un preventivo scaduto chiude anche la richiesta (stato *Scaduta*). Aprila dalla scheda **Chiuse** dell'elenco: puoi correggerla (per esempio le date) e premere **Nuovo preventivo**. Quando lo invii, la richiesta torna tra quelle aperte.

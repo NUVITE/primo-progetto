@@ -180,8 +180,20 @@ export async function impostaModalitaUtenti(chi: UtenteSessione, modalita: "ruol
       throw new Error(`Nell'hotel ci sono ${utenti.length} utenti: con il titolare unico ce ne può essere uno solo. Rimuovi prima gli altri.`);
     }
     await prisma.ruoloAggiuntivo.deleteMany({ where: { hotelId: chi.hotelId } });
+    await prisma.hotel.update({ where: { id: chi.hotelId }, data: { modalitaUtenti: modalita } });
+    return;
   }
-  await prisma.hotel.update({ where: { id: chi.hotelId }, data: { modalitaUtenti: modalita } });
+  // Dal titolare unico ai ruoli: il titolare torna al ruolo che aveva. Se nessuno gestirebbe più gli
+  // utenti, l'unico utente diventa Amministratore (altrimenti l'hotel resterebbe senza chi li gestisce).
+  await prisma.$transaction(async (tx) => {
+    await tx.hotel.update({ where: { id: chi.hotelId }, data: { modalitaUtenti: modalita } });
+    if ((await gestoriUtenti(tx, chi.hotelId)) > 0) return;
+    const accessi = await tx.utenteHotel.findMany({ where: { hotelId: chi.hotelId, utente: { superAdmin: false, attivo: true } } });
+    const amministratore = await tx.ruolo.findFirst({ where: { hotelId: chi.hotelId, nome: "Amministratore" } });
+    if (accessi.length !== 1 || !amministratore)
+      throw new Error("Operazione annullata: con i ruoli nessuno potrebbe gestire gli utenti. Crea prima un ruolo con il permesso «Gestire utenti».");
+    await tx.utenteHotel.update({ where: { utenteId_hotelId: { utenteId: accessi[0].utenteId, hotelId: chi.hotelId } }, data: { ruoloId: amministratore.id } });
+  });
 }
 
 /** Toglie l'accesso all'hotel attivo (l'account resta, per eventuali altri hotel). */

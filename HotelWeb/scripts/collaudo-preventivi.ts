@@ -154,6 +154,11 @@ async function main() {
     verifica("Oltre la validità: preventivo e richiesta scaduti", d3.preventivi[0].stato === "scaduto" && d3.stato === "scaduta");
     const e7 = await errore(() => accettaPreventivo(d3.preventivi[0].codice, d3.preventivi[0].proposte[0].id));
     verifica("Scaduto: non si accetta", !!e7, e7 ?? "");
+    // L'ospite si rifà vivo: alla richiesta scaduta si fa un nuovo preventivo e, inviato, torna aperta.
+    const pid3b = await creaPreventivo(hotel.id, rid3, { validoFino: "2099-01-01", accontoRichiesto: null, messaggio: "", proposte: [{ tipoCameraId: tipoId, listinoId: listino.id, trattamento, prezzo: 95, nota: "" }] }, "Anna");
+    await segnaPreventivoInviato(hotel.id, pid3b);
+    const d3b = await dettaglioRichiestaDisp(hotel.id, rid3);
+    verifica("Richiesta scaduta: nuovo preventivo inviato, la richiesta torna aperta", d3b.stato === "preventivo" && d3b.preventivi.length === 2);
 
     // Chiusura a mano con motivo.
     const rid4 = await creaRichiestaDisp(hotel.id, { ...base, dal: "2033-11-01", al: "2033-11-02", canale: "web" }, "Anna");

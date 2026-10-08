@@ -21,7 +21,7 @@ Apri **Impostazioni › Utenti** ([Utenti](/utenti)). Nella sezione **Come è or
 
 Per passare al titolare unico nell'hotel deve esserci al massimo un utente. Altrimenti compare *Nell'hotel ci sono 3 utenti: con il titolare unico ce ne può essere uno solo. Rimuovi prima gli altri.* (il numero cambia). Passando al titolare unico i ruoli in più vengono tolti.
 
-Si può tornare a **Più utenti con ruoli** in ogni momento. Quando lo fai, controlla subito il ruolo del titolare nella colonna **Ruolo**: da quel momento valgono i permessi di quel ruolo.
+Si può tornare a **Più utenti con ruoli** in ogni momento. Il titolare riprende il ruolo che aveva prima; se quel ruolo non permette di gestire gli utenti, il programma gli assegna il ruolo **Amministratore**, così la struttura non resta senza nessuno che possa aggiungere o modificare utenti. Controlla comunque il suo ruolo nella colonna **Ruolo**: da quel momento valgono i permessi di quel ruolo.
 
 ## Aggiungere un utente
 

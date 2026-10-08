@@ -72,7 +72,11 @@ async function main() {
     verifica("Con il titolare unico non si aggiungono utenti", !!e2, e2 ?? "");
     const e3 = await errore(() => impostaRuoliAggiuntivi(chi, a.id, [cassa.id]));
     verifica("Con il titolare unico niente ruoli in più", !!e3, e3 ?? "");
+    // Il titolare aveva salvato un ruolo senza «Gestire utenti»: tornando ai ruoli diventa Amministratore.
+    await prisma.utenteHotel.update({ where: { utenteId_hotelId: { utenteId: a.id, hotelId: hotel.id } }, data: { ruoloId: rec.id } });
     await impostaModalitaUtenti(chi, "ruoli");
+    const ruoloDopo = (await prisma.utenteHotel.findUniqueOrThrow({ where: { utenteId_hotelId: { utenteId: a.id, hotelId: hotel.id } } })).ruoloId;
+    verifica("Dal titolare ai ruoli senza chi gestisce gli utenti: l'ex titolare diventa Amministratore", ruoloDopo === amm.id);
     await aggiungiUtente(chi, { nome: "Altro", email: `altro${SUFFISSO}`, password: "girasole-di-prova-7", ruoloId: rec.id });
     verifica("Tornati ai ruoli si aggiungono utenti", (await prisma.utenteHotel.count({ where: { hotelId: hotel.id } })) === 2);
 

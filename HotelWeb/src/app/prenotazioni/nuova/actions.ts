@@ -67,6 +67,8 @@ export async function anteprimaSegmento(input: {
   dataFine: string;
   trattamento?: string;
   composizione?: Composizione;
+  /** Agenzia o portale scelto nella prenotazione: le sue camere in allotment non danno avviso. */
+  intermediarioId?: number | null;
 }) {
   return conEsito(async () => {
     const utente = await richiediPermesso(PERMESSI.PRENOTAZIONI_GESTISCI);
@@ -109,6 +111,9 @@ export async function anteprimaSegmento(input: {
       avvisi.push(`La camera ${camera.codice} ospita ${cap} ${cap === 1 ? "persona" : "persone"}: servono letti aggiunti (supplementi).`);
     }
     if (listino.minPersone && persone < listino.minPersone) avvisi.push(`Il listino ${listino.descrizione} vale da ${listino.minPersone} persone.`);
+    // Camere riservate a un'agenzia (allotment): avviso, salvo che si prenoti proprio per quell'agenzia.
+    const allotment = await avvisoAllotment(hotelId, camera.tipoCameraId, dataInizio, dataFine, 1, input.intermediarioId ?? null);
+    if (allotment) avvisi.push(allotment);
 
     return {
       notti: notti.length,

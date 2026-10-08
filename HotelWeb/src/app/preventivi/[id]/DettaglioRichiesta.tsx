@@ -37,6 +37,8 @@ export function DettaglioRichiesta({ iniziale }: { iniziale: Dati }) {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ tipo: "ok" | "errore" | "info"; testo: string } | null>(null);
   const aperta = r.stato === "nuova" || r.stato === "preventivo";
+  // Una richiesta scaduta (l'ospite non ha risposto) si riprende: si corregge e le si fa un nuovo preventivo.
+  const riapribile = aperta || r.stato === "scaduta";
   const listinoBase = d.listini.find((l) => l.tipo === "base") ?? d.listini[0];
   const trattamentoProposto = d.trattamenti.find((t) => r.trattamento && t.toLowerCase().includes(r.trattamento.toLowerCase())) ?? d.trattamenti[0] ?? "";
 
@@ -88,7 +90,7 @@ export function DettaglioRichiesta({ iniziale }: { iniziale: Dati }) {
       <Sezione
         titolo="Richiesta"
         azioni={
-          aperta &&
+          riapribile &&
           !modifica && (
             <Pulsante
               variante="leggero"
@@ -201,7 +203,7 @@ export function DettaglioRichiesta({ iniziale }: { iniziale: Dati }) {
         )}
       </Sezione>
 
-      {aperta && !nuovo && (
+      {riapribile && !nuovo && (
         <div>
           <Pulsante variante="primario" icona={Plus} onClick={() => setNuovo({ validoFino: tra(7), acconto: "", messaggio: "", proposte: [nuovaProposta()] })}>
             Nuovo preventivo
@@ -349,7 +351,7 @@ export function DettaglioRichiesta({ iniziale }: { iniziale: Dati }) {
             </ul>
             {p.motivoRifiuto && <p className="mt-1 text-sm text-stone-700">Motivo del rifiuto: {p.motivoRifiuto}</p>}
 
-            {["bozza", "inviato", "visto"].includes(p.stato) && aperta && (
+            {["bozza", "inviato", "visto"].includes(p.stato) && riapribile && (
               <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-stone-100 pt-3">
                 {d.emailConfigurata && email?.preventivoId !== p.id && (
                   <Pulsante
