@@ -22,6 +22,7 @@ export const MENU: GruppoMenu[] = [
     voci: [
       { href: "/cruscotto", label: "Cruscotto", permesso: [PERMESSI.PRENOTAZIONI_VEDI, PERMESSI.CAMERE_STATO_VEDI, PERMESSI.PAGAMENTI_REGISTRA, PERMESSI.ADEMPIMENTI_INVIA] },
       { href: "/", label: "Planning {camere}", permesso: PERMESSI.PRENOTAZIONI_VEDI },
+      { href: "/statistiche", label: "Statistiche", permesso: PERMESSI.STATISTICHE_VEDI },
       { href: "/prenotazioni", label: "Prenotazioni", permesso: PERMESSI.PRENOTAZIONI_VEDI },
       { href: "/preventivi", label: "Richieste e preventivi", permesso: PERMESSI.PRENOTAZIONI_GESTISCI, funzione: "preventivi" },
       { href: "/questionari", label: "Questionari e ringraziamenti", permesso: PERMESSI.QUESTIONARI_VEDI },

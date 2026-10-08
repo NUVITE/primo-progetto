@@ -11,6 +11,7 @@ export const PERMESSI = {
   EMAIL_INVIA: "comunicazioni.invia",
   OSPITI_UNISCI: "ospiti.unisci",
   QUESTIONARI_VEDI: "questionari.vedi",
+  STATISTICHE_VEDI: "statistiche.vedi",
   IMPORTI_VEDI: "importi.vedi",
   PAGAMENTI_REGISTRA: "pagamenti.registra",
   PREZZI_MODIFICA: "prezzi.modifica",
@@ -66,6 +67,11 @@ export const CATALOGO_PERMESSI: { area: string; modulo?: Modulo; voci: { permess
       },
       { permesso: PERMESSI.EMAIL_INVIA, nome: "Inviare email agli ospiti", descrizione: "Conferme, richieste di acconto, promemoria e ringraziamenti dalla casella dell'hotel" },
       { permesso: PERMESSI.PREZZI_MODIFICA, nome: "Modificare i prezzi", descrizione: "Fissare a mano il prezzo per notte di una camera prenotata (resta traccia di chi e perché)" },
+      {
+        permesso: PERMESSI.STATISTICHE_VEDI,
+        nome: "Vedere le statistiche",
+        descrizione: "Occupazione, prezzo medio, ricavi per camera, canali e provenienza degli ospiti, confronto con l'anno prima (gli importi solo con «Vedere importi»)",
+      },
       {
         permesso: PERMESSI.QUESTIONARI_VEDI,
         nome: "Vedere i questionari",
@@ -192,6 +198,7 @@ const IMPLICAZIONI: Partial<Record<Permesso, Permesso[]>> = {
   [PERMESSI.SOGGIORNI_RIAPRI]: [PERMESSI.PRENOTAZIONI_GESTISCI],
   [PERMESSI.OSPITI_UNISCI]: [PERMESSI.PRENOTAZIONI_GESTISCI],
   [PERMESSI.QUESTIONARI_VEDI]: [PERMESSI.PRENOTAZIONI_VEDI],
+  [PERMESSI.STATISTICHE_VEDI]: [PERMESSI.PRENOTAZIONI_VEDI],
   [PERMESSI.PAGAMENTI_REGISTRA]: [PERMESSI.PRENOTAZIONI_VEDI, PERMESSI.IMPORTI_VEDI],
   [PERMESSI.ADEMPIMENTI_INVIA]: [PERMESSI.PRENOTAZIONI_VEDI],
   [PERMESSI.EMAIL_INVIA]: [PERMESSI.PRENOTAZIONI_VEDI],
