@@ -95,6 +95,13 @@ function BloccoMd({ b }: { b: Blocco }) {
           </table>
         </div>
       );
+    case "video":
+      return (
+        <figure className="flex flex-col gap-1">
+          <video controls preload="metadata" src={b.src} className="w-full rounded-md border border-stone-200 bg-stone-900 print:hidden" />
+          {b.didascalia && <figcaption className="text-sm text-stone-600">Video: {b.didascalia}</figcaption>}
+        </figure>
+      );
   }
 }
 

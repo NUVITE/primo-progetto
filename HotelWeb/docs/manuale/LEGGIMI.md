@@ -32,7 +32,9 @@ fornitore: no
 capitolo), `###` sotto-paragrafo; elenchi `-` e `1.`; `**grassetto**`, `*corsivo*`, `` `codice` ``;
 collegamenti `[testo](/pagina)` (interni all'app) o `[testo](https://...)`; blocchi di codice con
 tre apici inversi; note con `>` all'inizio della riga; tabelle semplici `| a | b |` con la riga
-`|---|---|` sotto le intestazioni. Niente HTML, niente immagini, niente commenti `<!-- -->`.
+`|---|---|` sotto le intestazioni; video dimostrativi con una riga `@video nome Didascalia`, che mostra
+`public/video/nome.webm` (vedi Manuale tecnico › Collaudi, "Video dimostrativi"). Niente HTML,
+niente immagini, niente commenti `<!-- -->`.
 
 ## Stile del manuale operativo
 

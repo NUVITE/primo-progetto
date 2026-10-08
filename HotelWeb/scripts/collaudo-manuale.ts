@@ -48,6 +48,12 @@ async function main() {
       b[2].tipo === "elenco" && b[2].numerato && b[2].voci.length === 2 && b[2].voci[1].some((x) => x.tipo === "link" && x.href === "/prenotazioni"),
     b.map((x) => x.tipo),
   );
+  const vid = markdown("Prima\n@video prenotazione Fare una prenotazione\n@video ../segreto x\nDopo");
+  verifica(
+    "Video: riga @video con nome semplice, altrimenti testo normale",
+    vid.map((x) => x.tipo).join() === "paragrafo,video,paragrafo" && vid[1].tipo === "video" && vid[1].src === "/video/prenotazione.webm" && vid[1].didascalia === "Fare una prenotazione",
+    vid.map((x) => x.tipo),
+  );
   verifica("Ancore senza accenti", markdown("## Attività e città")[0].tipo === "titolo" && (markdown("## Attività e città")[0] as { ancora: string }).ancora === "attivita-e-citta");
   verifica("Testo semplice per la ricerca", testoSemplice("## Titolo\nVai a [Cassa](/cassa) e **chiudi**") === "Titolo Vai a Cassa e chiudi");
 
@@ -68,6 +74,7 @@ async function main() {
       if (/<[a-zA-Z!/][^>]*>/.test(cap.testo.replace(/```[\s\S]*?```/g, "").replace(/`[^`]*`/g, ""))) problemi.push("contiene HTML");
       for (const l of cap.testo.matchAll(/\]\((\/[^)\s]*)\)/g)) if (!paginaEsiste(l[1])) problemi.push(`collegamento a pagina inesistente ${l[1]}`);
       const blocchi = markdown(cap.testo);
+      for (const v of blocchi) if (v.tipo === "video" && !existsSync(join(process.cwd(), "public", v.src))) problemi.push(`video mancante ${v.src}`);
       if (!blocchi.some((x) => x.tipo === "titolo" && x.livello === 2)) problemi.push("nessun paragrafo ##");
       verifica(`${m}/${cap.slug}`, problemi.length === 0, problemi.length ? problemi : `${testoSemplice(cap.testo).split(" ").length} parole`);
     }

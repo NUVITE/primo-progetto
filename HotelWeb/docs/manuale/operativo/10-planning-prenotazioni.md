@@ -76,6 +76,8 @@ Il programma ti avvisa se le persone sono più dei posti letto ("servono letti a
 
 Usa questa pagina quando sai già **quale camera** dare. Apri [Nuova prenotazione](/prenotazioni/nuova) con il pulsante **Nuova prenotazione** del planning o della pagina Prenotazioni. Serve il permesso **Gestire prenotazioni**.
 
+@video prenotazione Fare una prenotazione completa, dal planning al dettaglio (circa 2 minuti, senza audio).
+
 1. In **Ospite prenotante** cerca **Chi prenota**. Scrivi almeno due lettere del nome o del cognome. Se non lo trovi, premi **Crea nuovo ospite "…"**, controlla nome e cognome e premi **Usa questo ospite**: verrà salvato in anagrafica con la prenotazione.
 2. Se è un gruppo, spunta **Fa parte di un gruppo** e scrivi il **Nome del gruppo** (questa voce manca se la struttura ha spento i gruppi).
 3. In **Camere e soggiorni**, per la **Camera 1** scegli la camera, **Arrivo** e **Partenza**. Se l'hotel ha più listini o più trattamenti, scegli anche **Listino** e **Trattamento**; se ce n'è uno solo, il programma usa quello.
@@ -86,6 +88,8 @@ Usa questa pagina quando sai già **quale camera** dare. Apri [Nuova prenotazion
 8. Premi **Conferma prenotazione**. Compare "Prenotazione #… creata" con i totali; da lì **Apri la prenotazione** o fai un'altra **Nuova prenotazione**.
 
 Il pulsante resta grigio finché mancano chi prenota oppure, per una camera, camera, date o intestatario.
+
+Dopo il salvataggio la tassa di soggiorno conta solo gli ospiti già registrati (all'inizio l'intestatario): per questo può essere più bassa della stima. Gli altri ospiti si aggiungono al check-in e la tassa si aggiorna.
 
 Sotto ogni camera il programma mostra le notti, il prezzo, l'eventuale **pulizia finale** e la tassa stimata, con il dettaglio della **Prima notte**. Ti avvisa se in camera ci sono più persone della capienza o se il listino vale da un numero minimo di persone.
 

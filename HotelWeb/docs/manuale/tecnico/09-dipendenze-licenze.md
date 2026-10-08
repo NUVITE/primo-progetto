@@ -25,6 +25,7 @@ Apache 2.0, BSD).
 | typescript | 5.9.3 | Apache-2.0 |
 | eslint, eslint-config-next, tsx, @types/* | — | MIT |
 | dotenv | 18.0.4 | BSD-2-Clause |
+| playwright (solo sviluppo, per i video) | 1.64.0 | Apache-2.0 |
 
 ## Dipendenze indirette con licenze non permissive
 
@@ -51,3 +52,8 @@ la possibilità di sostituirle.
 - **App di autenticazione** per la verifica in due passaggi: gratuite (Google Authenticator,
   Microsoft Authenticator, Aegis, FreeOTP).
 - **Let's Encrypt**: certificati gratuiti.
+- **FFmpeg 7.1** (per i video dimostrativi, solo sul PC): la build usata è quella distribuita con
+  il pacchetto Python imageio-ffmpeg, compilata con opzioni GPL (licenza GPL-3.0). Si usa come
+  programma esterno, non entra nel progetto né nel server: nessun obbligo per HotelWeb. I video
+  sono WebM con VP9, formato senza royalty.
+- **Chromium** scaricato da Playwright (licenza BSD e altre permissive): solo sul PC, per i video.

@@ -63,7 +63,8 @@ export type Blocco =
   | { tipo: "elenco"; numerato: boolean; voci: Inline[][] }
   | { tipo: "codice"; testo: string }
   | { tipo: "nota"; testo: Inline[] }
-  | { tipo: "tabella"; intestazioni: Inline[][]; righe: Inline[][][] };
+  | { tipo: "tabella"; intestazioni: Inline[][]; righe: Inline[][][] }
+  | { tipo: "video"; src: string; didascalia: string };
 
 /** Ancora di un titolo: "Il conto e la cassa" -> "il-conto-e-la-cassa". */
 export const ancora = (t: string) =>
@@ -93,6 +94,9 @@ export function inline(s: string): Inline[] {
 
 const celle = (riga: string) => riga.trim().replace(/^\||\|$/g, "").split("|").map((c) => inline(c.trim()));
 
+/** Riga di un video dimostrativo: "@video nome Didascalia" (nome solo lettere minuscole, cifre e trattini). */
+const RIGA_VIDEO = /^@video\s+([a-z0-9-]+)(?:\s+(.*))?$/;
+
 export function markdown(testo: string): Blocco[] {
   const righe = testo.replace(/\r\n/g, "\n").split("\n");
   const blocchi: Blocco[] = [];
@@ -114,6 +118,13 @@ export function markdown(testo: string): Blocco[] {
     const t = /^(#{1,3})\s+(.*)$/.exec(r);
     if (t) {
       blocchi.push({ tipo: "titolo", livello: t[1].length as 1 | 2 | 3, testo: inline(t[2].trim()), ancora: ancora(t[2]) });
+      i++;
+      continue;
+    }
+    // Video dimostrativo: "@video nome Didascalia" mostra public/video/nome.webm (solo nomi semplici).
+    const vid = RIGA_VIDEO.exec(r.trim());
+    if (vid) {
+      blocchi.push({ tipo: "video", src: `/video/${vid[1]}.webm`, didascalia: (vid[2] ?? "").trim() });
       i++;
       continue;
     }
@@ -149,7 +160,7 @@ export function markdown(testo: string): Blocco[] {
       continue;
     }
     const parti: string[] = [];
-    while (i < righe.length && righe[i].trim() && !/^(#{1,3}\s|```|>|\s*([-*]|\d+\.)\s|\s*\|)/.test(righe[i])) parti.push(righe[i++].trim());
+    while (i < righe.length && righe[i].trim() && !/^(#{1,3}\s|```|>|\s*([-*]|\d+\.)\s|\s*\|)/.test(righe[i]) && !RIGA_VIDEO.test(righe[i].trim())) parti.push(righe[i++].trim());
     blocchi.push({ tipo: "paragrafo", testo: inline(parti.join(" ")) });
   }
   return blocchi;
@@ -159,6 +170,7 @@ export function markdown(testo: string): Blocco[] {
 export const testoSemplice = (md: string) =>
   md
     .replace(/```[\s\S]*?```/g, " ")
+    .replace(/^@video\s+\S+/gm, " ")
     .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
     .replace(/[#*`>|]/g, " ")
     .replace(/\s+/g, " ")
