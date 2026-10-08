@@ -20,6 +20,7 @@ export const MENU: GruppoMenu[] = [
     label: "Ricevimento",
     icona: ConciergeBell,
     voci: [
+      { href: "/cruscotto", label: "Cruscotto", permesso: [PERMESSI.PRENOTAZIONI_VEDI, PERMESSI.CAMERE_STATO_VEDI, PERMESSI.PAGAMENTI_REGISTRA, PERMESSI.ADEMPIMENTI_INVIA] },
       { href: "/", label: "Planning {camere}", permesso: PERMESSI.PRENOTAZIONI_VEDI },
       { href: "/prenotazioni", label: "Prenotazioni", permesso: PERMESSI.PRENOTAZIONI_VEDI },
       { href: "/preventivi", label: "Richieste e preventivi", permesso: PERMESSI.PRENOTAZIONI_GESTISCI, funzione: "preventivi" },
