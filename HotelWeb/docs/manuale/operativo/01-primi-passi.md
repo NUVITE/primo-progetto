@@ -63,6 +63,8 @@ Con la verifica in due passaggi, dopo la password il programma chiede anche un *
 
 Se per il tuo ruolo è obbligatoria e non l'hai ancora attivata, dopo la password il programma ti porta alla pagina **Attiva la verifica in due passaggi** e non ti fa fare altro prima. Se è facoltativa, la attivi dalla sezione **Verifica in due passaggi** di **Il mio profilo**. I passi sono gli stessi:
 
+@video verifica Attivare la verifica in due passaggi e accedere con il codice (circa 2 minuti, senza audio).
+
 1. Installa sul telefono un'app di autenticazione gratuita, per esempio Google Authenticator o Microsoft Authenticator.
 2. Premi **Mostra il codice QR**.
 3. Nell'app scegli "Aggiungi" o "+" e inquadra il codice QR sullo schermo. Se non riesci a inquadrarlo, nell'app scegli "inserisci una chiave" e scrivi la chiave che compare sotto il QR.

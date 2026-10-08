@@ -10,6 +10,8 @@ Il **Cruscotto** dice com'è la giornata appena arrivi al banco: arrivi, partenz
 
 ## Il cruscotto del giorno
 
+@video cruscotto Il cruscotto del giorno e le statistiche (circa un minuto e mezzo, senza audio).
+
 Apri **Ricevimento › Cruscotto** ([Cruscotto](/cruscotto)). In alto c'è la data di oggi. Sotto ci sono dei riquadri: ognuno ha un titolo, un numero grande, una riga di dettaglio e, se lo premi, ti porta alla pagina dove si lavora.
 
 Il colore aiuta a capire al volo:

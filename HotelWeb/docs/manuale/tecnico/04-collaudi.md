@@ -58,6 +58,18 @@ Con il server di sviluppo acceso sulla porta 3020 e il database locale con i dat
 FFMPEG=<percorso di ffmpeg.exe> npx tsx scripts/video/prenotazione.ts
 ```
 
+| Script | Capitolo del manuale | Cosa mostra |
+|---|---|---|
+| `prenotazione.ts` | Planning e prenotazioni | nuova prenotazione con ospite nuovo |
+| `checkin.ts` | Check-in e soggiorno | dati per la schedina e conferma dell'arrivo |
+| `conto.ts` | Conto e cassa | consumo sul conto, saldo, cassa del giorno (senza chiuderla) |
+| `verifica.ts` | Primi passi | attivazione della verifica in due passaggi e nuovo accesso |
+| `cruscotto.ts` | Cruscotto e statistiche | riquadri del giorno e statistiche |
+
+`verifica.ts` e `cruscotto.ts` creano un utente dimostrativo temporaneo (dominio `.test`, password
+casuale mai mostrata) e lo cancellano alla fine con i suoi eventi di accesso; il codice dell'app si
+calcola dal segreto mostrato a video con `src/lib/totp.ts`.
+
 Le registrazioni grezze restano in `scripts/video/.grezzi/` (ignorata da git) e si cancellano a
 fine conversione. Quando cambia una pagina mostrata in un video, si rigenera il video. Come i
 collaudi, un video alla volta.

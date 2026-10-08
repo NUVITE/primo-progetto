@@ -6,27 +6,13 @@
 import "dotenv/config";
 import { prisma } from "../../src/lib/prisma";
 import { Regista } from "./regista";
-import { conPulizia, sessione } from "./scena";
-
-const iso = (d: Date) => d.toISOString().slice(0, 10);
-
-async function cameraLibera(hotelId: number, dal: Date, al: Date) {
-  const camere = await prisma.camera.findMany({ where: { hotelId, attivo: true }, include: { tipoCamera: true }, orderBy: { codice: "asc" } });
-  for (const c of camere) {
-    const occupata = await prisma.segmentoSoggiorno.count({ where: { cameraId: c.id, dataInizio: { lt: al }, dataFine: { gt: dal }, stato: { not: "ANNULLATO" } } });
-    if (!occupata && c.capienzaBambini > 0) return c;
-  }
-  throw new Error("Nessuna camera libera con posto per un bambino.");
-}
+import { cameraLibera, conPulizia, giorno, iso, sessione } from "./scena";
 
 conPulizia(async () => {
   const hotel = await prisma.hotel.findFirstOrThrow({ where: { nome: "Hotel Meridiana" } });
-  const dal = new Date();
-  dal.setUTCHours(0, 0, 0, 0);
-  dal.setUTCDate(dal.getUTCDate() + 21);
-  const al = new Date(dal);
-  al.setUTCDate(al.getUTCDate() + 3);
-  const camera = await cameraLibera(hotel.id, dal, al);
+  const dal = giorno(21);
+  const al = giorno(24);
+  const camera = await cameraLibera(hotel.id, dal, al, true);
 
   const r = await Regista.apri("prenotazione", await sessione("reception@hotelmeridiana.it", hotel.id), ["nuova-prenotazione"]);
   const esistente = await prisma.prenotazione.findFirst({ where: { hotelId: hotel.id }, select: { id: true } });

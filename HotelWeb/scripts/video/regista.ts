@@ -141,9 +141,22 @@ export class Regista {
     }
   }
 
+  /** Esce dal programma (cancella i cookie), per mostrare un nuovo accesso. */
+  async esci() {
+    await this.contesto.clearCookies();
+  }
+
   /** Aspetta che compaia un elemento (pagina caricata, risposta arrivata). */
   async aspetta(selettore: string) {
-    await this.pagina.locator(selettore).first().waitFor({ state: "visible", timeout: 60000 });
+    try {
+      await this.pagina.locator(selettore).first().waitFor({ state: "visible", timeout: 60000 });
+    } catch (e) {
+      // Schermata di cosa c'era invece, per capire il problema.
+      const file = join(CARTELLA_GREZZI, `${this.nome}-errore.png`);
+      await this.pagina.screenshot({ path: file, fullPage: true });
+      console.log("Schermata del problema:", file);
+      throw e;
+    }
     await this.attendi(500);
   }
 
@@ -205,14 +218,27 @@ export class Regista {
 
   /** Porta il cursore sull'elemento, eventualmente con un fumetto, e fa clic davvero. */
   async clic(selettore: string, fumetto?: string) {
-    const r = await this.rettangolo(selettore);
-    const x = r.x + Math.min(r.w / 2, 60);
-    const y = r.y + r.h / 2;
-    await this.pagina.evaluate(([a, b]) => (window as never as { __regista: { sposta: (x: number, y: number) => void } }).__regista.sposta(a, b), [x, y]);
+    const punto = async () => {
+      const r = await this.rettangolo(selettore);
+      return { x: r.x + Math.min(r.w / 2, 60), y: r.y + r.h / 2 };
+    };
+    const sposta = (p: { x: number; y: number }) =>
+      this.pagina.evaluate(([a, b]) => (window as never as { __regista: { sposta: (x: number, y: number) => void } }).__regista.sposta(a, b), [p.x, p.y]);
+    let p = await punto();
+    await sposta(p);
     await this.attendi(800);
-    if (fumetto) await this.fumetto(fumetto, selettore);
-    await this.pagina.evaluate(([a, b]) => (window as never as { __regista: { onda: (x: number, y: number) => void } }).__regista.onda(a, b), [x, y]);
-    await this.pagina.mouse.click(x, y);
+    if (fumetto) {
+      await this.fumetto(fumetto, selettore);
+      // Il fumetto può aver fatto scorrere la pagina: si rimisura prima del clic.
+      const q = await punto();
+      if (Math.abs(q.x - p.x) > 2 || Math.abs(q.y - p.y) > 2) {
+        p = q;
+        await sposta(p);
+        await this.attendi(800);
+      }
+    }
+    await this.pagina.evaluate(([a, b]) => (window as never as { __regista: { onda: (x: number, y: number) => void } }).__regista.onda(a, b), [p.x, p.y]);
+    await this.pagina.mouse.click(p.x, p.y);
     await this.attendi(700);
   }
 
@@ -232,7 +258,7 @@ export class Regista {
   }
 
   /** Sceglie una voce di un elenco a tendina (per etichetta visibile o per valore). */
-  async scegli(selettore: string, voce: string | { value: string }, fumetto?: string) {
+  async scegli(selettore: string, voce: string | { value: string } | { index: number }, fumetto?: string) {
     await this.clic(selettore, fumetto);
     await this.pagina.locator(selettore).first().selectOption(typeof voce === "string" ? { label: voce } : voce);
     await this.attendi(700);

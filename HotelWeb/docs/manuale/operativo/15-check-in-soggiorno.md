@@ -20,6 +20,8 @@ Chi può usare queste funzioni (nomi come compaiono nella pagina **Impostazioni 
 
 ## Aprire il check-in di una camera
 
+@video checkin Il check-in di un ospite, dai dati per la schedina all'arrivo confermato (circa 2 minuti, senza audio).
+
 1. Apri la prenotazione: da **Ricevimento › Prenotazioni**, scheda **Arrivi di oggi** ([apri](/prenotazioni?filtro=arrivi)), oppure cliccando la camera nel planning.
 2. Nel riquadro della camera premi **Check-in**. Se qualcuno è già arrivato, lo stesso pulsante si chiama **Ospiti e check-out**.
 

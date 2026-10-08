@@ -25,6 +25,8 @@ Chi ha «Registrare pagamenti» o «Chiusura di cassa» vede anche gli importi, 
 
 ## Il conto della prenotazione
 
+@video conto Un consumo sul conto, il saldo incassato e la cassa del giorno (circa 2 minuti, senza audio).
+
 Apri la prenotazione da [Prenotazioni](/prenotazioni) e scorri fino alla sezione **Conto**. Qui c'è tutto quello che l'ospite deve pagare, voce per voce, con l'IVA. Se non vedi la sezione, il tuo ruolo non ha il permesso «Vedere importi».
 
 Il conto ha due tipi di righe:
