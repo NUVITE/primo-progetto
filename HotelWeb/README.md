@@ -1,36 +1,29 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# HotelWeb
 
-## Getting Started
+Gestionale alberghiero web multi-struttura (alberghi, B&B, affittacamere, case vacanze, residence,
+case per ferie, agriturismi): planning e prenotazioni, check-in e schedine di Polizia, ISTAT, tassa
+di soggiorno, conto e cassa, comunicazioni, pulizie, manutenzioni, ristorazione, portineria, sale,
+cruscotto e statistiche.
 
-First, run the development server:
+In produzione su https://hotelweb.nuvite.it
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## Documentazione
+
+Il manuale si legge **dentro il programma**:
+
+- **Aiuto › Manuale**: manuale operativo per chi usa il programma (file in `docs/manuale/operativo/`);
+- **Piattaforma › Manuale tecnico**: architettura, sviluppo in locale, migrazioni, collaudi,
+  sicurezza, deploy, backup e ripristino, integrazioni, licenze (file in `docs/manuale/tecnico/`).
+
+Come si scrivono i capitoli: `docs/manuale/LEGGIMI.md`.
+
+## In breve
+
+```
+docker compose up -d
+npm install
+npx prisma migrate deploy && npx prisma generate && npx prisma db seed
+npm run dev -- --port 3020
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Il file `.env` (mai nel repository) è descritto nel capitolo "Sviluppo in locale" del manuale tecnico.

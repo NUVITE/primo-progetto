@@ -109,7 +109,7 @@ export default async function CruscottoPage() {
           <Riquadro
             titolo="Schedine di Polizia"
             valore={c.schedine?.quante ?? 0}
-            dettaglio={c.schedine ? (c.schedine.scadute ? `${c.schedine.scadute} oltre le 24 ore` : "Da inviare") : "Tutte inviate"}
+            dettaglio={c.schedine ? (c.schedine.scadute ? `${c.schedine.scadute} oltre il termine` : "Da inviare") : "Tutte inviate"}
             href="/schedine"
             tono={c.schedine?.scadute ? "rosso" : c.schedine ? "ambra" : "verde"}
           />

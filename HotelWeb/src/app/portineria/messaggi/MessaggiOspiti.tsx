@@ -204,7 +204,7 @@ export function MessaggiOspiti({ iniziale, prenotazioneIniziale }: { iniziale: D
                       dimensione="piccolo"
                       icona={Send}
                       disabled={busy || !d.emailConfigurata}
-                      title={d.emailConfigurata ? undefined : "La posta dell'hotel non è configurata (Impostazioni › Email)"}
+                      title={d.emailConfigurata ? undefined : "La posta dell'hotel non è configurata (Impostazioni › Email e modelli)"}
                       onClick={() => esegui(() => sbusta(azioneConsegnaMessaggio(m.id, "email", "")), "Inviato per email all'ospite.")}
                     >
                       Invia per email

@@ -232,7 +232,7 @@ export function FormHotel({ riferimenti, iniziale, hotelId }: { riferimenti: Rif
               <input type="email" className={INPUT} value={admin.email} onChange={(e) => setAdmin({ ...admin, email: e.target.value })} />
             </label>
             <label className={ETICHETTA}>
-              Password iniziale (min. 8 caratteri)
+              Password iniziale (min. 10 caratteri, si cambia al primo accesso)
               <input type="text" className={INPUT} value={admin.password} onChange={(e) => setAdmin({ ...admin, password: e.target.value })} />
             </label>
           </div>

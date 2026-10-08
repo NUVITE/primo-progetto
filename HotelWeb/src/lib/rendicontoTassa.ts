@@ -335,5 +335,5 @@ export function csvOspiti(r: Awaited<ReturnType<typeof rendicontoTassa>>) {
       o.rifiuto ? "sì" : "",
     ]),
   ];
-  return "﻿" + righe.map((x) => x.map(q).join(";")).join("\r\n");
+  return "\uFEFF" + righe.map((x) => x.map(q).join(";")).join("\r\n");
 }

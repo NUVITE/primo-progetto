@@ -1,4 +1,4 @@
-import { BellRing, ConciergeBell, Contact, Settings, ShieldCheck, Sparkles, Utensils, type LucideIcon } from "lucide-react";
+import { BellRing, BookOpen, ConciergeBell, Contact, Settings, ShieldCheck, Sparkles, Utensils, type LucideIcon } from "lucide-react";
 import type { Modulo } from "@/lib/moduli";
 import { PERMESSI, type Permesso } from "@/lib/permessi";
 import { conUnita, type Funzione } from "@/lib/funzioniRegole";
@@ -115,7 +115,14 @@ export const MENU: GruppoMenu[] = [
       { href: "/piattaforma/tassa", label: "Tassa di soggiorno" },
       { href: "/piattaforma/tabelle-polizia", label: "Tabelle Polizia" },
       { href: "/piattaforma/accessi", label: "Accessi" },
+      { href: "/manuale/tecnico", label: "Manuale tecnico" },
     ],
+  },
+  {
+    id: "aiuto",
+    label: "Aiuto",
+    icona: BookOpen,
+    voci: [{ href: "/manuale", label: "Manuale" }],
   },
 ];
 

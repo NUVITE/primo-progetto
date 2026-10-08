@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
     [],
     ["Totale", "", "", "", "", e.totali.soggiorno, e.totali.commissione, e.totali.netto, e.totali.aCaricoAgenzia, e.totali.pagatoAgenzia, e.totali.saldoAgenzia],
   ];
-  const testo = "﻿" + righe.map((r) => r.map(campo).join(";")).join("\r\n");
+  const testo = "\uFEFF" + righe.map((r) => r.map(campo).join(";")).join("\r\n");
   return new NextResponse(testo, {
     headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="estratto-conto-agenzia-${e.agenzia.id}-${e.dal}-${e.al}.csv"`, "Cache-Control": "private, no-store" },
   });

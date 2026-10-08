@@ -991,7 +991,7 @@ export async function riattivaPrenotazione(hotelId: number, id: number) {
       const libera = s.cameraId
         ? await cameraDisponibile(tx, s.cameraId, s.dataInizio, s.dataFine, s.id)
         : (await capacitaLiberaPerTipo(tx, s.tipoCameraId, s.dataInizio, s.dataFine, s.id)) > 0;
-      if (!libera) throw new Error(`Non si può riattivare: ${s.camera ? `la camera ${s.camera.codice}` : `nessuna camera "${s.tipoCamera.descrizione}"`} è libera nel periodo.`);
+      if (!libera) throw new Error(`Non si può riattivare: ${s.camera ? `la camera ${s.camera.codice} non è più libera` : `nessuna camera "${s.tipoCamera.descrizione}" è libera`} nel periodo.`);
     }
     await tx.segmentoSoggiorno.updateMany({ where: { prenotazioneId: id }, data: { stato: "PREVISTO" } });
     await tx.prenotazione.update({

@@ -37,6 +37,6 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     ["Totale", dati.totale],
   ];
   // BOM perché Excel riconosca le lettere accentate.
-  const testo = "﻿" + righe.map((r) => r.map(csvCampo).join(";")).join("\r\n");
+  const testo = "\uFEFF" + righe.map((r) => r.map(csvCampo).join(";")).join("\r\n");
   return new NextResponse(testo, { headers: { ...intestazioni, "Content-Type": "text/csv; charset=utf-8" } });
 }
