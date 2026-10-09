@@ -1,0 +1,12 @@
+-- AlterTable
+ALTER TABLE `Hotel` ADD COLUMN `attivo` BOOLEAN NOT NULL DEFAULT true,
+    ADD COLUMN `cap` VARCHAR(191) NULL,
+    ADD COLUMN `codiceFiscale` VARCHAR(191) NULL,
+    ADD COLUMN `email` VARCHAR(191) NULL,
+    ADD COLUMN `indirizzo` VARCHAR(191) NULL,
+    ADD COLUMN `moduli` JSON NULL,
+    ADD COLUMN `partitaIva` VARCHAR(191) NULL,
+    ADD COLUMN `pec` VARCHAR(191) NULL,
+    ADD COLUMN `ragioneSociale` VARCHAR(191) NULL,
+    ADD COLUMN `telefono` VARCHAR(191) NULL;
+

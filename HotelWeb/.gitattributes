@@ -1,0 +1,4 @@
+# Script per il server Linux: sempre con fine riga LF (con CRLF bash non li esegue).
+deploy/**/*.sh text eol=lf
+deploy/**/*.service text eol=lf
+deploy/**/*.timer text eol=lf

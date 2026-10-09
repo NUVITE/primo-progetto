@@ -1,0 +1,203 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// Una famiglia = un account condiviso (nome maiuscolo + password comune a tutte le famiglie)
+model Family {
+  id           String   @id @default(cuid())
+  code         String   @unique // es. "SERINO", "GIANNELLA", "DICUONZO", "CAFAGNA"
+  displayName  String // es. "Famiglia Serino"
+  passwordHash String
+  createdAt    DateTime @default(now())
+
+  documents Document[]
+  people    Person[]
+  photos    Photo[]
+}
+
+// Una persona dentro una famiglia: l'account resta condiviso, ma serve per
+// attribuire foto/video a chi li ha caricati senza creare 15 login diversi.
+// Scelta una volta sul proprio telefono in /chi-sei.
+model Person {
+  id        String   @id @default(cuid())
+  familyId  String
+  family    Family   @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  name      String
+  createdAt DateTime @default(now())
+
+  photos Photo[]
+
+  @@unique([familyId, name])
+  @@index([familyId])
+}
+
+// Foto/video caricati dal telefono. Il file NON viene mai salvato sul VPS
+// (disco limitato, 15 persone per 15 giorni lo riempirebbero in pochi
+// giorni): passa in memoria e va dritto verso una piccola API PHP sul
+// dominio dell'utente, che ha spazio web illimitato (vedi lib/archive.ts e
+// archive-receiver-php/). Se l'invio fallisce non si crea la riga: la foto
+// resta sul telefono e si puo' ricaricare. Anche la lettura per la galleria
+// prende i byte al volo dal dominio (route /foto/[id]/file), mai da disco
+// locale.
+model Photo {
+  id             String   @id @default(cuid())
+  personId       String
+  person         Person   @relation(fields: [personId], references: [id], onDelete: Cascade)
+  familyId       String
+  family         Family   @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  kind           String // "foto" | "video"
+  mimeType       String
+  fileName       String // nome file originale, mostrato all'utente
+  storageName    String // nome generato (UUID+estensione) con cui vive sul dominio
+  sizeBytes      Int
+  caption        String?
+  sharedWithTrip Boolean  @default(false) // di default visibile solo alla propria famiglia
+  sharedAt       DateTime? // quando e' stata condivisa con tutto il gruppo (null se non condivisa)
+  createdAt      DateTime @default(now())
+
+  @@index([familyId])
+  @@index([personId])
+}
+
+// Un giorno di viaggio, comune a tutte le famiglie
+model TripDay {
+  id        String   @id @default(cuid())
+  date      DateTime // solo la data, es. 2026-08-09
+  dayNumber Int      @unique // 1..15
+  title     String // es. "Bari > Monaco > Los Angeles"
+  location  String // es. "Los Angeles"
+  hotelName String?
+  hotelInfo String? // indirizzo/telefono/note hotel
+  wakeInfo  String? // es. "Sveglia 03:30, colazione a bordo"
+  luggageNote String? // es. "Valigie pronte, si parte per Las Vegas"
+  dressCode String? // "come vestirsi oggi"
+  summary   String? // testo introduttivo del giorno
+  lat       Float? // posizione di riferimento della giornata, per il "cerca qui intorno"
+  lng       Float?
+
+  activities  Activity[]
+  meals       MealSuggestion[]
+  suggestions Suggestion[]
+
+  @@index([dayNumber])
+}
+
+// Proposte trovate da noi sul web, TENUTE SEPARATE da quanto dice l'agenzia.
+// Non vanno mai mescolate con Activity o MealSuggestion: l'utente deve poter
+// distinguere a colpo d'occhio la fonte.
+model Suggestion {
+  id          String   @id @default(cuid())
+  tripDayId   String
+  tripDay     TripDay  @relation(fields: [tripDayId], references: [id], onDelete: Cascade)
+  category    String // "film" | "mangiare" | "pratico" | "vedere" | "ragazzi"
+  title       String
+  description String
+  isFree      Boolean // gratis oppure a pagamento: richiesto esplicitamente
+  costDetail  String? // es. "8 $ adulti, 5 $ ragazzi"
+  address     String?
+  mapsQuery   String? // cosa cercare su Google Maps
+  warning     String? // es. "da verificare sul posto"
+  sourceName  String?
+  sourceUrl   String?
+  sceneUrl    String? // link esterno a una pagina che mostra la scena/il personaggio citato (mai un file immagine ospitato da noi: diritti d'autore)
+  verifiedAt  DateTime
+  order       Int      @default(0)
+
+  @@index([tripDayId])
+}
+
+// Una singola attività/tappa all'interno di un giorno
+model Activity {
+  id          String   @id @default(cuid())
+  tripDayId   String
+  tripDay     TripDay  @relation(fields: [tripDayId], references: [id], onDelete: Cascade)
+  order       Int // ordine di visualizzazione nel giorno
+  time        String? // es. "19:30" oppure "13:30 -->" oppure "da definire"
+  title       String
+  address     String? // per il link Google Maps
+  mapsQuery   String? // query da usare nel link maps (se diversa da address)
+  zone        String? // "midtown" | "lower" | "uptown" | "brooklyn" | ecc (solo NY)
+  transportMode String? // "piedi" | "metro" | "uber" | "incluso" | "a piedi/uber" ecc
+  cost        String? // "incluso" | "free" | "citypass" | "$"
+  notes       String?
+  requiresDocument String? // testo libero, es. "Voucher MoMA (QR)"
+  updatedByFamily String? // ultima famiglia che ha modificato orario/note durante il viaggio
+  updatedAt   DateTime @updatedAt
+
+  @@index([tripDayId])
+}
+
+model MealSuggestion {
+  id        String  @id @default(cuid())
+  tripDayId String
+  tripDay   TripDay @relation(fields: [tripDayId], references: [id], onDelete: Cascade)
+  name      String
+  address   String?
+  priceTier String? // "$" | "$$" | "$$$"
+  note      String?
+
+  @@index([tripDayId])
+}
+
+// Documenti: comuni (familyCode = null) o personali di una famiglia
+model Document {
+  id         String   @id @default(cuid())
+  familyId   String?
+  family     Family?  @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  title      String
+  category   String // "volo" | "hotel" | "assicurazione" | "biglietto" | "transfer" | "altro"
+  filePath   String // percorso relativo dentro la cartella privata uploads/
+  tripDayNumber Int? // giorno di riferimento, se applicabile
+  note       String?
+  createdAt  DateTime @default(now())
+
+  @@index([familyId])
+}
+
+model Medication {
+  id       String  @id @default(cuid())
+  name     String
+  reason   String // perché la porta la famiglia (es. "asma", "cervicale")
+  phraseEn String // frase pronta in inglese per spiegarlo
+  notes    String?
+}
+
+model CustomsPhrase {
+  id        String @id @default(cuid())
+  category  String // "motivo del viaggio" | "farmaci" | "cibo" | "durata soggiorno" | "quanti siete"
+  italian   String
+  english   String
+  order     Int    @default(0)
+}
+
+// Un unico record globale con le informazioni di emergenza
+model EmergencyInfo {
+  id                 String @id @default(cuid())
+  insuranceProvider  String
+  policyNumber       String
+  insurancePhone     String
+  agencyPhone24h     String
+  agencyEmail        String
+  teamAmericaNyPhone String?
+  lostDocumentSteps  String // testo con i passi da seguire
+  lostBaggageSteps   String
+  medicalEmergencySteps String
+}
+
+model OptionalExcursion {
+  id          String @id @default(cuid())
+  day         String // es. "Mar 11 ago"
+  title       String
+  price       String
+  description String?
+  recommendation String?
+  order       Int    @default(0)
+}

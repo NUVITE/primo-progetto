@@ -1,0 +1,11 @@
+[Unit]
+Description=HotelWeb: backup notturno del database alle 3
+
+[Timer]
+OnCalendar=*-*-* 03:00:00
+# Se il server era spento alle 3, il backup parte appena si riaccende.
+Persistent=true
+RandomizedDelaySec=5min
+
+[Install]
+WantedBy=timers.target

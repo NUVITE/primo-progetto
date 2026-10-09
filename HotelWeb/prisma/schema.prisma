@@ -1,0 +1,2220 @@
+// Prima fetta verticale: prenotazione -> camera -> listino/prezzo -> tassa di soggiorno.
+// Vedi HotelWeb/SCHEMA_DB.md per il modello concettuale completo (di cui questo e' un sottoinsieme).
+// Semplificazioni deliberate per questa fetta (non ancora modellate come tabelle a se':
+// Trattamento (stringa libera), Piano/Caratteristica camera, fasce eta bambino, sale/eventi, fatturazione).
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+model Hotel {
+  id                     Int       @id @default(autoincrement())
+  comuneId               Int
+  comune                 Comune    @relation(fields: [comuneId], references: [id])
+  nome                   String
+  // Usata per scegliere il regolamento della tassa di soggiorno (RegolamentoTassaComune.categoriaStruttura).
+  // Tipologia della struttura (albergo, B&B, casa vacanze...: src/lib/tipologie.ts): adatta il programma
+  // (profilo proposto, nomi delle unità). Diversa dalla categoria, che serve solo per la tassa di soggiorno.
+  tipologia              String    @default("albergo")
+  // Funzioni del nucleo SPENTE (src/lib/funzioniRegole.ts: gruppi, agenzie, uso diurno, preventivi).
+  // Null o vuoto = tutto acceso come prima.
+  funzioniSpente         Json?
+  categoria              String?
+  // Dati anagrafici e fiscali della struttura (intestazione fatture, adempimenti).
+  ragioneSociale         String?
+  partitaIva             String?
+  codiceFiscale          String?
+  indirizzo              String?
+  cap                    String?
+  telefono               String?
+  email                  String?
+  pec                    String?
+  // Hotel disattivato: nessun utente dell'hotel puo' accedere (il superadmin lo vede ancora).
+  attivo                 Boolean   @default(true)
+  // Codici dei moduli opzionali attivi (vedi src/lib/moduli.ts). Null = nessuno.
+  moduli                 Json?
+  // Sistema regionale per la statistica ISTAT: "ROSS1000" (es. Lazio) | "SPOT" (Puglia) | null.
+  // Decide quali liste di motivo/mezzo compaiono al check-in (valori nativi, vedi src/lib/istat.ts).
+  sistemaIstat           String?
+  // Orari mostrati a reception e ospiti ("HH:MM").
+  orarioCheckIn          String?
+  orarioCheckOut         String?
+  // Giorni di validità proposti per una nuova opzione (modificabili nella singola prenotazione).
+  giorniOpzione          Int       @default(3)
+  // Utenti: "ruoli" (più utenti, ognuno con uno o più ruoli) | "titolare" (un solo utente che fa
+  // tutto, tipico del B&B: non si aggiungono altri utenti finché non si passa ai ruoli).
+  modalitaUtenti         String    @default("ruoli")
+  // Prenotazioni NON garantite: oltre quest'ora del giorno di arrivo l'ospite che non è arrivato è un
+  // possibile no-show e la camera si può rivendere ("HH:MM").
+  orarioLimiteArrivo     String    @default("18:00")
+  // IVA di camere, trattamenti e uso diurno (%, prezzi IVA inclusa). Da verificare con il commercialista.
+  aliquotaAlloggio       Decimal   @default(10) @db.Decimal(4, 2)
+  // Alloggiati Web (Polizia): utente in chiaro, password e chiave del servizio web CIFRATE
+  // (src/lib/cifratura.ts). verificatoIl = ultima prova di accesso riuscita.
+  alloggiatiUtente       String?
+  alloggiatiPassword     String?   @db.Text
+  alloggiatiWskey        String?   @db.Text
+  alloggiatiVerificatoIl DateTime?
+  // ISTAT Ross1000 (es. Lazio): codice struttura e credenziali di trasmissione (password CIFRATA),
+  // indirizzo del servizio della regione. istatPrimoGiorno: primo giorno da comunicare (per SPOT
+  // prima di quel giorno va l'avvio con gli ospiti presenti).
+  ross1000Codice         String?
+  ross1000Utente         String?
+  ross1000Password       String?   @db.Text
+  ross1000Indirizzo      String?
+  istatPrimoGiorno       DateTime? @db.Date
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  camere                   Camera[]
+  tipiCamera               TipoCamera[]
+  ospiti                   Ospite[]
+  gruppi                   Gruppo[]
+  prenotazioni             Prenotazione[]
+  listini                  Listino[]
+  accessi                  UtenteHotel[]
+  ruoli                    Ruolo[]
+  serviziCatalogo          ServizioCatalogo[]
+  trattamenti              Trattamento[]
+  clienti                  Cliente[]
+  sale                     Sala[]
+  fasceOrarie              FasciaOraria[]
+  prenotazioniSala         PrenotazioneSala[]
+  politicheCancellazione   PoliticaCancellazione[]
+  pacchettiSala            PacchettoSala[]
+  repartiAddebito          RepartoAddebito[]
+  pagamenti                Pagamento[]
+  chiusureCassa            ChiusuraCassa[]
+  noteAlimentari           NotaAlimentare[]
+  piatti                   Piatto[]
+  // Pulizie: con il controllo della governante una camera finita passa da "da controllare" prima di essere pronta.
+  controlloGovernante      Boolean                  @default(false)
+  // Biancheria nelle camere fermate: lenzuola ogni N notti; asciugamani ogni N notti (null = su richiesta).
+  cambioLenzuolaOgni       Int                      @default(3)
+  cambioAsciugamaniOgni    Int?
+  // Couverture serale (preparazione della camera per la notte), tipica degli hotel di categoria alta.
+  couverture               Boolean                  @default(false)
+  assegnazioniPulizia      AssegnazionePulizia[]
+  articoliReparto          ArticoloReparto[]
+  menu                     Menu[]
+  ordiniRoomService        OrdineRoomService[]
+  segnalazioni             Segnalazione[]
+  // Oggetti smarriti: dopo quanti mesi in deposito si segnalano da smaltire.
+  mesiConservazioneOggetti Int                      @default(6)
+  richiesteOspiti          RichiestaOspite[]
+  oggettiSmarriti          OggettoSmarrito[]
+  // Coordinate per i bonifici degli acconti (segnaposto {{iban}} nelle email).
+  iban                     String?
+  // Email di ringraziamento (con il questionario) mandata da sola al check-out dell'ultima camera.
+  ringraziamentoAuto       Boolean                  @default(false)
+  // Pagina delle recensioni (Google, TripAdvisor...): proposta a chi ha dato un voto alto nel questionario.
+  linkRecensioni           String?
+  questionari              Questionario[]
+  messaggiOspiti           MessaggioOspite[]
+  serviziPortineria        ServizioPortineria[]
+  depositiBagagli          DepositoBagagli[]
+  custodieValori           CustodiaValori[]
+  consegneTurno            ConsegnaTurno[]
+  reclami                  Reclamo[]
+  cauzioni                 Cauzione[]
+  configurazioneEmail      ConfigurazioneEmail?
+  modelliEmail             ModelloEmail[]
+  emailInviate             EmailInviata[]
+  richiesteDisponibilita   RichiestaDisponibilita[]
+  preventivi               Preventivo[]
+  allotment                Allotment[]
+}
+
+/**
+ * superAdmin = gestore della piattaforma: vede tutti gli hotel (anche quelli creati dopo) con
+ * tutti i permessi, senza bisogno di righe in UtenteHotel. Gli altri utenti accedono solo agli
+ * hotel in cui hanno una riga UtenteHotel, con il ruolo indicato li' (ruoli diversi per hotel).
+ */
+model Utente {
+  id           Int      @id @default(autoincrement())
+  nome         String
+  email        String   @unique
+  passwordHash String
+  superAdmin   Boolean  @default(false)
+  attivo       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  // Sicurezza degli accessi: la versione sta nel cookie di sessione; cambiandola (cambio password,
+  // "esci dagli altri dispositivi", reimpostazione) tutte le sessioni aperte smettono di valere.
+  versioneSessione          Int       @default(0)
+  // Password iniziale o reimpostata da un altro: al primo accesso va cambiata prima di fare altro.
+  cambioPasswordObbligatorio Boolean  @default(false)
+  passwordCambiataIl        DateTime?
+  // Verifica in due passaggi (codice a 6 cifre da un'app sul telefono, TOTP RFC 6238). Il segreto è
+  // cifrato con CHIAVE_CREDENZIALI; "inAttesa" vale tra la lettura del codice QR e la conferma.
+  totpSegretoCifrato         String?
+  totpInAttesaCifrato        String?
+  totpAttivoIl               DateTime?
+  // Ultimo passo di 30 secondi usato: lo stesso codice non vale due volte.
+  totpUltimoPasso            Int?
+  // Codici di riserva (impronte SHA-256), ognuno usabile una volta.
+  codiciRiserva              Json?
+
+  accessi               UtenteHotel[]
+  eventiAccesso         EventoAccesso[]
+  dispositiviFidati     DispositivoFidato[]
+  eventiTassa           EventoTassa[]
+  assegnazioniPulizia   AssegnazionePulizia[]
+  segnalazioniAssegnate Segnalazione[]        @relation("assegnata")
+}
+
+/**
+ * Ruolo configurabile per hotel: un nome e un elenco di codici permesso (vedi src/lib/permessi.ts,
+ * unica fonte dei codici validi — quelli sconosciuti vengono ignorati in lettura).
+ */
+model Ruolo {
+  id        Int      @id @default(autoincrement())
+  hotelId   Int
+  hotel     Hotel    @relation(fields: [hotelId], references: [id])
+  nome      String
+  permessi  Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  accessi    UtenteHotel[]
+  aggiuntivi RuoloAggiuntivo[]
+
+  @@unique([hotelId, nome])
+}
+
+model UtenteHotel {
+  utenteId        Int
+  utente          Utente            @relation(fields: [utenteId], references: [id], onDelete: Cascade)
+  hotelId         Int
+  hotel           Hotel             @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  ruoloId         Int
+  ruolo           Ruolo             @relation(fields: [ruoloId], references: [id])
+  // Ruoli in più oltre a quello principale: i permessi si sommano (es. Reception + Cassa).
+  ruoliAggiuntivi RuoloAggiuntivo[]
+
+  @@id([utenteId, hotelId])
+  @@index([hotelId])
+  @@index([ruoloId])
+}
+
+model Comune {
+  id          Int    @id @default(autoincrement())
+  codiceIstat String @unique
+  nome        String
+  provincia   String
+
+  hotel            Hotel[]
+  regolamentiTassa RegolamentoTassa[]
+}
+
+model TipoCamera {
+  id                 Int      @id @default(autoincrement())
+  hotelId            Int
+  hotel              Hotel    @relation(fields: [hotelId], references: [id])
+  codice             String
+  descrizione        String
+  // Letti aggiunti possibili oltre la capienza della camera; animali ammessi in questo tipo.
+  lettiAggiuntiMax   Int      @default(0)
+  animaliAmmessi     Boolean  @default(false)
+  // Prezzo orario proposto per l'uso diurno (day use) di questo tipo di camera.
+  prezzoOraUsoDiurno Decimal? @db.Decimal(10, 2)
+  // Pulizia finale: addebitata una volta per soggiorno a ogni nuova prenotazione di questo tipo
+  // (servizio "Pulizia finale" della camera, modificabile o eliminabile nella prenotazione). Null = nessuna.
+  puliziaFinale      Decimal? @db.Decimal(10, 2)
+  // Cauzione proposta per una camera di questo tipo (deposito restituito alla partenza). Null = nessuna.
+  cauzione           Decimal? @db.Decimal(10, 2)
+
+  camere                Camera[]
+  periodiTariffari      PeriodoTariffario[]
+  segmenti              SegmentoSoggiorno[]
+  supplementiStagionali SupplementoStagionale[]
+  proposte              PropostaPreventivo[]
+  allotment             Allotment[]
+
+  @@unique([hotelId, codice])
+}
+
+model Camera {
+  id              Int        @id @default(autoincrement())
+  hotelId         Int
+  hotel           Hotel      @relation(fields: [hotelId], references: [id])
+  codice          String
+  tipoCameraId    Int
+  tipoCamera      TipoCamera @relation(fields: [tipoCameraId], references: [id])
+  piano           String?
+  capienzaAdulti  Int        @default(2)
+  capienzaBambini Int        @default(0)
+  attivo          Boolean    @default(true)
+  // Pulizie: "da_pulire" | "da_rifare" | "in_pulizia" | "da_controllare" | "pronta" (con chi e quando l'ha cambiato).
+  // Una camera occupata segnata "pronta" un giorno precedente torna "da rifare" da sola (calcolato, non salvato).
+  statoPulizia    String     @default("pronta")
+  statoPuliziaIl  DateTime?
+  statoPuliziaDa  String?
+  // Giorno in cui l'ospite ha chiesto di non essere disturbato (vale solo quel giorno).
+  nonDisturbare   DateTime?  @db.Date
+  // Arrivo autonomo (case vacanze, self check-in): come arrivare ed entrare e codice di accesso fisso
+  // dell'unità (porta, cassetta delle chiavi); il soggiorno può avere un codice suo che lo sostituisce.
+  istruzioniArrivo String?   @db.Text
+  codiceAccesso    String?
+
+  segmenti        SegmentoSoggiorno[]
+  indisponibilita CameraIndisponibilita[]
+  controlli       ControlloCamera[]
+  assegnazioni    AssegnazionePulizia[]
+  segnalazioni    Segnalazione[]
+  richieste       RichiestaOspite[]
+  oggettiSmarriti OggettoSmarrito[]
+
+  @@unique([hotelId, codice])
+}
+
+/**
+ * Manutenzione o altra indisponibilità temporanea di una camera (fuori servizio nel planning).
+ */
+model CameraIndisponibilita {
+  id       Int      @id @default(autoincrement())
+  cameraId Int
+  camera   Camera   @relation(fields: [cameraId], references: [id])
+  dal      DateTime @db.Date
+  al       DateTime @db.Date
+  motivo   String
+
+  createdAt    DateTime       @default(now())
+  segnalazioni Segnalazione[]
+}
+
+model Ospite {
+  id                      Int       @id @default(autoincrement())
+  hotelId                 Int
+  hotel                   Hotel     @relation(fields: [hotelId], references: [id])
+  nome                    String
+  cognome                 String
+  telefono                String?
+  email                   String?
+  dataNascita             DateTime? @db.Date
+  // Anagrafica per schedina PS (Alloggiati Web) e ISTAT. I luoghi sono codici delle tabelle
+  // ufficiali Polizia (LuogoPolizia, 9 cifre); niente FK: le tabelle si reimportano e i codici
+  // cessati restano validi per lo storico (es. comune di nascita soppresso).
+  sesso                   String?   @db.Char(1)
+  statoNascitaCodice      String?   @db.VarChar(9)
+  comuneNascitaCodice     String?   @db.VarChar(9)
+  cittadinanzaCodice      String?   @db.VarChar(9)
+  residenzaStatoCodice    String?   @db.VarChar(9)
+  residenzaComuneCodice   String?   @db.VarChar(9)
+  // Documento dell'ultimo check-in (riusato al soggiorno successivo). Per intero solo a chi
+  // gestisce le prenotazioni: altrove si mostra mascherato.
+  documentoTipoCodice     String?   @db.VarChar(5)
+  documentoNumero         String?   @db.VarChar(20)
+  documentoRilascioCodice String?   @db.VarChar(9)
+  note                    String?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+
+  segmenti               SegmentoSoggiorno[]
+  presenze               Presenza[]
+  prenotazioniPrenotante Prenotazione[]      @relation("prenotante")
+  prenotazioniPagante    Prenotazione[]      @relation("pagante")
+  posizioniTassa         PosizioneTassa[]
+  notaAlimentare         NotaAlimentare?
+  // Lingua delle email ("it", "en", ...); vuota = italiano se italiano o senza cittadinanza, altrimenti inglese.
+  lingua                 String?
+  emailRicevute          EmailInviata[]
+  questionari            Questionario[]
+  messaggi               MessaggioOspite[]
+  // Scheda cliente: preferenze libere ("camera alta, cuscino basso") e ospite di riguardo (VIP).
+  preferenze             String?             @db.Text
+  riguardo               Boolean             @default(false)
+  // Consenso al marketing, separato dalla privacy del soggiorno: sì/no, quando, come e chi l'ha
+  // raccolto. consensoMarketing=false con la data = revocato quel giorno.
+  consensoMarketing      Boolean             @default(false)
+  consensoMarketingIl    DateTime?
+  consensoMarketingModo  String?
+  consensoMarketingDa    String?
+  reclami                Reclamo[]
+
+  @@index([hotelId, cognome, nome])
+}
+
+/**
+ * Traccia di un'unione di ospiti doppi: l'ospite eliminato confluisce in quello tenuto (prenotazioni,
+ * presenze, tassa, email passano a lui). datiEliminato = copia dell'anagrafica eliminata.
+ */
+model OspiteUnito {
+  id             Int      @id @default(autoincrement())
+  hotelId        Int
+  ospiteTenutoId Int
+  eliminatoId    Int
+  datiEliminato  Json
+  unitoDa        String
+  unitoIl        DateTime @default(now())
+
+  @@index([hotelId, ospiteTenutoId])
+}
+
+/**
+ * Questionario di gradimento dopo la partenza: uno per prenotazione, compilato dall'ospite dal link
+ * segreto (/qs/<codice>) dell'email di ringraziamento. voti = { camera: 1-5, pulizia: ..., ... } (voce
+ * assente = "non so"); generale 1-5 obbligatorio.
+ */
+model Questionario {
+  id             Int          @id @default(autoincrement())
+  hotelId        Int
+  hotel          Hotel        @relation(fields: [hotelId], references: [id])
+  prenotazioneId Int          @unique
+  prenotazione   Prenotazione @relation(fields: [prenotazioneId], references: [id], onDelete: Cascade)
+  ospiteId       Int?
+  ospite         Ospite?      @relation(fields: [ospiteId], references: [id], onDelete: SetNull)
+  codice         String       @unique
+  lingua         String
+  creatoIl       DateTime     @default(now())
+  compilatoIl    DateTime?
+  generale       Int?
+  voti           Json?
+  consiglia      Boolean?
+  commento       String?      @db.Text
+  // Letto dalla direzione (i voti bassi restano in evidenza finché nessuno li legge).
+  lettoIl        DateTime?
+  lettoDa        String?
+
+  @@index([hotelId, compilatoIl])
+}
+
+/**
+ * Portineria: messaggio, lettera o pacco per un ospite (il "blocco comunicazioni"). Si lega alla
+ * prenotazione e alla persona; senza prenotazione resta solo il nome scritto (destinatario).
+ * Consegnato = consegnatoIl valorizzato, con il modo: "mano" | "email" | "rispedito".
+ */
+model MessaggioOspite {
+  id             Int           @id @default(autoincrement())
+  hotelId        Int
+  hotel          Hotel         @relation(fields: [hotelId], references: [id])
+  prenotazioneId Int?
+  prenotazione   Prenotazione? @relation(fields: [prenotazioneId], references: [id], onDelete: SetNull)
+  ospiteId       Int?
+  ospite         Ospite?       @relation(fields: [ospiteId], references: [id], onDelete: SetNull)
+  destinatario   String
+  // "messaggio" | "lettera" | "pacco"
+  tipo           String
+  // Chi ha cercato l'ospite o il mittente, come ("telefono" | "persona" | "email" | "posta" | "corriere") e il recapito da richiamare.
+  daChi          String?
+  modo           String?
+  recapito       String?
+  testo          String?       @db.Text
+  urgente        Boolean       @default(false)
+  // Lettere e pacchi: dove sono stati messi (casellario, back office…).
+  doveRiposto    String?
+  ricevutoIl     DateTime      @default(now())
+  ricevutoDa     String
+  consegnatoIl   DateTime?
+  consegnatoDa   String?
+  consegnaModo   String?
+  consegnaNota   String?
+
+  @@index([hotelId, consegnatoIl])
+  @@index([prenotazioneId])
+}
+
+/**
+ * Agenda del portiere: servizio prenotato per un ospite (taxi, transfer, ristorante, biglietti,
+ * escursione…) a un giorno e ora. stato: "da_confermare" | "confermato" | "fatto" | "annullato".
+ * Se il portiere anticipa la spesa, l'esborso va sul conto (addebitoId). Le sveglie restano
+ * richieste degli ospiti (RichiestaOspite tipo "sveglia"): l'agenda le mostra insieme.
+ */
+model ServizioPortineria {
+  id             Int            @id @default(autoincrement())
+  hotelId        Int
+  hotel          Hotel          @relation(fields: [hotelId], references: [id])
+  prenotazioneId Int?
+  prenotazione   Prenotazione?  @relation(fields: [prenotazioneId], references: [id], onDelete: SetNull)
+  destinatario   String
+  tipo           String
+  quando         DateTime
+  persone        Int?
+  // Dove, quale ristorante o evento; chi fornisce il servizio e il numero di conferma.
+  dettagli       String?        @db.Text
+  fornitore      String?
+  riferimento    String?
+  stato          String         @default("da_confermare")
+  nota           String?
+  addebitoId     Int?           @unique
+  addebito       AddebitoConto? @relation(fields: [addebitoId], references: [id], onDelete: SetNull)
+  creatoIl       DateTime       @default(now())
+  creatoDa       String
+  aggiornatoIl   DateTime       @updatedAt
+  aggiornatoDa   String?
+
+  @@index([hotelId, quando])
+}
+
+/**
+ * Deposito bagagli: cartellino numerato (numero progressivo per hotel), una metà all'ospite e una sui
+ * bagagli; al ritiro si controlla il numero. Aperto finché ritiratoIl è vuoto.
+ */
+model DepositoBagagli {
+  id             Int           @id @default(autoincrement())
+  hotelId        Int
+  hotel          Hotel         @relation(fields: [hotelId], references: [id])
+  numero         Int
+  prenotazioneId Int?
+  prenotazione   Prenotazione? @relation(fields: [prenotazioneId], references: [id], onDelete: SetNull)
+  nome           String
+  colli          Int
+  descrizione    String?
+  posizione      String?
+  depositatoIl   DateTime      @default(now())
+  depositatoDa   String
+  ritiratoIl     DateTime?
+  ritiratoDa     String?
+  ritiroNota     String?
+
+  @@unique([hotelId, numero])
+}
+
+/**
+ * Valori nella cassaforte dell'hotel (art. 1783-1786 c.c.): ricevuta di deposito numerata per hotel,
+ * con i movimenti (deposito iniziale, prelievo, versamento, ritiro finale). Aperta finché chiusaIl è vuoto.
+ */
+model CustodiaValori {
+  id             Int               @id @default(autoincrement())
+  hotelId        Int
+  hotel          Hotel             @relation(fields: [hotelId], references: [id])
+  numero         Int
+  prenotazioneId Int
+  prenotazione   Prenotazione      @relation(fields: [prenotazioneId], references: [id], onDelete: Restrict)
+  nome           String
+  camera         String?
+  // Cosa contiene (busta chiusa, gioielli, documenti...); il contante si segue negli importi dei movimenti.
+  descrizione    String
+  creataIl       DateTime          @default(now())
+  creataDa       String
+  chiusaIl       DateTime?
+  chiusaDa       String?
+  movimenti      MovimentoValori[]
+
+  @@unique([hotelId, numero])
+}
+
+/**
+ * Movimento sul retro della ricevuta: "deposito" | "prelievo" | "versamento" | "ritiro".
+ */
+model MovimentoValori {
+  id           Int            @id @default(autoincrement())
+  custodiaId   Int
+  custodia     CustodiaValori @relation(fields: [custodiaId], references: [id], onDelete: Cascade)
+  tipo         String
+  descrizione  String?
+  importo      Decimal?       @db.Decimal(10, 2)
+  data         DateTime       @default(now())
+  registratoDa String
+}
+
+/**
+ * Consegna fra turni: nota che il turno che smonta lascia a chi entra ("la 204 vuole la fattura alle
+ * 7"). Resta in evidenza per ogni collega finché non la segna come letta; chiusa quando è risolta.
+ */
+model ConsegnaTurno {
+  id         Int               @id @default(autoincrement())
+  hotelId    Int
+  hotel      Hotel             @relation(fields: [hotelId], references: [id])
+  testo      String            @db.Text
+  importante Boolean           @default(false)
+  creataIl   DateTime          @default(now())
+  creataDa   String
+  creataDaId Int
+  chiusaIl   DateTime?
+  chiusaDa   String?
+  letture    LetturaConsegna[]
+
+  @@index([hotelId, creataIl])
+}
+
+model LetturaConsegna {
+  consegnaId Int
+  consegna   ConsegnaTurno @relation(fields: [consegnaId], references: [id], onDelete: Cascade)
+  utenteId   Int
+  nome       String
+  lettaIl    DateTime      @default(now())
+
+  @@id([consegnaId, utenteId])
+}
+
+/**
+ * Reclamo di un ospite (libro: ascoltare, scusarsi, risolvere, analizzare). stato: "aperto" | "risolto".
+ * Gesto di cortesia: un abbuono sul conto (abbuonoId) o un servizio offerto (testo in gesto).
+ */
+model Reclamo {
+  id             Int            @id @default(autoincrement())
+  hotelId        Int
+  hotel          Hotel          @relation(fields: [hotelId], references: [id])
+  prenotazioneId Int?
+  prenotazione   Prenotazione?  @relation(fields: [prenotazioneId], references: [id], onDelete: SetNull)
+  ospiteId       Int?
+  ospite         Ospite?        @relation(fields: [ospiteId], references: [id], onDelete: SetNull)
+  nome           String
+  camera         String?
+  categoria      String
+  descrizione    String         @db.Text
+  stato          String         @default("aperto")
+  // Cosa si è fatto per risolvere, il gesto di cortesia e (per la direzione) causa e come evitarlo.
+  soluzione      String?        @db.Text
+  gesto          String?
+  analisi        String?        @db.Text
+  abbuonoId      Int?           @unique
+  abbuono        AddebitoConto? @relation(fields: [abbuonoId], references: [id], onDelete: SetNull)
+  creatoIl       DateTime       @default(now())
+  creatoDa       String
+  risoltoIl      DateTime?
+  risoltoDa      String?
+
+  @@index([hotelId, creatoIl])
+}
+
+/**
+ * Cauzione (deposito cauzionale) di una prenotazione: NON è un incasso, non entra nel conto né nel
+ * giornale; nella cassa del giorno ha la sua voce e conta nei contanti del cassetto. Alla restituzione
+ * l'eventuale trattenuta per danni diventa un addebito "Risarcimento danni" (fuori campo IVA) sul conto,
+ * pagato con un pagamento di pari importo preso dalla cauzione.
+ */
+model Cauzione {
+  id                 Int            @id @default(autoincrement())
+  hotelId            Int
+  hotel              Hotel          @relation(fields: [hotelId], references: [id])
+  prenotazioneId     Int            @unique
+  prenotazione       Prenotazione   @relation(fields: [prenotazioneId], references: [id], onDelete: Restrict)
+  importo            Decimal        @db.Decimal(10, 2)
+  metodo             String
+  incassataIl        DateTime       @db.Date
+  incassataDa        String
+  restituitaIl       DateTime?      @db.Date
+  restituitaDa       String?
+  metodoRestituzione String?
+  importoRestituito  Decimal?       @db.Decimal(10, 2)
+  trattenuta         Decimal?       @db.Decimal(10, 2)
+  motivoTrattenuta   String?
+  addebitoId         Int?           @unique
+  addebito           AddebitoConto? @relation("trattenutaCauzione", fields: [addebitoId], references: [id], onDelete: SetNull)
+  pagamentoId        Int?           @unique
+  pagamento          Pagamento?     @relation("pagamentoTrattenuta", fields: [pagamentoId], references: [id], onDelete: SetNull)
+  createdAt          DateTime       @default(now())
+
+  @@index([hotelId, incassataIl])
+}
+
+model Gruppo {
+  id      Int     @id @default(autoincrement())
+  hotelId Int
+  hotel   Hotel   @relation(fields: [hotelId], references: [id])
+  nome    String
+  note    String?
+
+  prenotazioni Prenotazione[]
+}
+
+enum StatoPrenotazione {
+  OPZIONE
+  CONFERMATA
+  ANNULLATA
+}
+
+model Prenotazione {
+  id                 Int               @id @default(autoincrement())
+  hotelId            Int
+  hotel              Hotel             @relation(fields: [hotelId], references: [id])
+  gruppoId           Int?
+  gruppo             Gruppo?           @relation(fields: [gruppoId], references: [id])
+  ospitePrenotanteId Int
+  ospitePrenotante   Ospite            @relation("prenotante", fields: [ospitePrenotanteId], references: [id])
+  ospitePaganteId    Int?
+  ospitePagante      Ospite?           @relation("pagante", fields: [ospitePaganteId], references: [id])
+  // Provenienza: canale = chi ha portato la prenotazione ("diretta" | "azienda" | "agenzia" |
+  // "portale" | "altro"); mezzo = come è arrivata ("telefono" | "email" | "web" | "persona" | "altro").
+  canale             String            @default("diretta")
+  mezzo              String?
+  // Azienda, agenzia o portale che ha prenotato (anagrafica Clienti) e cliente che paga, se il conto
+  // non è dell'ospite (es. l'azienda paga il soggiorno del dipendente).
+  intermediarioId    Int?
+  intermediario      Cliente?          @relation("intermediario", fields: [intermediarioId], references: [id])
+  clientePaganteId   Int?
+  clientePagante     Cliente?          @relation("clientePagante", fields: [clientePaganteId], references: [id])
+  // Garanzia: "nessuna" | "caparra" | "carta" (solo l'indicazione: i dati della carta NON si
+  // salvano) | "prepagata". Le non garantite hanno l'orario limite di arrivo dell'hotel.
+  garanzia           String            @default("nessuna")
+  oraArrivo          String?
+  // Politica di cancellazione applicata, COPIATA al momento della prenotazione: se poi l'hotel la
+  // cambia, vale quella accettata dal cliente.
+  politicaId         Int?
+  politica           Json?
+  // Conto lasciato in sospeso (dopo la partenza con saldo da pagare): a carico dell'ospite o di un
+  // cliente (azienda/agenzia), con nota e ultimo sollecito. Si chiude da solo quando il saldo è pagato.
+  sospesoIl          DateTime?
+  sospesoDa          String?
+  sospesoClienteId   Int?
+  sospesoCliente     Cliente?          @relation("sospeso", fields: [sospesoClienteId], references: [id])
+  sospesoNota        String?
+  sollecitoIl        DateTime?         @db.Date
+  // Conto diviso quando paga un cliente (azienda/agenzia): "predefinita" (camere e trattamento al
+  // cliente, extra e tassa all'ospite) | "tutto_ospite" | "tutto_cliente". Le singole righe si possono spostare.
+  regolaConto        String            @default("predefinita")
+  stato              StatoPrenotazione @default(OPZIONE)
+  accontoRichiesto   Decimal?          @db.Decimal(10, 2)
+  accontoRicevuto    Decimal?          @db.Decimal(10, 2)
+  // Conteggio persone informativo (es. per colazioni/pulizie): non influenza il calcolo
+  // di prezzo/tassa, che restano per camera/notte come nel resto del motore.
+  numeroPersone      Int?
+  note               String?
+  // Opzione: valida fino a (alla scadenza solo un avviso, non si annulla da sola); acconto entro.
+  scadenzaOpzione    DateTime?         @db.Date
+  accontoEntro       DateTime?         @db.Date
+  confermataIl       DateTime?
+  // Annullamento: chi, quando, perché ("cliente" | "no_show" | "errore" | "altro"). penale = parte
+  // degli incassi trattenuta: è l'unico importo dovuto di una prenotazione annullata.
+  annullataIl        DateTime?
+  annullataDa        String?
+  motivoAnnullamento String?
+  notaAnnullamento   String?
+  penale             Decimal?          @db.Decimal(10, 2)
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  segmenti               SegmentoSoggiorno[]
+  pagamenti              Pagamento[]
+  serviziAggiunti        ServizioAggiunto[]
+  posizioniTassa         PosizioneTassa[]
+  prenotazioniSala       PrenotazioneSala[]
+  personeEvento          PersonaEvento[]
+  addebiti               AddebitoConto[]
+  intestazioniRighe      IntestazioneRigaConto[]
+  righeFatturate         RigaFatturata[]
+  oggettiSmarriti        OggettoSmarrito[]
+  emailInviate           EmailInviata[]
+  richiesteDisponibilita RichiestaDisponibilita[]
+  // Voucher dell'agenzia: numero e cosa copre ("soggiorno" = camere e trattamento, "tutto"); il conto si divide di conseguenza.
+  voucher                String?
+  voucherCopre           String?
+  questionario           Questionario?
+  messaggi               MessaggioOspite[]
+  serviziPortineria      ServizioPortineria[]
+  depositiBagagli        DepositoBagagli[]
+  custodieValori         CustodiaValori[]
+  reclami                Reclamo[]
+  cauzione               Cauzione?
+}
+
+enum StatoSegmento {
+  PREVISTO
+  IN_CORSO
+  CONCLUSO
+  ANNULLATO
+}
+
+model SegmentoSoggiorno {
+  id                   Int                 @id @default(autoincrement())
+  prenotazioneId       Int
+  prenotazione         Prenotazione        @relation(fields: [prenotazioneId], references: [id], onDelete: Restrict)
+  // Null finche' non si assegna una camera fisica specifica: una prenotazione "generica"
+  // (es. "2 doppie dal 14 al 21") blocca la disponibilita' per tipo camera, non una camera precisa.
+  cameraId             Int?
+  camera               Camera?             @relation(fields: [cameraId], references: [id])
+  // Sempre valorizzato (anche senza camera assegnata): serve per il prezzo e per il conteggio
+  // di disponibilita' per tipo. Congelato al momento della creazione del segmento.
+  tipoCameraId         Int
+  tipoCamera           TipoCamera          @relation(fields: [tipoCameraId], references: [id])
+  // Intestatario della camera (riferimento per planning ed elenchi). Le PERSONE che occupano la
+  // camera sono le Presenze: il prezzo è per camera (notti), la tassa per persona.
+  ospiteId             Int
+  ospite               Ospite              @relation(fields: [ospiteId], references: [id])
+  // Trattamento semplificato a stringa libera per questa fetta (niente tabella dedicata ancora).
+  trattamento          String              @default("Mezza pensione")
+  listinoId            Int
+  listino              Listino             @relation(fields: [listinoId], references: [id])
+  dataInizio           DateTime            @db.Date
+  dataFine             DateTime            @db.Date
+  stato                StatoSegmento       @default(PREVISTO)
+  // Composizione prenotata, base del prezzo: adulti e età dei bambini all'arrivo (array di interi).
+  // Al check-in si confronta con le persone reali; il prezzo cambia solo su "Ricalcola".
+  adulti               Int                 @default(1)
+  etaBambini           Json?
+  // Prezzo per notte concordato a mano (permesso "Modificare i prezzi"): sostituisce il listino per
+  // tutte le notti della camera e i ricalcoli non lo toccano. Chi e perché restano registrati.
+  // Uso diurno (day use): camera usata di giorno senza pernottamento. dataInizio = dataFine = il
+  // giorno; niente notti, tassa di soggiorno, schedina né ISTAT. Prezzo forfettario della fascia oraria.
+  usoDiurno            Boolean             @default(false)
+  // Ristorazione: in mezza pensione "pranzo" al posto della cena (null = quello del trattamento) e tavolo in sala.
+  pastoPrincipale      String?
+  tavolo               String?
+  variazioniPasti      VariazionePasto[]
+  // Room service: codice segreto del link nel QR del cartoncino, valido solo per questo soggiorno.
+  codiceRoomService    String?             @unique
+  ordiniRoomService    OrdineRoomService[]
+  oraDal               String?
+  oraAl                String?
+  prezzoUsoDiurno      Decimal?            @db.Decimal(10, 2)
+  prezzoConcordato     Decimal?            @db.Decimal(10, 2)
+  prezzoConcordatoNota String?
+  prezzoConcordatoDa   String?
+
+  // Collega un cambio-camera al segmento che lo precede (vedi MODELLO_DATI.md).
+  segmentoPrecedenteId Int?               @unique
+  segmentoPrecedente   SegmentoSoggiorno? @relation("catena", fields: [segmentoPrecedenteId], references: [id])
+  segmentoSuccessivo   SegmentoSoggiorno? @relation("catena")
+
+  notti     NotteSoggiorno[]
+  presenze  Presenza[]
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  // Servizi aggiuntivi assegnati specificamente a questo ospite/camera (non a tutto il gruppo).
+  serviziAggiunti  ServizioAggiuntoSegmento[]
+  addebiti         AddebitoConto[]
+  richiesteOspiti  RichiestaOspite[]
+  // Portineria: chiavi o key card della camera consegnate e restituite (al check-out si avvisa se ne mancano).
+  chiaviConsegnate Int                        @default(0)
+  chiaviRestituite Int                        @default(0)
+  // Arrivo autonomo: codice di accesso di questo soggiorno (sostituisce quello fisso della camera).
+  codiceAccesso    String?
+}
+
+/**
+ * Voce a catalogo per un servizio extra (sala conferenze, pranzo aggiuntivo, colazione
+ * extra...) con un prezzo di listino. Un servizio "a prezzo libero" (importo deciso al
+ * momento, non a catalogo) non ha una voce qui: vedi ServizioAggiunto.servizioCatalogoId nullable.
+ */
+model ServizioCatalogo {
+  id          Int      @id @default(autoincrement())
+  hotelId     Int
+  hotel       Hotel    @relation(fields: [hotelId], references: [id])
+  nome        String
+  prezzo      Decimal  @db.Decimal(10, 2)
+  // "una_tantum" | "per_notte" | "per_persona_notte"
+  addebito    String   @default("una_tantum")
+  // null | "letto_aggiunto" (aumenta la capienza della camera) | "animale" (solo tipi che li ammettono)
+  effetto     String?
+  // IVA del servizio (%); null = come camere e trattamenti.
+  aliquotaIva Decimal? @db.Decimal(4, 2)
+  attivo      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  serviziAggiunti ServizioAggiunto[]
+  serviziSala     ServizioSala[]
+  righePacchetto  RigaPacchettoSala[]
+}
+
+/**
+ * Un servizio extra addebitato su una prenotazione: puo' venire dal catalogo (prezzo
+ * suggerito, modificabile) oppure essere a prezzo libero (descrizione + importo liberi).
+ * Se non e' collegato a nessun ServizioAggiuntoSegmento si applica a TUTTA la prenotazione
+ * (es. sala conferenze per l'intera famiglia); se e' collegato a uno o piu' segmenti si
+ * applica solo a quei componenti del gruppo (uno o alcuni, non necessariamente tutti).
+ */
+model ServizioAggiunto {
+  id                 Int               @id @default(autoincrement())
+  prenotazioneId     Int
+  prenotazione       Prenotazione      @relation(fields: [prenotazioneId], references: [id], onDelete: Restrict)
+  servizioCatalogoId Int?
+  servizioCatalogo   ServizioCatalogo? @relation(fields: [servizioCatalogoId], references: [id])
+  // Nome da mostrare: se non c'e' un servizio a catalogo e' obbligatoria (prezzo libero).
+  descrizione        String?
+  prezzoUnitario     Decimal           @db.Decimal(10, 2)
+  // quantita = unita x notti (x persone) secondo l'addebito, calcolata all'inserimento.
+  quantita           Int               @default(1)
+  addebito           String            @default("una_tantum")
+  unita              Int               @default(1)
+  aliquotaIva        Decimal?          @db.Decimal(4, 2)
+  data               DateTime?         @db.Date
+  note               String?
+  createdAt          DateTime          @default(now())
+
+  segmenti ServizioAggiuntoSegmento[]
+}
+
+model ServizioAggiuntoSegmento {
+  servizioAggiuntoId Int
+  servizioAggiunto   ServizioAggiunto  @relation(fields: [servizioAggiuntoId], references: [id])
+  segmentoId         Int
+  segmento           SegmentoSoggiorno @relation(fields: [segmentoId], references: [id])
+
+  @@id([servizioAggiuntoId, segmentoId])
+}
+
+model NotteSoggiorno {
+  id           Int               @id @default(autoincrement())
+  segmentoId   Int
+  segmento     SegmentoSoggiorno @relation(fields: [segmentoId], references: [id])
+  data         DateTime          @db.Date
+  prezzo       Decimal           @db.Decimal(10, 2)
+  // "base" | "personalizzato" | "gruppo" -- quale regola ha determinato il prezzo.
+  motivoPrezzo String
+  // Dettaglio del calcolo: { righe: [{ voce, importo }], lordo, quote, gratuita } (prezzo = lordo - gratuita).
+  dettaglio    Json?
+
+  // Una riga di tassa per ogni persona presente quella notte (vedi Presenza).
+  tasse TassaNotte[]
+
+  @@unique([segmentoId, data])
+}
+
+model Listino {
+  id                            Int                    @id @default(autoincrement())
+  hotelId                       Int
+  hotel                         Hotel                  @relation(fields: [hotelId], references: [id])
+  codice                        String
+  descrizione                   String
+  // "base" | "personalizzato" | "gruppo"
+  tipo                          String                 @default("base")
+  // "camera": prezzo del periodo = camera per notte; "persona": prezzo per persona per notte.
+  modalita                      String                 @default("camera")
+  // Solo a persona: supplemento se in camera c'è una sola persona (doppia uso singola).
+  supplementoSingola            Decimal?               @db.Decimal(10, 2)
+  supplementoSingolaPercentuale Boolean                @default(false)
+  // Condizioni dei listini di gruppo: categoria libera (scout, scuola, ecclesiastico...),
+  // minimo di persone (sotto compare un avviso) e 1 gratuito ogni N paganti.
+  categoria                     String?
+  minPersone                    Int?
+  gratuitaOgni                  Int?
+  politicaId                    Int?
+  politica                      PoliticaCancellazione? @relation(fields: [politicaId], references: [id])
+  // Notti con il prezzo weekend del periodo (giorni della settimana, 0 = domenica … 6 = sabato).
+  giorniWeekend                 Json?
+
+  periodi                PeriodoTariffario[]
+  segmenti               SegmentoSoggiorno[]
+  supplementiTrattamento SupplementoTrattamento[]
+  riduzioni              RiduzioneListino[]
+  supplementiStagionali  SupplementoStagionale[]
+  proposte               PropostaPreventivo[]
+
+  @@unique([hotelId, codice])
+}
+
+model PeriodoTariffario {
+  id            Int        @id @default(autoincrement())
+  listinoId     Int
+  listino       Listino    @relation(fields: [listinoId], references: [id])
+  tipoCameraId  Int
+  tipoCamera    TipoCamera @relation(fields: [tipoCameraId], references: [id])
+  dal           DateTime   @db.Date
+  al            DateTime   @db.Date
+  prezzoNotte   Decimal    @db.Decimal(10, 2)
+  // Prezzo delle notti del weekend (vedi Listino.giorniWeekend); null = come le altre.
+  prezzoWeekend Decimal?   @db.Decimal(10, 2)
+  createdAt     DateTime   @default(now())
+}
+
+/**
+ * Supplemento per persona per notte di un trattamento rispetto al prezzo del listino
+ * (es. base B&B, Mezza pensione +20). Nessuna riga = trattamento incluso nel prezzo.
+ */
+model SupplementoTrattamento {
+  id            Int         @id @default(autoincrement())
+  listinoId     Int
+  listino       Listino     @relation(fields: [listinoId], references: [id], onDelete: Cascade)
+  trattamentoId Int
+  trattamento   Trattamento @relation(fields: [trattamentoId], references: [id], onDelete: Cascade)
+  importo       Decimal     @db.Decimal(10, 2)
+
+  @@unique([listinoId, trattamentoId])
+}
+
+/**
+ * Riduzione per fascia d'età (età all'arrivo; gli adulti contano come 18). Vale la prima regola
+ * che corrisponde, in ordine di età. dalTerzoLetto: solo per chi occupa il 3° posto o oltre
+ * (bambino con 2 adulti, adulto in letto aggiunto). Si applica alla quota della persona:
+ * prezzo a persona + supplemento trattamento (nei listini a camera, solo al supplemento).
+ */
+model RiduzioneListino {
+  id            Int     @id @default(autoincrement())
+  listinoId     Int
+  listino       Listino @relation(fields: [listinoId], references: [id], onDelete: Cascade)
+  etaDa         Int
+  // null = senza limite superiore
+  etaA          Int?
+  // "percentuale" | "importo" | "gratis"
+  tipo          String
+  valore        Decimal @default(0) @db.Decimal(10, 2)
+  dalTerzoLetto Boolean @default(false)
+}
+
+/**
+ * Tassa di soggiorno — motore unico in src/lib/tassaSoggiorno.ts. Modello approvato il 2026-09-29,
+ * regole reali in TASSA_SOGGIORNO_REGOLAMENTI.md.
+ * Una VERSIONE del regolamento di un comune vale da validoDal a validoAl (null = in vigore). Si
+ * applica notte per notte secondo la data della notte. Una versione usata da un soggiorno chiuso
+ * (PosizioneTassa.definitiva) non si modifica più: si crea una versione nuova.
+ */
+model RegolamentoTassa {
+  id                Int       @id @default(autoincrement())
+  comuneId          Int
+  comune            Comune    @relation(fields: [comuneId], references: [id])
+  validoDal         DateTime  @db.Date
+  validoAl          DateTime? @db.Date
+  attoRiferimento   String?
+  fonteUrl          String?   @db.VarChar(500)
+  note              String?   @db.Text
+  // Punti non chiariti dalle fonti, da mostrare come avviso (es. "Tariffa alberghi 1,50 o 2,00?").
+  daConfermare      String?   @db.Text
+  // I residenti nel comune sono fuori campo (non "esenti": nei rendiconti vanno contati a parte).
+  esclusiResidenti  Boolean   @default(true)
+  // Finestra stagionale "MM-GG" (null = tutto l'anno).
+  stagionalitaDal   String?
+  stagionalitaAl    String?
+  // Il conteggio delle notti consecutive riparte il 1° gennaio ("nell'anno solare").
+  azzeraAnnoSolare  Boolean   @default(true)
+  // Rendiconto al Comune: periodo ("trimestrale" | "semestrale"), giorno del mese successivo alla
+  // fine del periodo entro cui si presenta, giorno del versamento se diverso (31 = fine mese) e
+  // promemoria degli altri obblighi (comunicazione per ospite, soglie, dichiarazione annuale).
+  rendicontoPeriodo String    @default("trimestrale")
+  rendicontoGiorno  Int       @default(16)
+  versamentoGiorno  Int?
+  rendicontoNota    String?   @db.Text
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  tariffe    TariffaTassa[]
+  regole     RegolaTassa[]
+  tasseNotte TassaNotte[]
+}
+
+model TariffaTassa {
+  id            Int              @id @default(autoincrement())
+  regolamentoId Int
+  regolamento   RegolamentoTassa @relation(fields: [regolamentoId], references: [id], onDelete: Cascade)
+  // Deve combaciare con Hotel.categoria; la tariffa "predefinita" vale per le categorie non previste.
+  categoria     String
+  importo       Decimal          @db.Decimal(6, 2)
+  tettoNotti    Int?
+  // "consecutive_struttura" | "consecutive_anche_altrove" (notti precedenti dichiarate dall'ospite)
+  modoTetto     String           @default("consecutive_struttura")
+  predefinita   Boolean          @default(false)
+
+  tasseNotte TassaNotte[]
+
+  @@unique([regolamentoId, categoria])
+}
+
+/**
+ * tipo: "eta" (automatica: esente se età < etaSotto oppure età >= etaDa, alla data della notte)
+ * "dichiarata" (esenzione registrata dalla reception con documento, eventualmente per un periodo)
+ * "riduzione" (come dichiarata, riduce del percentualeRiduzione %; più riduzioni non si sommano)
+ * "tetto_annuo" (categoria di ospite con tetto di nottiTettoAnnuo notti nell'anno solare, anche non consecutive)
+ */
+model RegolaTassa {
+  id                   Int              @id @default(autoincrement())
+  regolamentoId        Int
+  regolamento          RegolamentoTassa @relation(fields: [regolamentoId], references: [id], onDelete: Cascade)
+  codice               String
+  tipo                 String
+  descrizione          String           @db.VarChar(500)
+  articolo             String?
+  documentoRichiesto   String?          @db.VarChar(500)
+  // Limite da ricordare alla reception (es. "1 accompagnatore ogni 25 partecipanti"): avviso, non blocco.
+  limite               String?          @db.VarChar(500)
+  etaSotto             Int?
+  etaDa                Int?
+  percentualeRiduzione Int?
+  nottiTettoAnnuo      Int?
+
+  dichiarazioni DichiarazioneTassa[]
+  tasseNotte    TassaNotte[]
+
+  @@unique([regolamentoId, codice])
+}
+
+/**
+ * Posizione tassa di un ospite in una prenotazione (il "soggiorno" ai fini della tassa: tutte le
+ * sue notti in quella prenotazione, anche su più camere). Nasce al primo calcolo.
+ */
+model PosizioneTassa {
+  id                     Int          @id @default(autoincrement())
+  prenotazioneId         Int
+  prenotazione           Prenotazione @relation(fields: [prenotazioneId], references: [id], onDelete: Restrict)
+  ospiteId               Int
+  ospite                 Ospite       @relation(fields: [ospiteId], references: [id])
+  residente              Boolean      @default(false)
+  // Notti consecutive già pagate in altre strutture subito prima (ricevuta dell'ospite).
+  nottiPrecedentiAltrove Int          @default(0)
+  // Notti già pagate nell'anno dichiarate dall'ospite (per le regole "tetto_annuo").
+  nottiAnnoDichiarate    Int          @default(0)
+  rifiutoPagamento       Boolean      @default(false)
+  notaRifiuto            String?      @db.Text
+  definitiva             Boolean      @default(false)
+  createdAt              DateTime     @default(now())
+  updatedAt              DateTime     @updatedAt
+
+  dichiarazioni DichiarazioneTassa[]
+  eventi        EventoTassa[]
+
+  @@unique([prenotazioneId, ospiteId])
+}
+
+model DichiarazioneTassa {
+  id               Int            @id @default(autoincrement())
+  posizioneId      Int
+  posizione        PosizioneTassa @relation(fields: [posizioneId], references: [id], onDelete: Cascade)
+  regolaId         Int
+  regola           RegolaTassa    @relation(fields: [regolaId], references: [id])
+  // Periodo coperto (null = tutto il soggiorno); al = prima notte NON coperta.
+  dal              DateTime?      @db.Date
+  al               DateTime?      @db.Date
+  // Tipo ed estremi del documento, SENZA conservarne la copia (indicazione del Garante privacy).
+  tipoDocumento    String?
+  estremiDocumento String?
+  consegnataIl     DateTime       @db.Date
+  note             String?        @db.Text
+  createdAt        DateTime       @default(now())
+}
+
+/**
+ * Registro di chiusure e riaperture: chi ha reso definitiva o riaperto la tassa di un soggiorno.
+ */
+model EventoTassa {
+  id          Int            @id @default(autoincrement())
+  posizioneId Int
+  posizione   PosizioneTassa @relation(fields: [posizioneId], references: [id], onDelete: Cascade)
+  // "chiusura" | "riapertura"
+  tipo        String
+  utenteId    Int
+  utente      Utente         @relation(fields: [utenteId], references: [id])
+  nota        String?        @db.Text
+  createdAt   DateTime       @default(now())
+}
+
+/**
+ * Esito della tassa per una notte: cache ricalcolata dal motore finché la posizione non è definitiva.
+ * esito: "tassata" | "ridotta" | "esente" | "oltre_tetto" | "oltre_tetto_annuo" | "residente" |
+ * "fuori_stagione" | "tariffa_mancante"
+ */
+model TassaNotte {
+  id            Int              @id @default(autoincrement())
+  presenzaId    Int
+  presenza      Presenza         @relation(fields: [presenzaId], references: [id], onDelete: Cascade)
+  notteId       Int
+  notte         NotteSoggiorno   @relation(fields: [notteId], references: [id])
+  regolamentoId Int
+  regolamento   RegolamentoTassa @relation(fields: [regolamentoId], references: [id])
+  tariffaId     Int?
+  tariffa       TariffaTassa?    @relation(fields: [tariffaId], references: [id])
+  regolaId      Int?
+  regola        RegolaTassa?     @relation(fields: [regolaId], references: [id])
+  esito         String
+  importo       Decimal          @db.Decimal(6, 2)
+
+  @@unique([presenzaId, notteId])
+  @@index([notteId])
+}
+
+/**
+ * Persona che occupa una camera prenotata (SegmentoSoggiorno). dal/al null = stesso periodo della
+ * camera; valorizzati se la persona arriva dopo o parte prima (al = giorno di partenza, notte esclusa).
+ * tipoAlloggiato: codici Polizia 16 singolo, 17 capofamiglia, 18 capogruppo, 19 familiare, 20 membro;
+ * per 19/20 capoOspiteId indica il capo. stato: "attesa" | "arrivato" | "partito".
+ * L'id è anche l'identificativo stabile per ISTAT (idswh / codiceclientesr): non cambia mai.
+ */
+model Presenza {
+  id                Int               @id @default(autoincrement())
+  segmentoId        Int
+  segmento          SegmentoSoggiorno @relation(fields: [segmentoId], references: [id], onDelete: Cascade)
+  ospiteId          Int
+  ospite            Ospite            @relation(fields: [ospiteId], references: [id])
+  dal               DateTime?         @db.Date
+  al                DateTime?         @db.Date
+  tipoAlloggiato    Int?
+  capoOspiteId      Int?
+  stato             String            @default("attesa")
+  arrivoIl          DateTime?
+  partenzaIl        DateTime?
+  // Dati ISTAT con i valori nativi del sistema dell'hotel (Ross1000 o SPOT).
+  occupaPostoLetto  Boolean           @default(true)
+  motivoViaggio     String?
+  mezzoArrivo       String?
+  mezzoMovimento    String?
+  // Schedina di Polizia: inviata (con il servizio web o caricando il file) e ultimo scarto ricevuto.
+  schedinaInviataIl DateTime?
+  schedinaInvioId   Int?
+  schedinaErrore    String?           @db.Text
+  // Giorni di permanenza dichiarati alla Polizia nella schedina (per riconciliare con la tassa).
+  schedinaGiorni    Int?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  tasse TassaNotte[]
+
+  @@unique([segmentoId, ospiteId])
+}
+
+/**
+ * Tabella ufficiale Polizia dei luoghi (comuni italiani e stati esteri), da Alloggiati Web.
+ */
+model LuogoPolizia {
+  codice       String    @id @db.VarChar(9)
+  descrizione  String
+  // Sigla provincia per i comuni; "ES" per gli stati esteri.
+  provincia    String?   @db.VarChar(2)
+  // "comune" | "stato"
+  tipo         String
+  // Codice cessato da questa data (resta valido per le date precedenti, es. luogo di nascita).
+  dataFineVal  DateTime?
+  aggiornatoIl DateTime  @updatedAt
+
+  @@index([descrizione])
+}
+
+/**
+ * Tabella ufficiale Polizia dei tipi di documento di identità.
+ */
+model DocumentoPolizia {
+  codice       String   @id @db.VarChar(5)
+  descrizione  String
+  aggiornatoIl DateTime @updatedAt
+}
+
+/**
+ * Trattamenti offerti dall'hotel (B&B, mezza pensione...). La prenotazione salva il NOME scelto
+ * (SegmentoSoggiorno.trattamento): rinominare o disattivare un trattamento non cambia le prenotazioni fatte.
+ */
+model Trattamento {
+  id        Int     @id @default(autoincrement())
+  hotelId   Int
+  hotel     Hotel   @relation(fields: [hotelId], references: [id])
+  nome      String
+  attivo    Boolean @default(true)
+  ordine    Int     @default(0)
+  // Pasti compresi (foglio del giorno della ristorazione). Mezza pensione = colazione + uno fra pranzo e cena.
+  colazione Boolean @default(false)
+  pranzo    Boolean @default(false)
+  cena      Boolean @default(false)
+
+  supplementi           SupplementoTrattamento[]
+  supplementiStagionali SupplementoStagionale[]
+
+  @@unique([hotelId, nome])
+}
+
+/**
+ * Cliente o azienda (committente di eventi, e in futuro intestatario di fatture). Anagrafica
+ * separata dagli ospiti (Ospite), che sono le persone che dormono in hotel.
+ */
+model Cliente {
+  id                 Int      @id @default(autoincrement())
+  hotelId            Int
+  hotel              Hotel    @relation(fields: [hotelId], references: [id])
+  // "azienda" | "privato" | "agenzia" (anche tour operator) | "portale" (agenzia online)
+  tipo               String   @default("azienda")
+  // Agenzie e portali: commissione in percentuale sui servizi prenotati.
+  commissione        Decimal? @db.Decimal(5, 2)
+  denominazione      String
+  partitaIva         String?
+  codiceFiscale      String?
+  indirizzo          String?
+  cap                String?
+  comune             String?
+  provincia          String?  @db.VarChar(2)
+  referente          String?
+  email              String?
+  telefono           String?
+  pec                String?
+  // Codice destinatario SDI (7 caratteri) per la fattura elettronica.
+  codiceDestinatario String?  @db.VarChar(7)
+  note               String?  @db.Text
+  attivo             Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  prenotazioniSala          PrenotazioneSala[]
+  prenotazioniIntermediario Prenotazione[]     @relation("intermediario")
+  prenotazioniPagate        Prenotazione[]     @relation("clientePagante")
+  prenotazioniSospese       Prenotazione[]     @relation("sospeso")
+  allotment                 Allotment[]
+}
+
+/**
+ * Fasce orarie dell'hotel per le sale ("HH:MM"). mostraNelPlanning=false per le fasce che ne
+ * coprono altre (es. Giornata intera 08-19): il planning è diviso nelle sole fasce base.
+ */
+model FasciaOraria {
+  id                Int     @id @default(autoincrement())
+  hotelId           Int
+  hotel             Hotel   @relation(fields: [hotelId], references: [id])
+  nome              String
+  inizio            String  @db.VarChar(5)
+  fine              String  @db.VarChar(5)
+  mostraNelPlanning Boolean @default(true)
+  ordine            Int     @default(0)
+
+  prezzi      PrezzoFasciaSala[]
+  occupazioni OccupazioneSala[]
+
+  @@unique([hotelId, nome])
+}
+
+model Sala {
+  id              Int      @id @default(autoincrement())
+  hotelId         Int
+  hotel           Hotel    @relation(fields: [hotelId], references: [id])
+  nome            String
+  descrizione     String?
+  capienzaMax     Int?
+  // Minuti di riassetto tra due eventi: la sala non si può prenotare in quell'intervallo.
+  riassettoMinuti Int      @default(0)
+  // Prezzo per ora quando l'orario non coincide con una fascia (null = non prenotabile a ore).
+  prezzoOrario    Decimal? @db.Decimal(10, 2)
+  attiva          Boolean  @default(true)
+  ordine          Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  allestimenti AllestimentoSala[]
+  prezzi       PrezzoFasciaSala[]
+  occupazioni  OccupazioneSala[]
+
+  @@unique([hotelId, nome])
+}
+
+model AllestimentoSala {
+  id       Int     @id @default(autoincrement())
+  salaId   Int
+  sala     Sala    @relation(fields: [salaId], references: [id], onDelete: Cascade)
+  nome     String
+  capienza Int
+  // Costo dell'allestimento, per ogni occupazione che lo usa.
+  costo    Decimal @default(0) @db.Decimal(10, 2)
+  attivo   Boolean @default(true)
+
+  occupazioni OccupazioneSala[]
+
+  @@unique([salaId, nome])
+}
+
+model PrezzoFasciaSala {
+  id       Int          @id @default(autoincrement())
+  salaId   Int
+  sala     Sala         @relation(fields: [salaId], references: [id], onDelete: Cascade)
+  fasciaId Int
+  fascia   FasciaOraria @relation(fields: [fasciaId], references: [id], onDelete: Cascade)
+  prezzo   Decimal      @db.Decimal(10, 2)
+
+  @@unique([salaId, fasciaId])
+}
+
+/**
+ * Prenotazione di sala: per un cliente esterno e/o collegata a una prenotazione di camere.
+ * stato: "opzione" | "confermata" | "annullata". Le opzioni bloccano la sala come le conferme;
+ * oltre scadenzaOpzione compare un avviso (non si annullano da sole).
+ */
+model PrenotazioneSala {
+  id              Int           @id @default(autoincrement())
+  hotelId         Int
+  hotel           Hotel         @relation(fields: [hotelId], references: [id])
+  clienteId       Int?
+  cliente         Cliente?      @relation(fields: [clienteId], references: [id])
+  prenotazioneId  Int?
+  prenotazione    Prenotazione? @relation(fields: [prenotazioneId], references: [id])
+  titolo          String
+  stato           String        @default("opzione")
+  scadenzaOpzione DateTime?     @db.Date
+  partecipanti    Int?
+  note            String?       @db.Text
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  occupazioni OccupazioneSala[]
+  servizi     ServizioSala[]
+  persone     PersonaEvento[]
+  pagamenti   Pagamento[]
+}
+
+/**
+ * Uso di una sala in un intervallo. inizio/fine sono ORA LOCALE dell'hotel salvata come UTC
+ * (08:00 = 08:00Z), coerente con le date @db.Date del resto dell'app. prezzo = sala (fascia o ore,
+ * correggibile: prezzoManuale) + costoAllestimento (copiato al momento della scelta).
+ */
+model OccupazioneSala {
+  id                 Int               @id @default(autoincrement())
+  prenotazioneSalaId Int
+  prenotazioneSala   PrenotazioneSala  @relation(fields: [prenotazioneSalaId], references: [id], onDelete: Cascade)
+  salaId             Int
+  sala               Sala              @relation(fields: [salaId], references: [id])
+  inizio             DateTime
+  fine               DateTime
+  fasciaId           Int?
+  fascia             FasciaOraria?     @relation(fields: [fasciaId], references: [id])
+  allestimentoId     Int?
+  allestimento       AllestimentoSala? @relation(fields: [allestimentoId], references: [id])
+  partecipanti       Int?
+  prezzo             Decimal           @db.Decimal(10, 2)
+  prezzoManuale      Boolean           @default(false)
+  costoAllestimento  Decimal           @default(0) @db.Decimal(10, 2)
+
+  @@index([salaId, inizio])
+}
+
+/**
+ * Servizio extra di un evento (coffee break, pranzo, attrezzature): come ServizioAggiunto per le camere.
+ */
+model ServizioSala {
+  id                 Int               @id @default(autoincrement())
+  prenotazioneSalaId Int
+  prenotazioneSala   PrenotazioneSala  @relation(fields: [prenotazioneSalaId], references: [id], onDelete: Cascade)
+  servizioCatalogoId Int?
+  servizioCatalogo   ServizioCatalogo? @relation(fields: [servizioCatalogoId], references: [id])
+  descrizione        String?
+  prezzoUnitario     Decimal           @db.Decimal(10, 2)
+  quantita           Int               @default(1)
+  data               DateTime?         @db.Date
+  note               String?
+  // Nome del pacchetto da cui è nato il servizio (es. "Giornata congressuale"), per raggrupparlo.
+  pacchetto          String?
+  createdAt          DateTime          @default(now())
+}
+
+/**
+ * Incasso o rimborso registrato su una prenotazione (non è un documento fiscale: ricevute e fatture
+ * arriveranno con la fatturazione). tipo: "acconto" | "saldo" | "rimborso"; importo sempre positivo,
+ * il rimborso si sottrae. Un pagamento sbagliato non si cancella: si storna con motivo.
+ */
+model Pagamento {
+  id                 Int               @id @default(autoincrement())
+  hotelId            Int
+  hotel              Hotel             @relation(fields: [hotelId], references: [id])
+  // Su una prenotazione di camere oppure su un evento in sala (uno dei due).
+  prenotazioneId     Int?
+  prenotazione       Prenotazione?     @relation(fields: [prenotazioneId], references: [id], onDelete: Restrict)
+  prenotazioneSalaId Int?
+  prenotazioneSala   PrenotazioneSala? @relation(fields: [prenotazioneSalaId], references: [id], onDelete: Restrict)
+  data               DateTime          @db.Date
+  importo            Decimal           @db.Decimal(10, 2)
+  // "contanti" | "carta" | "bancomat" | "bonifico" | "assegno" | "altro"
+  metodo             String
+  tipo               String
+  nota               String?
+  registratoDa       String
+  createdAt          DateTime          @default(now())
+  stornatoIl         DateTime?
+  stornatoDa         String?
+  motivoStorno       String?
+  // Intestatario del conto che ha pagato: "ospite" (o null) | "cliente:<id>".
+  intestatario       String?
+  cauzioneTrattenuta Cauzione?         @relation("pagamentoTrattenuta")
+
+  @@index([prenotazioneId])
+  @@index([prenotazioneSalaId])
+  @@index([hotelId, data])
+}
+
+/**
+ * Un invio di schedine alla Polizia: con il servizio web o con il file caricato a mano sul portale.
+ */
+model InvioAlloggiati {
+  id        Int      @id @default(autoincrement())
+  hotelId   Int
+  il        DateTime @default(now())
+  da        String
+  // "servizio" | "file"
+  modalita  String
+  righe     Int
+  accettate Int
+  // Esito riga per riga: [{ presenzaId, nome, esito, errore }]
+  dettaglio Json?
+
+  @@index([hotelId, il])
+}
+
+/**
+ * Ricevuta PDF della Polizia per un giorno di invii: va conservata 5 anni.
+ */
+model RicevutaAlloggiati {
+  id          Int      @id @default(autoincrement())
+  hotelId     Int
+  data        DateTime @db.Date
+  pdf         Bytes    @db.LongBlob
+  scaricataIl DateTime @default(now())
+
+  @@unique([hotelId, data])
+}
+
+/**
+ * Periodo in cui la struttura è chiusa (all'ISTAT si comunica "chiuso", camere e letti a zero).
+ */
+model PeriodoChiusura {
+  id      Int      @id @default(autoincrement())
+  hotelId Int
+  dal     DateTime @db.Date
+  al      DateTime @db.Date
+  nota    String?
+
+  @@index([hotelId, dal])
+}
+
+/**
+ * Giorno comunicato all'ISTAT (Ross1000 inviato col servizio web, SPOT caricato con il file del mese).
+ * impronta = hash del movimento inviato: se i dati del giorno cambiano dopo l'invio, va rinviato.
+ */
+model InvioIstat {
+  id       Int      @id @default(autoincrement())
+  hotelId  Int
+  sistema  String
+  giorno   DateTime @db.Date
+  // "inviato" | "caricato" | "errore"
+  stato    String
+  impronta String?
+  esito    String?  @db.Text
+  il       DateTime @default(now())
+  da       String
+
+  @@unique([hotelId, giorno])
+}
+
+/**
+ * Politica di cancellazione dell'hotel. scaglioni = [{ oreMin, tipo, valore }] dal più largo: si
+ * applica il primo con ore che mancano all'arrivo >= oreMin. tipo: "nessuna" | "notti" (valore =
+ * numero di notti, la prima o le prime) | "percentuale" (del soggiorno) | "importo". noShow = penale
+ * per il mancato arrivo, stessa forma senza oreMin. Una tariffa non rimborsabile ha un solo scaglione
+ * con oreMin 0 al 100%.
+ */
+model PoliticaCancellazione {
+  id          Int      @id @default(autoincrement())
+  hotelId     Int
+  hotel       Hotel    @relation(fields: [hotelId], references: [id])
+  nome        String
+  scaglioni   Json
+  noShow      Json
+  predefinita Boolean  @default(false)
+  attiva      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  listini Listino[]
+}
+
+/**
+ * Supplemento di un trattamento per una stagione del listino (es. mezza pensione 25 € in agosto):
+ * nelle notti del periodo sostituisce il supplemento generale (SupplementoTrattamento).
+ */
+model SupplementoStagionale {
+  id            Int         @id @default(autoincrement())
+  listinoId     Int
+  listino       Listino     @relation(fields: [listinoId], references: [id], onDelete: Cascade)
+  trattamentoId Int
+  trattamento   Trattamento @relation(fields: [trattamentoId], references: [id], onDelete: Cascade)
+  // Tipo di camera (null = tutti i tipi): il supplemento specifico del tipo vince su quello generale.
+  tipoCameraId  Int?
+  tipoCamera    TipoCamera? @relation(fields: [tipoCameraId], references: [id], onDelete: Cascade)
+  dal           DateTime    @db.Date
+  al            DateTime    @db.Date
+  importo       Decimal     @db.Decimal(10, 2)
+
+  @@index([listinoId, trattamentoId, dal])
+}
+
+/**
+ * Ruolo in più di un utente in un hotel (oltre a UtenteHotel.ruoloId): i permessi si sommano.
+ */
+model RuoloAggiuntivo {
+  utenteId Int
+  hotelId  Int
+  accesso  UtenteHotel @relation(fields: [utenteId, hotelId], references: [utenteId, hotelId], onDelete: Cascade)
+  ruoloId  Int
+  ruolo    Ruolo       @relation(fields: [ruoloId], references: [id], onDelete: Cascade)
+
+  @@id([utenteId, hotelId, ruoloId])
+  @@index([ruoloId])
+}
+
+/**
+ * Pacchetto per gli eventi in sala (es. "Giornata congressuale"): un insieme di servizi che si
+ * aggiungono all'evento in un colpo solo. Le quantità si calcolano dai partecipanti.
+ */
+model PacchettoSala {
+  id          Int      @id @default(autoincrement())
+  hotelId     Int
+  hotel       Hotel    @relation(fields: [hotelId], references: [id])
+  nome        String
+  descrizione String?
+  attivo      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  righe RigaPacchettoSala[]
+
+  @@unique([hotelId, nome])
+}
+
+/**
+ * Riga di un pacchetto: servizio del catalogo (o descrizione libera), prezzo e come si conta.
+ */
+model RigaPacchettoSala {
+  id                 Int               @id @default(autoincrement())
+  pacchettoId        Int
+  pacchetto          PacchettoSala     @relation(fields: [pacchettoId], references: [id], onDelete: Cascade)
+  servizioCatalogoId Int?
+  servizioCatalogo   ServizioCatalogo? @relation(fields: [servizioCatalogoId], references: [id])
+  descrizione        String?
+  prezzoUnitario     Decimal           @db.Decimal(10, 2)
+  // "persona" (× partecipanti) | "evento" (una volta)
+  quantitaPer        String            @default("persona")
+  ordine             Int               @default(0)
+}
+
+/**
+ * Persona di un evento in sala (relatore, organizzatore…): con l'eventuale camera o uso diurno
+ * prenotato per lei (prenotazioneId).
+ */
+model PersonaEvento {
+  id                 Int              @id @default(autoincrement())
+  prenotazioneSalaId Int
+  prenotazioneSala   PrenotazioneSala @relation(fields: [prenotazioneSalaId], references: [id], onDelete: Cascade)
+  nome               String
+  // "relatore" | "organizzatore" | "tecnico" | "altro"
+  ruolo              String           @default("relatore")
+  telefono           String?
+  email              String?
+  note               String?
+  prenotazioneId     Int?
+  prenotazione       Prenotazione?    @relation(fields: [prenotazioneId], references: [id], onDelete: SetNull)
+  createdAt          DateTime         @default(now())
+}
+
+/**
+ * Reparto che addebita sul conto (bar, ristorante, frigobar, lavanderia…): ognuno con la sua IVA
+ * (null = fuori campo IVA, es. esborsi anticipati per l'ospite). Configurabile per hotel.
+ */
+model RepartoAddebito {
+  id          Int      @id @default(autoincrement())
+  hotelId     Int
+  hotel       Hotel    @relation(fields: [hotelId], references: [id])
+  nome        String
+  aliquotaIva Decimal? @db.Decimal(4, 2)
+  // Esborso: spesa anticipata per conto dell'ospite (taxi, biglietti…), fuori campo IVA.
+  esborso     Boolean  @default(false)
+  attivo      Boolean  @default(true)
+  ordine      Int      @default(0)
+
+  addebiti AddebitoConto[]
+  piatti   Piatto[]
+  articoli ArticoloReparto[]
+
+  @@unique([hotelId, nome])
+}
+
+/**
+ * Riga aggiunta a mano al conto di una prenotazione. tipo: "extra" (consumo di un reparto) |
+ * "esborso" (spesa anticipata, fuori campo IVA) | "abbuono" (sconto o correzione: importo in meno).
+ * Prezzi IVA inclusa; aliquotaIva copiata al momento (null = fuori campo). Un addebito sbagliato non si
+ * cancella: si storna con il motivo.
+ */
+model AddebitoConto {
+  id                 Int                 @id @default(autoincrement())
+  prenotazioneId     Int
+  prenotazione       Prenotazione        @relation(fields: [prenotazioneId], references: [id], onDelete: Restrict)
+  segmentoId         Int?
+  segmento           SegmentoSoggiorno?  @relation(fields: [segmentoId], references: [id])
+  repartoId          Int?
+  reparto            RepartoAddebito?    @relation(fields: [repartoId], references: [id])
+  tipo               String              @default("extra")
+  data               DateTime            @db.Date
+  descrizione        String
+  quantita           Int                 @default(1)
+  prezzoUnitario     Decimal             @db.Decimal(10, 2)
+  aliquotaIva        Decimal?            @db.Decimal(4, 2)
+  // Numero del buono del reparto (giustificativo), facoltativo.
+  buono              String?
+  nota               String?
+  registratoDa       String
+  createdAt          DateTime            @default(now())
+  stornatoIl         DateTime?
+  stornatoDa         String?
+  motivoStorno       String?
+  servizioPortineria ServizioPortineria?
+  reclamo            Reclamo?
+  cauzioneTrattenuta Cauzione?           @relation("trattenutaCauzione")
+
+  @@index([prenotazioneId])
+  @@index([data])
+}
+
+/**
+ * Riga del conto spostata a mano su un altro intestatario (chiave della riga, es. "camera-12").
+ */
+model IntestazioneRigaConto {
+  prenotazioneId Int
+  prenotazione   Prenotazione @relation(fields: [prenotazioneId], references: [id], onDelete: Cascade)
+  chiave         String
+  // "ospite" | "cliente:<id>"
+  intestatario   String
+
+  @@id([prenotazioneId, chiave])
+}
+
+/**
+ * Riga passata al gestionale per la fattura (copia dell'importo inviato). Se la riga del conto cambia
+ * dopo l'invio, si fattura solo la differenza (conguaglio) o si segnala la nota di credito.
+ * lotto = un invio (tutte le righe mandate insieme per un intestatario).
+ */
+model RigaFatturata {
+  id             Int          @id @default(autoincrement())
+  prenotazioneId Int
+  prenotazione   Prenotazione @relation(fields: [prenotazioneId], references: [id], onDelete: Restrict)
+  chiave         String
+  intestatario   String
+  descrizione    String
+  importo        Decimal      @db.Decimal(10, 2)
+  aliquota       Decimal?     @db.Decimal(4, 2)
+  natura         String?
+  lotto          String
+  inviataIl      DateTime     @default(now())
+  da             String
+
+  @@index([prenotazioneId, chiave])
+}
+
+/**
+ * Chiusura di cassa di una giornata: fotografia degli incassi per metodo al momento della chiusura
+ * (se dopo cambia qualcosa con quella data si vede la differenza) e, se si usa, il conteggio dei
+ * contanti con il fondo cassa.
+ */
+model ChiusuraCassa {
+  id              Int      @id @default(autoincrement())
+  hotelId         Int
+  hotel           Hotel    @relation(fields: [hotelId], references: [id])
+  giorno          DateTime @db.Date
+  // { metodo: importo netto } e totale netto al momento della chiusura.
+  totali          Json
+  totale          Decimal  @db.Decimal(10, 2)
+  // Fondo cassa facoltativo: fondo all'apertura, contanti contati alla chiusura, fondo lasciato per domani.
+  fondoIniziale   Decimal? @db.Decimal(10, 2)
+  contantiContati Decimal? @db.Decimal(10, 2)
+  fondoLasciato   Decimal? @db.Decimal(10, 2)
+  nota            String?  @db.Text
+  chiusaDa        String
+  chiusaIl        DateTime @default(now())
+
+  @@unique([hotelId, giorno])
+}
+
+/**
+ * Note alimentari di un ospite (allergie, intolleranze, regimi): dati sulla salute o sulle convinzioni
+ * religiose (art. 9 GDPR), si registrano solo con il consenso esplicito, di cui resta traccia.
+ * consenso "soggiorno": cancellate 7 giorni dopo l'ultima partenza; "sempre": restano per i ritorni.
+ * Revocato il consenso si cancellano subito (nessuna copia).
+ */
+model NotaAlimentare {
+  id           Int      @id @default(autoincrement())
+  hotelId      Int
+  hotel        Hotel    @relation(fields: [hotelId], references: [id])
+  ospiteId     Int      @unique
+  ospite       Ospite   @relation(fields: [ospiteId], references: [id], onDelete: Cascade)
+  // [{ codice?: allergene del Reg. UE 1169/2011, testo?: alimento scritto a mano, tipo: "allergia" | "intolleranza" }]
+  voci         Json
+  // ["vegetariano", "halal", ...]
+  regimi       Json
+  esigenze     String?  @db.Text
+  consenso     String
+  consensoModo String
+  consensoIl   DateTime @default(now())
+  consensoDa   String
+  aggiornataIl DateTime @updatedAt
+  aggiornataDa String
+
+  @@index([hotelId])
+}
+
+/**
+ * Coperti in più o in meno rispetto al trattamento per un pasto di un giorno (es. "stasera cenano
+ * fuori" = -2, "pranzo extra per 1" = +1). Una riga per soggiorno, giorno e pasto.
+ */
+model VariazionePasto {
+  id         Int               @id @default(autoincrement())
+  segmentoId Int
+  segmento   SegmentoSoggiorno @relation(fields: [segmentoId], references: [id], onDelete: Cascade)
+  giorno     DateTime          @db.Date
+  // "colazione" | "pranzo" | "cena"
+  pasto      String
+  delta      Int
+  nota       String?
+  da         String
+  createdAt  DateTime          @default(now())
+
+  @@unique([segmentoId, giorno, pasto])
+}
+
+/**
+ * Piatto o bevanda della ristorazione. Gli allergeni (Reg. UE 1169/2011, Allegato II) vanno sempre
+ * dichiarati: un elenco vuoto vale solo con senzaAllergeni = true (verificato da chi l'ha inserito).
+ * prezzo null = non in vendita a parte (compreso nel trattamento); reparto = IVA e addebito sul conto.
+ */
+model Piatto {
+  id             Int              @id @default(autoincrement())
+  hotelId        Int
+  hotel          Hotel            @relation(fields: [hotelId], references: [id])
+  nome           String
+  descrizione    String?          @db.Text
+  categoria      String
+  prezzo         Decimal?         @db.Decimal(10, 2)
+  repartoId      Int?
+  reparto        RepartoAddebito? @relation(fields: [repartoId], references: [id], onDelete: SetNull)
+  // ["glutine", "latte", ...]
+  allergeni      Json
+  senzaAllergeni Boolean          @default(false)
+  // Adatto a: ["vegetariano", "vegano", ...]
+  regimi         Json
+  attivo         Boolean          @default(true)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  voci        VoceMenu[]
+  righeOrdine RigaOrdineRoomService[]
+
+  @@unique([hotelId, nome])
+}
+
+/**
+ * Menu: colazione, menu del giorno, carta, room service. pasti = servizi in cui vale (["cena"], ...;
+ * vuoto = nessun servizio fisso); giorno null = vale sempre, altrimenti solo quel giorno.
+ */
+model Menu {
+  id          Int       @id @default(autoincrement())
+  hotelId     Int
+  hotel       Hotel     @relation(fields: [hotelId], references: [id])
+  nome        String
+  pasti       Json
+  giorno      DateTime? @db.Date
+  dalle       String?
+  alle        String?
+  roomService Boolean   @default(false)
+  attivo      Boolean   @default(true)
+  note        String?   @db.Text
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  voci VoceMenu[]
+
+  @@index([hotelId, giorno])
+}
+
+/**
+ * Piatto dentro un menu: ordine, disponibilità del momento ed eventuale prezzo diverso da quello del piatto.
+ */
+model VoceMenu {
+  id          Int      @id @default(autoincrement())
+  menuId      Int
+  menu        Menu     @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  piattoId    Int
+  piatto      Piatto   @relation(fields: [piattoId], references: [id])
+  ordine      Int      @default(0)
+  disponibile Boolean  @default(true)
+  prezzo      Decimal? @db.Decimal(10, 2)
+
+  @@unique([menuId, piattoId])
+}
+
+/**
+ * Ordine di room service: dal QR della camera (canale "qr") o preso al telefono dalla reception.
+ * stato: "ricevuto" -> "in_preparazione" -> "pronto" -> "consegnato" (o "annullato"). Alla consegna
+ * le righe con un prezzo diventano addebiti sul conto della camera (buono "RS-<id>").
+ */
+model OrdineRoomService {
+  id              Int               @id @default(autoincrement())
+  hotelId         Int
+  hotel           Hotel             @relation(fields: [hotelId], references: [id])
+  segmentoId      Int
+  segmento        SegmentoSoggiorno @relation(fields: [segmentoId], references: [id])
+  stato           String            @default("ricevuto")
+  canale          String            @default("qr")
+  // null = appena possibile
+  perQuando       DateTime?
+  nota            String?           @db.Text
+  totale          Decimal           @db.Decimal(10, 2)
+  creatoIl        DateTime          @default(now())
+  creatoDa        String?
+  aggiornatoIl    DateTime          @updatedAt
+  aggiornatoDa    String?
+  consegnatoIl    DateTime?
+  motivoAnnullato String?
+
+  righe RigaOrdineRoomService[]
+
+  @@index([hotelId, stato])
+  @@index([segmentoId])
+}
+
+/**
+ * Riga dell'ordine: copia di nome, prezzo e allergeni del piatto al momento dell'ordine.
+ */
+model RigaOrdineRoomService {
+  id             Int               @id @default(autoincrement())
+  ordineId       Int
+  ordine         OrdineRoomService @relation(fields: [ordineId], references: [id], onDelete: Cascade)
+  piattoId       Int?
+  piatto         Piatto?           @relation(fields: [piattoId], references: [id], onDelete: SetNull)
+  descrizione    String
+  quantita       Int
+  prezzoUnitario Decimal           @db.Decimal(10, 2)
+  repartoId      Int?
+  allergeni      Json
+}
+
+/**
+ * Rapporto della governante: com'è stata trovata la camera quel giorno ("occupata" | "libera").
+ * Se non coincide con quello che risulta alla reception è una discrepanza da chiarire
+ * (es. ospite partito senza check-out, camera usata senza registrazione).
+ */
+model ControlloCamera {
+  id       Int      @id @default(autoincrement())
+  cameraId Int
+  camera   Camera   @relation(fields: [cameraId], references: [id], onDelete: Cascade)
+  giorno   DateTime @db.Date
+  trovata  String
+  nota     String?
+  da       String
+  creatoIl DateTime @default(now())
+
+  @@unique([cameraId, giorno])
+}
+
+/**
+ * Camera assegnata a una cameriera per un giorno (foglio di lavoro dei piani). esito: null = da fare,
+ * "fatta", "dnd" (non disturbare), "rifiutato" (l'ospite non ha voluto il riassetto).
+ */
+model AssegnazionePulizia {
+  id           Int      @id @default(autoincrement())
+  hotelId      Int
+  hotel        Hotel    @relation(fields: [hotelId], references: [id])
+  giorno       DateTime @db.Date
+  cameraId     Int
+  camera       Camera   @relation(fields: [cameraId], references: [id], onDelete: Cascade)
+  utenteId     Int
+  utente       Utente   @relation(fields: [utenteId], references: [id], onDelete: Cascade)
+  ordine       Int      @default(0)
+  esito        String?
+  nota         String?
+  aggiornatoIl DateTime @updatedAt
+
+  @@unique([cameraId, giorno])
+  @@index([hotelId, giorno])
+}
+
+/**
+ * Articolo con prezzo fisso di un reparto (es. frigobar: acqua, birra, snack), da segnare con un tocco.
+ */
+model ArticoloReparto {
+  id        Int             @id @default(autoincrement())
+  hotelId   Int
+  hotel     Hotel           @relation(fields: [hotelId], references: [id])
+  repartoId Int
+  reparto   RepartoAddebito @relation(fields: [repartoId], references: [id], onDelete: Cascade)
+  nome      String
+  prezzo    Decimal         @db.Decimal(10, 2)
+  attivo    Boolean         @default(true)
+  ordine    Int             @default(0)
+
+  @@unique([repartoId, nome])
+}
+
+/**
+ * Segnalazione di un guasto (manutenzioni): in una camera o in una zona comune. stato: "aperta" ->
+ * "in_lavorazione" -> "risolta" (o "annullata"). priorita: "normale" | "urgente". Un guasto urgente
+ * in camera può mettere la camera fuori servizio (lo decide la reception): alla risoluzione la camera
+ * torna disponibile e da pulire.
+ */
+model Segnalazione {
+  id              Int                    @id @default(autoincrement())
+  hotelId         Int
+  hotel           Hotel                  @relation(fields: [hotelId], references: [id])
+  cameraId        Int?
+  camera          Camera?                @relation(fields: [cameraId], references: [id], onDelete: SetNull)
+  // Zona comune quando non è una camera (es. "Ascensore", "Sala colazioni").
+  zona            String?
+  descrizione     String                 @db.Text
+  priorita        String                 @default("normale")
+  stato           String                 @default("aperta")
+  // "personale" | "ospite"
+  origine         String                 @default("personale")
+  segnalataDa     String
+  creataIl        DateTime               @default(now())
+  assegnataAId    Int?
+  assegnataA      Utente?                @relation("assegnata", fields: [assegnataAId], references: [id], onDelete: SetNull)
+  presaIl         DateTime?
+  chiusaIl        DateTime?
+  chiusaDa        String?
+  // Cosa è stato fatto (risolta) o perché è stata annullata.
+  esito           String?                @db.Text
+  fuoriServizioId Int?
+  fuoriServizio   CameraIndisponibilita? @relation(fields: [fuoriServizioId], references: [id], onDelete: SetNull)
+
+  @@index([hotelId, stato])
+  @@index([cameraId])
+}
+
+/**
+ * Richiesta di un ospite (asciugamani, cuscino, culla, sveglia…): dal QR della camera o presa dal
+ * personale. stato: "aperta" | "fatta" | "annullata".
+ */
+model RichiestaOspite {
+  id         Int                @id @default(autoincrement())
+  hotelId    Int
+  hotel      Hotel              @relation(fields: [hotelId], references: [id])
+  cameraId   Int?
+  camera     Camera?            @relation(fields: [cameraId], references: [id], onDelete: SetNull)
+  segmentoId Int?
+  segmento   SegmentoSoggiorno? @relation(fields: [segmentoId], references: [id], onDelete: SetNull)
+  tipo       String
+  dettaglio  String?
+  // Per la sveglia (o una consegna a un'ora): giorno e ora.
+  perQuando  DateTime?
+  origine    String             @default("personale")
+  stato      String             @default("aperta")
+  creataIl   DateTime           @default(now())
+  creataDa   String?
+  chiusaIl   DateTime?
+  chiusaDa   String?
+  nota       String?
+
+  @@index([hotelId, stato])
+}
+
+/**
+ * Oggetto dimenticato o trovato: dove e quando, chi l'ha trovato, dove è conservato; poi restituito
+ * (a chi e quando, collegato alla prenotazione) o smaltito dopo il periodo deciso dall'hotel.
+ * stato: "in_deposito" | "restituito" | "smaltito".
+ */
+model OggettoSmarrito {
+  id             Int           @id @default(autoincrement())
+  hotelId        Int
+  hotel          Hotel         @relation(fields: [hotelId], references: [id])
+  trovatoIl      DateTime      @db.Date
+  cameraId       Int?
+  camera         Camera?       @relation(fields: [cameraId], references: [id], onDelete: SetNull)
+  zona           String?
+  descrizione    String
+  trovatoDa      String
+  conservatoIn   String?
+  prenotazioneId Int?
+  prenotazione   Prenotazione? @relation(fields: [prenotazioneId], references: [id], onDelete: SetNull)
+  stato          String        @default("in_deposito")
+  restituitoA    String?
+  chiusoIl       DateTime?
+  chiusoDa       String?
+  nota           String?
+  creatoIl       DateTime      @default(now())
+
+  @@index([hotelId, stato])
+}
+
+/**
+ * Server di posta dell'hotel per le email agli ospiti: le email partono dalla sua casella.
+ * La password è cifrata come quelle di Polizia e ISTAT (CHIAVE_CREDENZIALI sul server).
+ */
+model ConfigurazioneEmail {
+  id               Int       @id @default(autoincrement())
+  hotelId          Int       @unique
+  hotel            Hotel     @relation(fields: [hotelId], references: [id])
+  host             String
+  porta            Int
+  // "ssl" (di solito porta 465) | "starttls" (587) | "nessuna"
+  sicurezza        String
+  utente           String
+  passwordCifrata  String    @db.Text
+  mittenteNome     String
+  mittenteEmail    String
+  rispondiA        String?
+  aggiornataIl     DateTime  @updatedAt
+  aggiornataDa     String
+  ultimaProvaIl    DateTime?
+  ultimaProvaEsito String?   @db.Text
+}
+
+/**
+ * Modello di email modificato dall'hotel (i testi di partenza sono nel programma).
+ */
+model ModelloEmail {
+  id           Int      @id @default(autoincrement())
+  hotelId      Int
+  hotel        Hotel    @relation(fields: [hotelId], references: [id])
+  // "conferma" | "acconto" | "promemoria" | "ringraziamento" | "libera"
+  chiave       String
+  lingua       String
+  oggetto      String
+  corpo        String   @db.Text
+  aggiornatoIl DateTime @updatedAt
+  aggiornatoDa String
+
+  @@unique([hotelId, chiave, lingua])
+}
+
+/**
+ * Email inviata (o tentata): storico delle comunicazioni di prenotazione e ospite.
+ */
+model EmailInviata {
+  id             Int                     @id @default(autoincrement())
+  hotelId        Int
+  hotel          Hotel                   @relation(fields: [hotelId], references: [id])
+  prenotazioneId Int?
+  prenotazione   Prenotazione?           @relation(fields: [prenotazioneId], references: [id], onDelete: SetNull)
+  ospiteId       Int?
+  ospite         Ospite?                 @relation(fields: [ospiteId], references: [id], onDelete: SetNull)
+  modello        String?
+  lingua         String
+  destinatario   String
+  oggetto        String
+  corpo          String                  @db.Text
+  // "inviata" | "errore" | "simulata" (ambiente di prova: non parte nulla)
+  esito          String
+  errore         String?                 @db.Text
+  inviataIl      DateTime                @default(now())
+  inviataDa      String
+  richiestaId    Int?
+  richiesta      RichiestaDisponibilita? @relation(fields: [richiestaId], references: [id], onDelete: SetNull)
+
+  @@index([hotelId, inviataIl])
+  @@index([prenotazioneId])
+}
+
+/**
+ * Richiesta di disponibilità ("avete posto?"): chi, quando, quante persone, da quale canale.
+ * stato: "nuova" | "preventivo" (inviato) | "accettata" | "rifiutata" | "scaduta". Quando l'ospite
+ * accetta un preventivo nasce la prenotazione in opzione (prenotazioneId).
+ */
+model RichiestaDisponibilita {
+  id             Int           @id @default(autoincrement())
+  hotelId        Int
+  hotel          Hotel         @relation(fields: [hotelId], references: [id])
+  // "telefono" | "email" | "sito" | "passaparola" | "altro"
+  canale         String
+  nome           String
+  cognome        String
+  email          String?
+  telefono       String?
+  lingua         String        @default("it")
+  dal            DateTime      @db.Date
+  al             DateTime      @db.Date
+  // Persone per camera.
+  adulti         Int
+  etaBambini     Json
+  camere         Int           @default(1)
+  trattamento    String?
+  budget         String?
+  note           String?       @db.Text
+  stato          String        @default("nuova")
+  motivoRinuncia String?
+  creataIl       DateTime      @default(now())
+  creataDa       String
+  prenotazioneId Int?
+  prenotazione   Prenotazione? @relation(fields: [prenotazioneId], references: [id], onDelete: SetNull)
+
+  preventivi   Preventivo[]
+  emailInviate EmailInviata[]
+
+  @@index([hotelId, stato])
+}
+
+/**
+ * Preventivo con 1-3 proposte, consultabile dall'ospite con il link (codice segreto). stato:
+ * "bozza" | "inviato" | "visto" | "accettato" | "rifiutato" | "scaduto". daVedere = l'ospite ha
+ * risposto online e la reception non l'ha ancora aperto.
+ */
+model Preventivo {
+  id                  Int                    @id @default(autoincrement())
+  hotelId             Int
+  hotel               Hotel                  @relation(fields: [hotelId], references: [id])
+  richiestaId         Int
+  richiesta           RichiestaDisponibilita @relation(fields: [richiestaId], references: [id], onDelete: Cascade)
+  codice              String                 @unique
+  validoFino          DateTime               @db.Date
+  accontoRichiesto    Decimal?               @db.Decimal(10, 2)
+  messaggio           String?                @db.Text
+  stato               String                 @default("bozza")
+  creatoIl            DateTime               @default(now())
+  creatoDa            String
+  inviatoIl           DateTime?
+  vistoIl             DateTime?
+  rispostaIl          DateTime?
+  propostaAccettataId Int?
+  motivoRifiuto       String?
+  daVedere            Boolean                @default(false)
+
+  proposte PropostaPreventivo[]
+}
+
+/**
+ * Proposta del preventivo: camere di un tipo con un trattamento e un listino; prezzo offerto modificabile.
+ */
+model PropostaPreventivo {
+  id              Int        @id @default(autoincrement())
+  preventivoId    Int
+  preventivo      Preventivo @relation(fields: [preventivoId], references: [id], onDelete: Cascade)
+  ordine          Int        @default(0)
+  tipoCameraId    Int
+  tipoCamera      TipoCamera @relation(fields: [tipoCameraId], references: [id])
+  listinoId       Int
+  listino         Listino    @relation(fields: [listinoId], references: [id])
+  trattamento     String
+  // Totale del soggiorno (tutte le camere, IVA inclusa, senza tassa di soggiorno).
+  prezzoCalcolato Decimal    @db.Decimal(10, 2)
+  prezzo          Decimal    @db.Decimal(10, 2)
+  nota            String?
+}
+
+/**
+ * Allotment: camere di un tipo riservate a un'agenzia per un periodo (dal compreso, al escluso).
+ * Le camere non usate tornano in vendita "releaseGiorni" prima di ogni notte. Le prenotazioni con
+ * quell'agenzia come intermediario usano l'allotment.
+ */
+model Allotment {
+  id            Int        @id @default(autoincrement())
+  hotelId       Int
+  hotel         Hotel      @relation(fields: [hotelId], references: [id])
+  clienteId     Int
+  cliente       Cliente    @relation(fields: [clienteId], references: [id])
+  tipoCameraId  Int
+  tipoCamera    TipoCamera @relation(fields: [tipoCameraId], references: [id])
+  dal           DateTime   @db.Date
+  al            DateTime   @db.Date
+  camere        Int
+  releaseGiorni Int        @default(7)
+  note          String?
+  creatoIl      DateTime   @default(now())
+  creatoDa      String
+
+  @@index([hotelId, tipoCameraId])
+}
+
+/**
+ * Registro degli accessi: login riusciti e falliti, blocchi per troppi tentativi, cambi e
+ * reimpostazioni della password. Serve al blocco dopo troppi errori e a sapere chi è entrato (GDPR).
+ */
+model EventoAccesso {
+  id        Int      @id @default(autoincrement())
+  utenteId  Int?
+  utente    Utente?  @relation(fields: [utenteId], references: [id], onDelete: SetNull)
+  // Email scritta nel login (anche inesistente): il blocco vale per l'email, non per l'account.
+  email     String
+  ip        String?
+  // "accesso" | "accesso_fallito" | "bloccato" | "password_cambiata" | "password_reimpostata" | "uscita_dispositivi"
+  tipo      String
+  dettaglio String?
+  creatoIl  DateTime @default(now())
+
+  @@index([email, creatoIl])
+  @@index([ip, creatoIl])
+  @@index([utenteId, creatoIl])
+}
+
+/**
+ * Dispositivo su cui l'utente ha chiesto di non ripetere il codice della verifica in due passaggi per
+ * 30 giorni: nel browser c'è un cookie con un valore casuale, qui solo la sua impronta. Si cancellano
+ * tutti con il cambio password, "esci dagli altri dispositivi" e l'azzeramento della verifica.
+ */
+model DispositivoFidato {
+  id        Int      @id @default(autoincrement())
+  utenteId  Int
+  utente    Utente   @relation(fields: [utenteId], references: [id], onDelete: Cascade)
+  impronta  String   @unique
+  scadeIl   DateTime
+  creatoIl  DateTime @default(now())
+
+  @@index([utenteId])
+}

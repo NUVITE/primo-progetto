@@ -12,6 +12,14 @@ Questo è il mio primo progetto su GitHub, creato per imparare il flusso di lavo
 2. Esplora i file
 3. Apri una issue o una PR se hai suggerimenti
 
+## Contribuire
+
+Se vuoi contribuire a questo progetto:
+
+- Fai un fork del repository
+- Crea un branch con il nome della tua modifica
+- Apri una Pull Request descrivendo cosa hai cambiato
+
 ## Licenza
 
 MIT
