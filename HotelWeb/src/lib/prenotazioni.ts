@@ -2,7 +2,7 @@ import { oggiItaliano, verificaCassaAperta } from "@/lib/cassaAperta";
 import { prisma } from "@/lib/prisma";
 import { Prisma, type PrismaClient } from "@/generated/prisma/client";
 import { calcolaNotte, composizioneDi, nottiTraDate, regoleListino, ricalcolaGratuita, verificaComposizione, type Composizione } from "@/lib/pricing";
-import { ricalcolaTassaPosizione, verificaPosizioneAperta } from "@/lib/tassaSoggiorno";
+import { regolamentiDelComune, ricalcolaTassaPosizione, stimaTassaMancanti, verificaPosizioneAperta } from "@/lib/tassaSoggiorno";
 import { calcolaPenale, istanteItalia, politicaPer, type PoliticaCopiata } from "@/lib/politiche";
 
 type Db = PrismaClient | Prisma.TransactionClient;
@@ -227,7 +227,7 @@ export function calcolaTotaliPrenotazione(prenotazione: PrenotazioneCompleta) {
   // Prenotazione annullata: l'unico importo dovuto è la penale trattenuta (se c'è).
   if (prenotazione.stato === "ANNULLATA") {
     const penale = Number(prenotazione.penale ?? 0);
-    return { subtotale: 0, tassa: 0, servizi: 0, extra: 0, totale: penale, pagato, daPagare: arrotonda2(penale - pagato) };
+    return { subtotale: 0, tassa: 0, tassaStimata: 0, personeStimate: 0, servizi: 0, extra: 0, totale: penale, pagato, daPagare: arrotonda2(penale - pagato) };
   }
   const attivi = prenotazione.segmenti.filter((s) => s.stato !== "ANNULLATO");
   const idAttivi = new Set(attivi.map((s) => s.id));
@@ -235,10 +235,14 @@ export function calcolaTotaliPrenotazione(prenotazione: PrenotazioneCompleta) {
     (tot, seg) => tot + (seg.usoDiurno ? Number(seg.prezzoUsoDiurno ?? 0) : seg.notti.reduce((s, n) => s + Number(n.prezzo), 0)),
     0,
   );
-  const tassa = attivi.reduce(
+  const tassaCalcolata = attivi.reduce(
     (tot, seg) => tot + seg.notti.reduce((s, n) => s + n.tasse.reduce((t, x) => t + Number(x.importo), 0), 0),
     0
   );
+  // Persone prenotate non ancora registrate: la loro tassa è stimata e si somma a quella calcolata.
+  const tassaStimata = arrotonda2(attivi.reduce((t, seg) => t + seg.tassaStimata.importo, 0));
+  const personeStimate = attivi.reduce((t, seg) => t + seg.tassaStimata.persone, 0);
+  const tassa = arrotonda2(tassaCalcolata + tassaStimata);
   // Un servizio legato solo a camere annullate non si addebita più.
   const servizi = prenotazione.serviziAggiunti
     .filter((s) => s.segmenti.length === 0 || s.segmenti.some((sg) => idAttivi.has(sg.segmentoId)))
@@ -248,7 +252,7 @@ export function calcolaTotaliPrenotazione(prenotazione: PrenotazioneCompleta) {
     prenotazione.addebiti.filter((a) => !a.stornatoIl).reduce((t, a) => t + (a.tipo === "abbuono" ? -1 : 1) * Number(a.prezzoUnitario) * a.quantita, 0),
   );
   const totale = arrotonda2(subtotale + tassa + servizi + extra);
-  return { subtotale, tassa, servizi, extra, totale, pagato, daPagare: arrotonda2(totale - pagato) };
+  return { subtotale, tassa, tassaStimata, personeStimate, servizi, extra, totale, pagato, daPagare: arrotonda2(totale - pagato) };
 }
 
 const arrotonda2 = (n: number) => Math.round(n * 100) / 100;
@@ -350,9 +354,10 @@ export async function cercaPrenotazioni(hotelId: number, query: string) {
 
 /** Sempre filtrato per hotelId: una prenotazione di un altro hotel deve dare "non trovata", non i suoi dati. */
 async function caricaPrenotazioneCompleta(db: Db, hotelId: number, id: number) {
-  return db.prenotazione.findFirstOrThrow({
+  const p = await db.prenotazione.findFirstOrThrow({
     where: { id, hotelId },
     include: {
+      hotel: { select: { comuneId: true, categoria: true } },
       ospitePrenotante: true,
       gruppo: true,
       intermediario: true,
@@ -379,6 +384,16 @@ async function caricaPrenotazioneCompleta(db: Db, hotelId: number, id: number) {
       },
     },
   });
+  // Stima della tassa per le persone prenotate non ancora registrate, camera per camera: si
+  // ricalcola a ogni lettura, quindi segue da sola check-in, date di nascita, persone e date.
+  const versioni = await regolamentiDelComune(db, p.hotel.comuneId);
+  const segmenti = await Promise.all(
+    p.segmenti.map(async (s) => ({
+      ...s,
+      tassaStimata: p.stato === "ANNULLATA" ? { persone: 0, importo: 0 } : await stimaTassaMancanti(db, p.hotel, s, versioni),
+    })),
+  );
+  return { ...p, segmenti };
 }
 
 /** Camera della prenotazione, sempre dell'hotel. Una camera annullata non si modifica (solo annullaCamera la legge così). */

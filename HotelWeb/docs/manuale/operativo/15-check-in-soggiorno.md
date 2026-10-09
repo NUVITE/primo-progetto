@@ -160,6 +160,7 @@ La tassa torna **provvisoria** e si ricalcola. Ora puoi correggere i dati nel ch
 
 - Lo stato delle persone avanza così: **In arrivo → Arrivato → Partito**. Non c'è un comando per riportarlo indietro: anche dopo una riapertura la persona resta "partita".
 - Se la residenza è nel comune dell'hotel, il programma considera l'ospite residente ai fini della tassa di soggiorno.
+- Finché non registri tutte le persone prenotate, per quelle che mancano la tassa di soggiorno è **stimata** (con l'esenzione per età dei bambini prenotati). A ogni persona registrata la stima lascia il posto al calcolo vero: se registri un minore esente la tassa scende, se ha l'età per pagarla sale. A soggiorno chiuso la stima sparisce: conta solo chi è stato registrato.
 - Il numero del documento si salva in maiuscolo. Chi ha solo **Vedere prenotazioni** lo vede coperto da puntini.
 - La residenza non serve alla schedina di Polizia: la chiede l'ISTAT, quindi risulta mancante solo se l'hotel usa un sistema ISTAT.
 - Il programma prepara i dati e ricorda le scadenze; l'invio della schedina e i controlli sui documenti restano responsabilità della struttura.

@@ -56,9 +56,9 @@ export async function datiIniziali() {
 
 /**
  * Stima prezzo e tassa per un segmento PRIMA di salvare, per dare un riepilogo
- * a video mentre l'operatore compila. La stima della tassa ignora le esenzioni
- * (non sappiamo ancora chi è l'ospite in ogni riga): il calcolo definitivo,
- * esenzioni comprese, avviene sempre e solo in creaPrenotazione al salvataggio.
+ * a video mentre l'operatore compila. La stima della tassa conta l'esenzione per età dei
+ * bambini ma non quelle da dichiarare (non sappiamo ancora chi è l'ospite in ogni riga): il
+ * calcolo vero, esenzioni comprese, si fa sulle persone registrate.
  */
 export async function anteprimaSegmento(input: {
   cameraId: number;
@@ -102,8 +102,13 @@ export async function anteprimaSegmento(input: {
       }
     }
 
-    // Stima per persona senza esenzioni (il calcolo vero avviene sugli ospiti effettivi), per tutte le persone.
+    // Stima per persona, con l'esenzione per età dei bambini (le altre esenzioni si conoscono solo al
+    // check-in): è la stessa che la prenotazione mostra finché le persone non sono registrate.
     const stima = await stimaTassaPersona(prisma, camera.hotel, notti);
+    let tassaStimata = 0;
+    for (const eta of [...Array<null>(composizione.adulti).fill(null), ...composizione.etaBambini]) {
+      tassaStimata += eta === null ? stima.importo : (await stimaTassaPersona(prisma, camera.hotel, notti, eta)).importo;
+    }
     const persone = composizione.adulti + composizione.etaBambini.length;
     const avvisi: string[] = [];
     if (persone > camera.capienzaAdulti + camera.capienzaBambini) {
@@ -121,7 +126,7 @@ export async function anteprimaSegmento(input: {
       nottiSenzaTariffa,
       dettaglioPrimaNotte: primaNotte?.righe ?? [],
       avvisi,
-      tassaStimata: stima.importo * persone,
+      tassaStimata: Math.round(tassaStimata * 100) / 100,
       // Pulizia finale del tipo di camera: si aggiunge da sola alla prenotazione, una volta.
       puliziaFinale: camera.tipoCamera.puliziaFinale === null ? 0 : Number(camera.tipoCamera.puliziaFinale),
       regolamento: stima.riferimento
@@ -134,7 +139,7 @@ export async function anteprimaSegmento(input: {
 /**
  * Anteprima prezzo/tassa per una prenotazione "veloce" (piu' camere per tipo, stessa
  * ospite/periodo, camere non ancora assegnate) — stessa logica di stima di anteprimaSegmento,
- * sommata su tutte le camere richieste. Come li', la tassa e' una stima (nessuna esenzione).
+ * sommata su tutte le camere richieste. Come li', la tassa e' una stima (solo l'esenzione per eta').
  */
 export async function anteprimaGenerica(input: {
   richieste: { tipoCameraId: number; quantita: number; composizione?: Composizione }[];
@@ -187,7 +192,12 @@ export async function anteprimaGenerica(input: {
         else subtotaleCamera += c.lordo;
       }
       subtotale += subtotaleCamera * richiesta.quantita;
-      tassaStimata += stima.importo * persone * richiesta.quantita;
+      // Come per la prenotazione completa: i bambini esenti per età non si contano.
+      let tassaCamera = 0;
+      for (const eta of [...Array<null>(composizione.adulti).fill(null), ...composizione.etaBambini]) {
+        tassaCamera += eta === null ? stima.importo : (await stimaTassaPersona(prisma, hotel, notti, eta)).importo;
+      }
+      tassaStimata += tassaCamera * richiesta.quantita;
       dettaglio.push({
         tipoCameraId: richiesta.tipoCameraId,
         descrizione: descrizioneTipo,
@@ -236,7 +246,7 @@ export async function salvaPrenotazione(input: CreaPrenotazioneInput) {
       id: prenotazione.id,
       ospitePrenotante: `${prenotazione.ospitePrenotante.nome} ${prenotazione.ospitePrenotante.cognome}`,
       importiVisibili,
-      ...(importiVisibili ? totali : { subtotale: 0, tassa: 0, servizi: 0, totale: 0 }),
+      ...(importiVisibili ? totali : { subtotale: 0, tassa: 0, tassaStimata: 0, personeStimate: 0, servizi: 0, totale: 0 }),
     };
   });
 }

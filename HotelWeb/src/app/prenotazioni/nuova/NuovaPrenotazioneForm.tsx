@@ -226,7 +226,12 @@ export function NuovaPrenotazioneForm({ cameraIniziale = null, dalIniziale = nul
           {esito.importiVisibili && (
             <dl className="mt-4 space-y-1 text-sm">
               <div className="flex justify-between"><dt>Subtotale soggiorno</dt><dd className="font-mono">€ {esito.subtotale.toFixed(2)}</dd></div>
-              <div className="flex justify-between"><dt>Tassa di soggiorno</dt><dd className="font-mono">€ {esito.tassa.toFixed(2)}</dd></div>
+              <div className="flex justify-between"><dt>Tassa di soggiorno{esito.tassaStimata > 0 ? " (stimata)" : ""}</dt><dd className="font-mono">€ {esito.tassa.toFixed(2)}</dd></div>
+              {esito.tassaStimata > 0 && (
+                <p className="text-xs text-stone-500">
+                  Comprende € {esito.tassaStimata.toFixed(2)} per {esito.personeStimate === 1 ? "1 persona non ancora registrata" : `${esito.personeStimate} persone non ancora registrate`}: si aggiorna al check-in.
+                </p>
+              )}
               <div className="flex justify-between border-t border-stone-200 pt-1 text-base font-bold"><dt>Totale</dt><dd className="font-mono">€ {esito.totale.toFixed(2)}</dd></div>
             </dl>
           )}

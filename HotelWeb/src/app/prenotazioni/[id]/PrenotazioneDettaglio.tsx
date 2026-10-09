@@ -480,6 +480,11 @@ export function PrenotazioneDettaglio({
                       <div className="flex justify-between gap-2"><dt>Soggiorno</dt><dd className="font-mono">{eur(s.subtotale)}</dd></div>
                       <div className="flex justify-between gap-2 text-stone-600"><dt>Tassa di soggiorno</dt><dd className="font-mono">{eur(s.tassa)}</dd></div>
                     </dl>
+                    {s.tassaStimata > 0 && (
+                      <p className="mt-0.5 text-xs text-stone-500">
+                        di cui {eur(s.tassaStimata)} stimati per {s.personeStimate === 1 ? "1 persona non ancora registrata" : `${s.personeStimate} persone non ancora registrate`}
+                      </p>
+                    )}
                     {s.dettaglioNotti.length > 0 && (
                       <Pulsante
                         variante="leggero"
@@ -929,6 +934,12 @@ export function PrenotazioneDettaglio({
             <dl className="space-y-1 text-sm">
               <div className="flex justify-between"><dt>Soggiorno</dt><dd className="font-mono">{eur(prenotazione.totali.subtotale)}</dd></div>
               <div className="flex justify-between"><dt>Tassa di soggiorno</dt><dd className="font-mono">{eur(prenotazione.totali.tassa)}</dd></div>
+              {prenotazione.totali.tassaStimata > 0 && (
+                <p className="text-xs text-stone-500">
+                  di cui {eur(prenotazione.totali.tassaStimata)} stimati per{" "}
+                  {prenotazione.totali.personeStimate === 1 ? "1 persona non ancora registrata" : `${prenotazione.totali.personeStimate} persone non ancora registrate`}: si aggiorna al check-in.
+                </p>
+              )}
               {prenotazione.totali.servizi > 0 && (
                 <div className="flex justify-between"><dt>Servizi aggiuntivi</dt><dd className="font-mono">{eur(prenotazione.totali.servizi)}</dd></div>
               )}

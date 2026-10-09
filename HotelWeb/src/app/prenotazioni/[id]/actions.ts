@@ -193,6 +193,9 @@ async function serializza(prenotazione: Awaited<ReturnType<typeof trovaPrenotazi
     totali: {
       subtotale: imp(totali.subtotale),
       tassa: imp(totali.tassa),
+      // Parte della tassa stimata per le persone prenotate non ancora registrate.
+      tassaStimata: imp(totali.tassaStimata),
+      personeStimate: totali.personeStimate,
       servizi: imp(totali.servizi),
       extra: imp(totali.extra),
       totale: imp(totali.totale),
@@ -276,7 +279,9 @@ async function serializza(prenotazione: Awaited<ReturnType<typeof trovaPrenotazi
       segmentoPrecedenteId: s.segmentoPrecedenteId,
       notti: s.notti.length,
       subtotale: imp(s.notti.reduce((t, n) => t + Number(n.prezzo), 0)),
-      tassa: imp(s.notti.reduce((t, n) => t + n.tasse.reduce((x, r) => x + Number(r.importo), 0), 0)),
+      tassa: imp(s.notti.reduce((t, n) => t + n.tasse.reduce((x, r) => x + Number(r.importo), 0), 0) + s.tassaStimata.importo),
+      tassaStimata: imp(s.tassaStimata.importo),
+      personeStimate: s.tassaStimata.persone,
       // Persone nella camera (la tassa è per persona, il prezzo per camera).
       occupanti: s.presenze.map((p) => ({
         presenzaId: p.id,

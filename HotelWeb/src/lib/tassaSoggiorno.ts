@@ -1,4 +1,5 @@
 import type { Prisma, PrismaClient } from "@/generated/prisma/client";
+import { etaA, personeMancanti } from "@/lib/stimaTassaRegole";
 
 /**
  * MOTORE UNICO della tassa di soggiorno (modello approvato il 2026-09-29, regole reali in
@@ -362,15 +363,18 @@ export async function ricalcolaTassaPosizione(
 }
 
 /**
- * Stima per UNA persona senza esenzioni (usata mentre si compila una prenotazione, quando gli
- * ospiti non sono ancora noti): notti tassabili entro il tetto, importo e tariffa della prima notte.
+ * Stima per UNA persona non ancora registrata (mentre si compila una prenotazione, o per chi manca
+ * ancora al check-in): notti tassabili entro il tetto, importo e tariffa della prima notte. Con l'età
+ * all'arrivo vale l'esenzione per età del regolamento; le esenzioni da dichiarare non si conoscono.
  */
 export async function stimaTassaPersona(
   db: Db,
   hotel: { comuneId: number; categoria: string | null },
   notti: Date[],
+  eta: number | null = null,
+  versioniGiaLette?: Versione[],
 ) {
-  const versioni = await versioniDelComune(db, hotel.comuneId);
+  const versioni = versioniGiaLette ?? (await versioniDelComune(db, hotel.comuneId));
   let importo = 0;
   let nottiTassabili = 0;
   let riferimento: { aliquota: number; tettoNotti: number | null } | null =
@@ -384,6 +388,7 @@ export async function stimaTassaPersona(
       continue;
     const tariffa = tariffaPerCategoria(versione, hotel.categoria);
     if (!tariffa) continue;
+    if (eta !== null && versione.regole.some((r) => r.tipo === "eta" && ((r.etaSotto !== null && eta < r.etaSotto) || (r.etaDa !== null && eta >= r.etaDa)))) continue;
     riferimento ??= {
       aliquota: Number(tariffa.importo),
       tettoNotti: tariffa.tettoNotti,
@@ -395,3 +400,38 @@ export async function stimaTassaPersona(
   }
   return { importo, nottiTassabili, riferimento };
 }
+
+/**
+ * Stima della tassa delle persone prenotate in una camera ma non ancora registrate (vedi
+ * stimaTassaRegole.ts): zero per camere annullate, d'uso diurno o con il soggiorno concluso.
+ */
+export async function stimaTassaMancanti(
+  db: Db,
+  hotel: { comuneId: number; categoria: string | null },
+  segmento: {
+    stato: string;
+    usoDiurno: boolean;
+    dataInizio: Date;
+    adulti: number;
+    etaBambini: unknown;
+    notti: { data: Date }[];
+    presenze: { ospite: { dataNascita: Date | null } }[];
+  },
+  versioniGiaLette?: Versione[],
+) {
+  if (segmento.stato === "ANNULLATO" || segmento.stato === "CONCLUSO" || segmento.usoDiurno || segmento.notti.length === 0) return { persone: 0, importo: 0 };
+  const etaBambini = Array.isArray(segmento.etaBambini) ? (segmento.etaBambini as number[]) : [];
+  const mancanti = personeMancanti(
+    { adulti: segmento.adulti, etaBambini },
+    segmento.presenze.map((p) => etaA(p.ospite.dataNascita, segmento.dataInizio)),
+  );
+  if (!mancanti.length) return { persone: 0, importo: 0 };
+  const versioni = versioniGiaLette ?? (await versioniDelComune(db, hotel.comuneId));
+  const notti = segmento.notti.map((n) => n.data).sort((a, b) => a.getTime() - b.getTime());
+  let importo = 0;
+  for (const eta of mancanti) importo += (await stimaTassaPersona(db, hotel, notti, eta, versioni)).importo;
+  return { persone: mancanti.length, importo: Math.round(importo * 100) / 100 };
+}
+
+/** Regolamenti del comune (per stimare più camere con una sola lettura). */
+export const regolamentiDelComune = versioniDelComune;

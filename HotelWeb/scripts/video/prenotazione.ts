@@ -45,7 +45,7 @@ conPulizia(async () => {
   await r.clic("button:has-text('Conferma prenotazione')", "Tutto a posto: si conferma.");
   await r.attendi(1200);
   await r.fumetto("Fatto. La prenotazione nasce in opzione fino alla data indicata.", "text=creata");
-  await r.fumetto("La tassa qui conta solo gli ospiti già registrati: gli altri si aggiungono al check-in.", "dt:text-is('Tassa di soggiorno')");
+  await r.fumetto("La tassa è stimata per chi non è ancora registrato: al check-in diventa quella vera.", "dt:has-text('Tassa di soggiorno')");
   await r.clic("a:has-text('Apri la prenotazione')");
   await r.aspetta(":is(a,button):has-text('Check-in')");
   await r.fumetto("Nel dettaglio: conferma o annullamento dell'opzione, cambi di camera e di date…", "button:has-text('Conferma prenotazione')");

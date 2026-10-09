@@ -126,6 +126,25 @@ export function righeConto(p: Prenotazione, aliquotaAlloggio: number): RigaConto
         riga({ chiave: "tassa", tipo: "tassa", data: null, descrizione: "Imposta di soggiorno", camera: null, quantita: 1, prezzoUnitario: tassa, importo: tassa, aliquota: null, natura: "Fuori campo IVA (art. 15 DPR 633/72)" }),
       );
     }
+    // Persone prenotate non ancora registrate: la loro imposta è stimata finché non si registrano.
+    const stimata = arrotonda(attivi.reduce((t, s) => t + s.tassaStimata.importo, 0));
+    const persone = attivi.reduce((t, s) => t + s.tassaStimata.persone, 0);
+    if (stimata > 0) {
+      righe.push(
+        riga({
+          chiave: "tassa-stimata",
+          tipo: "tassa",
+          data: null,
+          descrizione: `Imposta di soggiorno stimata (${persone} ${persone === 1 ? "persona non ancora registrata" : "persone non ancora registrate"})`,
+          camera: null,
+          quantita: 1,
+          prezzoUnitario: stimata,
+          importo: stimata,
+          aliquota: null,
+          natura: "Fuori campo IVA (art. 15 DPR 633/72)",
+        }),
+      );
+    }
   }
   // Righe a mano: consumi dei reparti, esborsi, abbuoni (anche gli stornati, che restano visibili).
   for (const a of p.addebiti) {

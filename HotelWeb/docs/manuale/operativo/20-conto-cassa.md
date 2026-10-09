@@ -34,6 +34,8 @@ Il conto ha due tipi di righe:
 - **righe automatiche**, che il programma ricava dalla prenotazione e aggiorna da solo: le camere (con le notti e il trattamento), l'uso diurno, i servizi aggiunti, l'imposta di soggiorno e, per una prenotazione annullata, la penale;
 - **righe a mano**: i consumi dei reparti (bar, ristorante, frigobar…), gli esborsi e gli abbuoni.
 
+Finché non hai registrato tutte le persone prenotate, accanto all'**Imposta di soggiorno** calcolata compare la riga **Imposta di soggiorno stimata (N persone non ancora registrate)**: è la stima per chi manca, con l'esenzione per età dei bambini. Si aggiorna da sola a ogni persona registrata al check-in e sparisce quando sono registrate tutte o quando il soggiorno si chiude.
+
 Ogni riga mostra **Data**, **Voce**, **Q.tà**, **Importo** e **IVA**. In fondo c'è il **Totale** e sotto il **Riepilogo IVA**, con l'imponibile e l'imposta per ogni aliquota.
 
 ### Prezzi IVA inclusa e scorporo

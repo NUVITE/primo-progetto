@@ -89,7 +89,7 @@ Usa questa pagina quando sai già **quale camera** dare. Apri [Nuova prenotazion
 
 Il pulsante resta grigio finché mancano chi prenota oppure, per una camera, camera, date o intestatario.
 
-Dopo il salvataggio la tassa di soggiorno conta solo gli ospiti già registrati (all'inizio l'intestatario): per questo può essere più bassa della stima. Gli altri ospiti si aggiungono al check-in e la tassa si aggiorna.
+Dopo il salvataggio la tassa di soggiorno resta quella stimata: per chi è già registrato (all'inizio l'intestatario) è calcolata, per le altre persone prenotate è stimata. Nel riepilogo della prenotazione compare "di cui … stimati per N persone non ancora registrate". Man mano che al check-in registri le persone, la stima lascia il posto al calcolo vero: per esempio, se registri un minore esente per età la tassa scende, se il "bambino" ha in realtà l'età per pagarla sale.
 
 Sotto ogni camera il programma mostra le notti, il prezzo, l'eventuale **pulizia finale** e la tassa stimata, con il dettaglio della **Prima notte**. Ti avvisa se in camera ci sono più persone della capienza o se il listino vale da un numero minimo di persone.
 
@@ -104,7 +104,7 @@ Il prezzo si calcola notte per notte dal listino scelto:
 - **Bambini**: le riduzioni per età del listino (percentuale, importo, gratis) si applicano alla quota della persona. Alcune valgono solo dal terzo letto. Nei listini a camera una fascia d'età può essere invece un supplemento (per esempio bambino nel letto aggiunto).
 - **Gratuità dei gruppi**: se il listino la prevede, 1 persona gratis ogni N paganti per notte, sulle quote più alte.
 
-Se per una notte non c'è tariffa, la notte vale 0 € e resta segnata come "tariffa mancante". La tassa mostrata durante l'inserimento è una **stima** senza esenzioni: il calcolo vero si fa sugli ospiti registrati.
+Se per una notte non c'è tariffa, la notte vale 0 € e resta segnata come "tariffa mancante". La tassa mostrata durante l'inserimento è una **stima**: conta l'esenzione per età dei bambini (secondo il regolamento del comune) ma non le esenzioni da dichiarare, che si conoscono solo al check-in. Il calcolo vero si fa sugli ospiti registrati.
 
 ## Opzione e conferma
 
